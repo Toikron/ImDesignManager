@@ -1,4 +1,4 @@
-# Design Manager
+# ImGui based Design Manager
 
 A lightweight, single-header library for managing custom UI elements with **Dear ImGui**.
 
