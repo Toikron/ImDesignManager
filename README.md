@@ -7,6 +7,14 @@ A lightweight, single-header library for managing custom UI elements with **Dear
 - **Child Window Integration**: Manage multiple child windows per shape.
 - **Animation & Chain Animations**: Easily animate UI elements.
 - **Global Logic Mapping**: Define relationships between UI elements.
+  
+<img src="https://github.com/user-attachments/assets/05cb57a1-e197-4d94-837d-e9476407a33d" width="200"> | <img src="https://github.com/user-attachments/assets/dac9e7ff-de4f-4e55-bd82-624fe03e172d" width="200"> | <img src="https://github.com/user-attachments/assets/02a6c4fe-5572-44ae-848b-80da43185e2c" width="200"> |
+|---|---|---|
+| <img src="https://github.com/user-attachments/assets/adf6fc34-cc35-462c-b7f9-7b2597c3c1ab" width="200"> | <img src="https://github.com/user-attachments/assets/36e5171d-ec67-43bd-993c-13f0aa7aca7f" width="200"> | <img src="https://github.com/user-attachments/assets/40365b18-1b8b-4632-adad-79bf04e08d23" width="200"> |
+|---|---|---|
+
+
+
 
 ## Installation
 ### 1. Clone Repository
