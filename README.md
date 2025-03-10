@@ -7,7 +7,6 @@ A lightweight, single-header library for managing custom UI elements with **Dear
 - **Child Window Integration**: Manage multiple child windows per shape.
 - **Animation & Chain Animations**: Easily animate UI elements.
 - **Global Logic Mapping**: Define relationships between UI elements.
-- **HTML/CSS to ImGui Conversion (Experimental)**: Convert basic HTML/CSS to ImGui code.
 
 ## Installation
 ### 1. Clone Repository
@@ -16,36 +15,28 @@ git clone https://github.com/yourusername/design_manager.git
 cd design_manager
 git submodule add https://github.com/ocornut/imgui.git external/imgui
 ```
-
-### 2. Build Setup (CMake)
-```cmake
-cmake_minimum_required(VERSION 3.10)
-project(DesignManagerApp)
-
-add_subdirectory(external/imgui)
-add_executable(DesignManagerApp src/main.cpp)
-target_link_libraries(DesignManagerApp PRIVATE imgui)
-```
+### 2. Just include the design_manager.h file.
 
 ## Usage
 ### Initialize in `main.cpp`
 ```cpp
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include <GLFW/glfw3.h>
-#include "design_manager.h"
-
 int main()
 {
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Design Manager", NULL, NULL);
+     IMGUI_CHECKVERSION();
+     ImGui::CreateContext();
+
+     GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "EduMektep", nullptr, nullptr);
+     if (window == nullptr) {
+         glfwTerminate();
+         return 1;
+     }
     glfwMakeContextCurrent(window);
-    ImGui::CreateContext();
+
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
     
-    DesignManager::Init(1280, 720, window);
-    
+    DesignManager::Init(windowWidth, windowHeight, window);
+    DesignManager::GeneratedCode();
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -53,7 +44,34 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         
+        double currentTime = glfwGetTime();
+        float deltaTime = (float)(currentTime - lastTime);
+        lastTime = currentTime;
+        ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(main_viewport->Pos);
+        ImGui::SetNextWindowSize(main_viewport->Size);
+        ImGui::Begin("MainWindow", NULL,
+            ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoNavFocus |
+            ImGuiWindowFlags_NoBringToFrontOnFocus
+        );
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 wp = ImGui::GetWindowPos();
+        ImVec2 ws = ImGui::GetWindowSize();
+        float scale = 1.0f;
+        DesignManager::UpdateShapeTransforms_Unified(window, deltaTime);
+        DesignManager::UpdateChainAnimations(deltaTime);
+        DesignManager::ShowChainAnimationGUI();
         DesignManager::ShowUI(window);
+        DesignManager::DrawAll(dl);
+        
+        
+        for (auto& func : DesignManager::windowRenderFunctions) {
+            func();
+        }
         
         ImGui::Render();
         glfwSwapBuffers(window);
@@ -69,15 +87,14 @@ int main()
 your_project/
 ├── external/
 │   └── imgui/                # Dear ImGui source files
+│       ├── main.cpp              # Main application file
 ├── src/
-│   ├── main.cpp              # Main application file
 │   └── design_manager.h      # Single-header Design Manager
 ├── include/                  # Additional headers
-├── build/                    # Build directory
 └── README.md                 # This file
 ```
 
-## HTML/CSS to ImGui (Experimental)
+## HTML/CSS to ImGui (Experimental Ultra Mega Super Alpha Beta Gamma Zeta)
 - **Planned Features**:
   - Full HTML parser (Gumbo integration)
   - CSS property mapping
