@@ -290,9 +290,9 @@ namespace DesignManager
 
         int targetShapeID = 0;
         int triggerGroupID = 0;
-
-
-
+        
+       
+        
         bool allowItemOverlap = false;
         bool forceOverlap = false;
         bool blockUnderlying = true;
@@ -341,10 +341,11 @@ namespace DesignManager
         int zOrder;
         bool isButton = false;
 
-        std::string associatedChildWindow; // Key of the child window that the button will open (if empty, default: s.name is used)
+        std::vector<std::string> assignedChildWindows; // Key of the child window that the button will open (if empty, default: s.name is used)
+        int selectedChildWindowIndex = 0;
         std::string logicExpression;       // For example, "1 && 2", to specify conditions based on the state of the relevant button IDs.
         std::string logicAction;           // For example, "open:ChildWindow_1" or "close:ChildWindow_2", to specify the action to be taken when the condition is met.
-
+        int clickCounter = 0;
         enum ButtonBehavior { SingleClick, Toggle, Hold } buttonBehavior = SingleClick;
         bool triggerEvent = false;
         bool buttonState = false, shouldCallOnClick = false;
@@ -379,6 +380,12 @@ namespace DesignManager
         int embeddedImageIndex = -1;
         ImTextureID embeddedImageTexture = 0;
         bool imageDirty = false;
+        struct EventHandler {
+            std::string eventType;  // "onClick", "onHover", "onRelease", etc.
+            std::string name;       // Name of the handler for UI display
+            std::function<void(ShapeItem&)> handler;  // The actual callback function
+        };
+        std::vector<EventHandler> eventHandlers;
         ShapeItem()
             : id(nextShapeID++),
             type(ShapeType::Rectangle),
@@ -436,7 +443,30 @@ namespace DesignManager
             zOrder = 0;
         }
     };
+    struct ChildToChildMapping {
+        int buttonId;
+        std::string childWindowKey;
+    };
+    struct ShapeChildMapping {
+        int shapeId;
+        std::string childWindowKey;
+        int triggerButtonId;
+    };
     inline std::vector<std::tuple<std::vector<int>, std::string, std::vector<std::string>>> g_logicMappings;
+    inline std::vector<std::tuple<std::string, std::vector<int>, std::vector<std::string>>> g_childWindowMappings;
+
+    inline std::unordered_map<int, std::string> g_childToChildButtonMapping;
+    inline std::unordered_map<int, std::string> g_globalButtonChildWindowMapping;
+    struct CombinedMapping {
+        int shapeId;                      // Hedef shape'in ID'si
+        std::string logicOp;              // "AND", "OR", "XOR", "NAND", "IF_THEN", "IFF" vb.
+        std::vector<int> buttonIds;       // Mapping'e dahil buton ID'leri
+        std::vector<std::string> childWindowKeys; // Atanacak pencere isimleri (g_windowsMap'teki)
+    };
+    inline std::vector<CombinedMapping> g_combinedChildWindowMappings;
+    inline std::vector<ChildToChildMapping> g_childToChildMappings;
+
+
     inline ImVec2 triggerWindowSize = ImVec2(0, 0);
     inline ImVec2 initialWindowSize = ImVec2(0, 0);
     inline float transitionProgress = 0.0f;
@@ -455,12 +485,34 @@ namespace DesignManager
         bool isChildWindow = false;
         std::function<void()> renderFunc;
         std::vector<Layer> layers;
-        int associatedShapeId = -1;
-        int groupId = -1;
+        int associatedShapeId = -1; 
+        int groupId = -1;           
     };
 
     inline std::map<std::string, WindowData> g_windowsMap;
-
+    inline std::vector<ShapeItem*> GetAllShapes() {
+        std::vector<ShapeItem*> shapes;
+        for (auto& [winName, windowData] : g_windowsMap) {
+            for (auto& layer : windowData.layers) {
+                for (auto& shape : layer.shapes) {
+                    shapes.push_back(&shape);
+                }
+            }
+        }
+        return shapes;
+    }
+    inline std::vector<ShapeItem*> GetAllButtonShapes() {
+        std::vector<ShapeItem*> buttonShapes;
+        for (auto& [winName, winData] : g_windowsMap) {
+            for (auto& layer : winData.layers) {
+                for (auto& shape : layer.shapes) {
+                    if (shape.isButton)
+                        buttonShapes.push_back(&shape);  // &shape, &shape.id değil!
+                }
+            }
+        }
+        return buttonShapes;
+    }
     inline void RegisterWindow(std::string name, std::function<void()> renderFunc)
     {
         if (name.empty())
@@ -475,40 +527,46 @@ namespace DesignManager
 
     inline void SetWindowOpen(const std::string& name, bool open)
     {
-        ImGui::SetNextItemAllowOverlap();
-        if (g_windowsMap.find(name) != g_windowsMap.end())
+        // Eğer name g_windowsMap içerisinde yoksa çık
+        auto it = g_windowsMap.find(name);
+        if (it == g_windowsMap.end())
+            return;
+
+        // Açacağımız pencere bir gruba aitse ve open = true ise,
+        // o gruptaki diğer tüm pencereleri kapatalım
+        if (open && it->second.groupId > 0)
         {
-            // If we're opening a window and it belongs to a group
-            if (open && g_windowsMap[name].groupId > 0)
+            int groupId = it->second.groupId;
+            for (auto& [winName, windowData] : g_windowsMap)
             {
-                int groupId = g_windowsMap[name].groupId;
-
-                // First close all other windows in the same group
-                for (auto& [winName, windowData] : g_windowsMap)
-                {
-                    // Skip the window we're trying to open
-                    if (winName == name)
-                        continue;
-
-                    // If this window is in the same group, close it
-                    if (windowData.groupId == groupId && windowData.isOpen)
-                    {
-                        windowData.isOpen = false;
-                    }
-                }
+                if (winName == name)
+                    continue; // Kendimiz hariç hepsini kapat
+                if (windowData.groupId == groupId && windowData.isOpen)
+                    windowData.isOpen = false;
             }
-
-            // Now set the requested window state
-            g_windowsMap[name].isOpen = open;
         }
 
+        // İstenen pencere state'ini ayarla
+        it->second.isOpen = open;
+
+        // Eğer bu pencere bir shape'e (İsmi shape'le aynı) denk geliyorsa
+        // o shape'i de child window olarak işaretleyelim
+        for (auto shape : GetAllShapes())
+        {
+            if (shape->name == name)
+            {
+                shape->isChildWindow = true;
+                break;
+            }
+        }
     }
 
     inline bool IsWindowOpen(const std::string& name)
     {
-
         auto it = g_windowsMap.find(name);
-        return (it != g_windowsMap.end()) && it->second.isOpen;
+        if (it != g_windowsMap.end())
+            return it->second.isOpen;
+        return false;
     }
 
     inline float globalScaleFactor = 1.0f;
@@ -523,7 +581,7 @@ namespace DesignManager
                 }
             }
         }
-        return nullptr;
+        return nullptr; 
     }
 
     inline void UpdateGlobalScaleFactor(int currentW, int currentH)
@@ -1114,6 +1172,14 @@ namespace DesignManager
         }
     }
 
+    inline void DispatchEvent(ShapeItem& shape, const std::string& eventType) {
+        for (auto& handler : shape.eventHandlers) {
+            if (handler.eventType == eventType) {
+                handler.handler(shape);
+            }
+        }
+    }
+
     inline void DrawShape_ProcessButtonLogic(ImDrawList* dlEffective, ShapeItem& s, float scaleFactor, ImVec2 wp, ImVec4& drawColor) {
         ImVec2 button_abs_pos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
         ImVec2 button_size = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);
@@ -1145,11 +1211,11 @@ namespace DesignManager
             ImGui::SetNextWindowSize(button_size);
             std::string overlay_id = "BlockOverlay_" + std::to_string(s.id);
             ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
-            ImGui::Begin(overlay_id.c_str(), nullptr,
+            ImGui::BeginChild(overlay_id.c_str(), button_size, false,
                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                 ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground);
             ImGui::Dummy(button_size);
-            ImGui::End();
+            ImGui::EndChild();
             ImGui::PopStyleColor();
         }
         if (is_hovered) drawColor = s.hoverColor;
@@ -1229,167 +1295,14 @@ namespace DesignManager
             else if (is_hovered) drawColor = s.hoverColor;
         }
         if (s.shouldCallOnClick) {
-            if (s.targetShapeID != 0) {
-                ShapeItem* targetShape = FindShapeByID(s.targetShapeID);
-                if (targetShape && !targetShape->chainAnimation.steps.empty()) {
-                    ChainAnimation& chain = targetShape->chainAnimation;
-                    if (!chain.isPlaying) {
-                        if (!chain.toggled) {
-                            chain.reverseMode = false;
-                            chain.currentStep = 0;
-                            chain.steps[0].animation.progress = 0.0f;
-                        }
-                        else {
-                            chain.reverseMode = true;
-                            chain.currentStep = (int)chain.steps.size() - 1;
-                            chain.steps[chain.currentStep].animation.progress = 1.0f;
-                        }
-                        chain.isPlaying = true;
-                    }
-                }
-            }
-            if (s.triggerGroupID != 0) {
-                for (auto& [winName, windowData] : DesignManager::g_windowsMap) {
-                    for (auto& layer : windowData.layers) {
-                        for (auto& shape : layer.shapes) {
-                            if (shape.triggerGroupID == s.triggerGroupID && !shape.chainAnimation.steps.empty()) {
-                                ChainAnimation& chain = shape.chainAnimation;
-                                chain.isPlaying = false;
-                                chain.currentStep = 0;
-                                chain.reverseMode = false;
-                                for (auto& step : chain.steps) {
-                                    step.animation.progress = 0.0f;
-                                }
-                                chain.isPlaying = true;
-                            }
-                        }
-                    }
-                }
-            }
-            if (s.useOnClick && s.onClick) {
-                s.onClick();
-            }
-            else if ((s.toggleChildWindow || s.childWindowSync) && s.isChildWindow) {
-                std::string targetWindowKey = (!s.associatedChildWindow.empty()) ? s.associatedChildWindow : s.name;
-                bool newState = !IsWindowOpen(targetWindowKey);
-                if (s.childWindowGroupId > 0 && g_windowsMap.find(targetWindowKey) != g_windowsMap.end()) {
-                    g_windowsMap[targetWindowKey].groupId = s.childWindowGroupId;
-                    if (newState && exclusiveChildWindowMode) {
-                        for (auto& [otherWinName, otherWindowData] : g_windowsMap) {
-                            if (otherWindowData.groupId == s.childWindowGroupId && otherWinName != targetWindowKey) {
-                                otherWindowData.isOpen = false;
-                            }
-                        }
-                    }
-                }
-                SetWindowOpen(targetWindowKey, newState);
-            }
-
-            else {
-                bool handledChildWindowToggle = false;
-                for (auto& [winName, windowData] : g_windowsMap) {
-                    for (auto& layer : windowData.layers) {
-                        for (auto& shape : layer.shapes) {
-                            if ((shape.toggleChildWindow || shape.childWindowSync) && shape.targetShapeID == s.id && shape.isChildWindow) {
-                                bool newState = !IsWindowOpen(shape.name);
-                                if (shape.childWindowGroupId > 0 && g_windowsMap.find(shape.name) != g_windowsMap.end()) {
-                                    g_windowsMap[shape.name].groupId = shape.childWindowGroupId;
-                                }
-                                SetWindowOpen(shape.name, newState);
-                                handledChildWindowToggle = true;
-                                if (newState && exclusiveChildWindowMode && shape.childWindowGroupId > 0) {
-                                    for (auto& [otherWinName, otherWindowData] : g_windowsMap) {
-                                        if (otherWindowData.groupId == shape.childWindowGroupId && otherWinName != shape.name) {
-                                            otherWindowData.isOpen = false;
-                                            if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow) {
-                                                for (auto& [currentWinName, currentWindowData] : g_windowsMap) {
-                                                    for (auto& layer2 : currentWindowData.layers) {
-                                                        for (auto& shape2 : layer2.shapes) {
-                                                            if (shape2.isChildWindow && shape2.name == otherWinName) {
-                                                                shape2.visible = false;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (!handledChildWindowToggle && s.toggleChildWindow && s.isChildWindow) {
-                    bool newState = !IsWindowOpen(s.name);
-                    if (s.childWindowGroupId > 0 && g_windowsMap.find(s.name) != g_windowsMap.end()) {
-                        g_windowsMap[s.name].groupId = s.childWindowGroupId;
-                    }
-                    SetWindowOpen(s.name, newState);
-                    handledChildWindowToggle = true;
-                    if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow) {
-                        s.visible = newState;
-                    }
-                    if (newState && exclusiveChildWindowMode && s.childWindowGroupId > 0) {
-                        for (auto& [otherWinName, otherWindowData] : g_windowsMap) {
-                            if (otherWindowData.groupId == s.childWindowGroupId && otherWinName != s.name) {
-                                otherWindowData.isOpen = false;
-                                if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow) {
-                                    for (auto& [currentWinName, currentWindowData] : g_windowsMap) {
-                                        for (auto& layer2 : currentWindowData.layers) {
-                                            for (auto& shape2 : layer2.shapes) {
-                                                if (shape2.isChildWindow && shape2.name == otherWinName) {
-                                                    shape2.visible = false;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (!handledChildWindowToggle) {
-                    bool isToggleButton = false;
-                    for (auto& [winName, windowData] : g_windowsMap) {
-                        for (auto& layer : windowData.layers) {
-                            for (auto& shape : layer.shapes) {
-                                if (shape.targetShapeID == s.id && (shape.toggleChildWindow || shape.childWindowSync)) {
-                                    isToggleButton = true;
-                                    break;
-                                }
-                            }
-                            if (isToggleButton) break;
-                        }
-                        if (isToggleButton) break;
-                    }
-                    if (!isToggleButton) {
-                        bool newState = !temporaryWindowsOpen[s.id];
-                        if (newState && exclusiveChildWindowMode) {
-                            for (auto& [winName, windowData] : g_windowsMap) {
-                                if (windowData.groupId == s.groupId && windowData.groupId > 0 && winName != s.name) {
-                                    windowData.isOpen = false;
-                                }
-                            }
-                            for (auto& [shapeId, isOpen] : temporaryWindowsOpen) {
-                                if (shapeId != s.id) {
-                                    ShapeItem* otherShape = FindShapeByID(shapeId);
-                                    if (otherShape && otherShape->groupId == s.groupId && otherShape->groupId > 0) {
-                                        isOpen = false;
-                                    }
-                                }
-                            }
-                        }
-                        temporaryWindowsOpen[s.id] = newState;
-                    }
-                }
-            }
-            static int currentAnimIndex = -1;
+            DispatchEvent(s, "onClick");
             if (!s.onClickAnimations.empty()) {
                 std::vector<int> onClickIndices;
                 onClickIndices.reserve(s.onClickAnimations.size());
                 for (int i = 0; i < (int)s.onClickAnimations.size(); i++) {
                     if (s.onClickAnimations[i].triggerMode == ButtonAnimation::TriggerMode::OnClick) onClickIndices.push_back(i);
                 }
+                static int currentAnimIndex = -1;
                 if (!onClickIndices.empty()) {
                     if (currentAnimIndex < 0) currentAnimIndex = 0;
                     else currentAnimIndex = (currentAnimIndex + 1) % onClickIndices.size();
@@ -1405,6 +1318,7 @@ namespace DesignManager
         }
         s.isHeld = ImGui::IsItemActive();
     }
+
 
 
     inline void DrawShape_FillWithGradient(ImDrawList* dlEffective, const std::vector<ImVec2>& poly, float gradRotation, const std::vector<std::pair<float, ImVec4>>& colorRamp, const ShapeItem& shape, float scaleFactor) {
@@ -1470,54 +1384,184 @@ namespace DesignManager
         }
     }
 
-    inline void DrawShape_RenderChildWindow(ShapeItem& s, ImVec2 wp, float scaleFactor, const std::vector<ImVec2>& poly) {
-        if (!s.isChildWindow)
-            return;
-        std::string targetWindowKey = (!s.associatedChildWindow.empty()) ? s.associatedChildWindow : s.name;
-        if (!IsWindowOpen(targetWindowKey))
-            return;
-        if (s.childWindowSync) {
-            ImVec2 syncPos = ImVec2(s.position.x * globalScaleFactor, s.position.y * globalScaleFactor);
-            ImGui::SetNextWindowPos(AddV(syncPos, ImGui::GetWindowPos()));
-            ImGui::SetNextWindowSize(ImVec2(s.size.x * globalScaleFactor, s.size.y * globalScaleFactor));
-        }
-        std::string childID = targetWindowKey;
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 15));
-        ImGui::BeginChild(
-            childID.c_str(),
-            ImVec2(s.size.x * globalScaleFactor, s.size.y * globalScaleFactor),
-            false,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysUseWindowPadding
-        );
-        if (g_windowsMap.find(childID) != g_windowsMap.end()) {
-            g_windowsMap[childID].groupId = s.childWindowGroupId;
-            g_windowsMap[childID].isChildWindow = true;
-            if (g_windowsMap[childID].renderFunc)
-                g_windowsMap[childID].renderFunc();
-            auto& childWindowData = g_windowsMap[childID];
-            std::stable_sort(childWindowData.layers.begin(), childWindowData.layers.end(), CompareLayersByZOrder);
-            for (auto& layer : childWindowData.layers) {
-                if (!layer.visible) continue;
-                std::stable_sort(layer.shapes.begin(), layer.shapes.end(), CompareShapesByZOrder);
-                for (auto& childShape : layer.shapes) {
-                    if (childShape.ownerWindow == childID && childShape.parent == nullptr)
-                        DrawShape(ImGui::GetWindowDrawList(), childShape, ImGui::GetWindowPos());
+    inline void DrawShape_RenderChildWindow(ShapeItem& s, ImVec2 wp, float scaleFactor, const std::vector<ImVec2>& poly)
+    {
+        for (auto& mapping : g_combinedChildWindowMappings)
+        {
+            if (mapping.shapeId != s.id)
+                continue;
+
+            // Otomatik olarak shape'i child window kabul edelim
+            s.isChildWindow = true;
+
+            int activeCount = 0;
+            for (int btnId : mapping.buttonIds)
+            {
+                for (auto& [wName, winData] : g_windowsMap)
+                {
+                    for (auto& layer : winData.layers)
+                    {
+                        for (auto& sh : layer.shapes)
+                        {
+                            if (sh.isButton && sh.id == btnId && sh.buttonState)
+                                activeCount++;
+                        }
+                    }
                 }
             }
-        }
-        else {
-            ImGui::Text("Child window content not registered.");
-        }
-        ImGui::EndChild();
-        ImGui::PopStyleVar();
-        if (s.borderThickness > 0.0f) {
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            float scaleFactor2 = globalScaleFactor;
-            ImVec2 rectMin = ImVec2(wp.x + s.position.x * scaleFactor2, wp.y + s.position.y * scaleFactor2);
-            ImVec2 rectMax = ImVec2(rectMin.x + s.size.x * scaleFactor2, rectMin.y + s.size.y * scaleFactor2);
-            dl->AddRect(rectMin, rectMax, ColU32(s.borderColor), s.cornerRadius * scaleFactor2, 0, s.borderThickness * scaleFactor2);
-        }
+            int totalCount = (int)mapping.buttonIds.size();
+            bool conditionMet = false;
+            if (totalCount > 0) {
+                if (mapping.logicOp == "AND")
+                    conditionMet = (activeCount == totalCount);
+                else if (mapping.logicOp == "OR")
+                    conditionMet = (activeCount > 0);
+                else if (mapping.logicOp == "XOR")
+                    conditionMet = (activeCount % 2 == 1);
+                else if (mapping.logicOp == "NAND")
+                    conditionMet = !(activeCount == totalCount);
+                else if (mapping.logicOp == "IF_THEN") {
+                    if (totalCount == 2) {
+                        bool first = false, second = false;
+                        for (auto& [wName, winData] : g_windowsMap) {
+                            for (auto& layer : winData.layers) {
+                                for (auto& sh : layer.shapes) {
+                                    if (sh.isButton && sh.id == mapping.buttonIds[0])
+                                        first = sh.buttonState;
+                                    if (sh.isButton && sh.id == mapping.buttonIds[1])
+                                        second = sh.buttonState;
+                                }
+                            }
+                        }
+                        conditionMet = (!first) || (first && second);
+                    }
+                }
+                else if (mapping.logicOp == "IFF") {
+                    if (totalCount == 1) {
+                        bool state = false;
+                        for (auto& [wName, winData] : g_windowsMap) {
+                            for (auto& layer : winData.layers) {
+                                for (auto& sh : layer.shapes) {
+                                    if (sh.isButton && sh.id == mapping.buttonIds[0]) {
+                                        state = sh.buttonState;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        conditionMet = state;
+                    }
+                    else {
+                        bool firstState = false;
+                        bool found = false;
+                        for (auto& [wName, winData] : g_windowsMap) {
+                            for (auto& layer : winData.layers) {
+                                for (auto& sh : layer.shapes) {
+                                    if (sh.isButton && sh.id == mapping.buttonIds[0]) {
+                                        firstState = sh.buttonState;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (found) break;
+                            }
+                            if (found) break;
+                        }
+                        bool allEqual = true;
+                        for (int btnId : mapping.buttonIds) {
+                            bool state = false;
+                            for (auto& [wName, winData] : g_windowsMap) {
+                                for (auto& layer : winData.layers) {
+                                    for (auto& sh : layer.shapes) {
+                                        if (sh.isButton && sh.id == btnId) {
+                                            state = sh.buttonState;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (state != firstState) { allEqual = false; break; }
+                        }
+                        conditionMet = allEqual && firstState;
+                    }
+                }
+            }
+            for (auto& childKey : mapping.childWindowKeys)
+            {
+                SetWindowOpen(childKey, conditionMet);
+
+                // Eğer conditionMet açtıysa child window'u draw edelim
+                if (conditionMet)
+                {
+                    if (s.childWindowSync)
+                    {
+                        ImVec2 syncPos = ImVec2(s.position.x * globalScaleFactor, s.position.y * globalScaleFactor);
+                        ImGui::SetNextWindowPos(AddV(syncPos, ImGui::GetWindowPos()));
+                        ImGui::SetNextWindowSize(ImVec2(s.size.x * globalScaleFactor, s.size.y * globalScaleFactor));
+                    }
+
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 15));
+                    ImGui::BeginChild(childKey.c_str(), ImVec2(s.size.x * globalScaleFactor, s.size.y * globalScaleFactor),
+                        false, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysUseWindowPadding);
+
+                    // Pencere gerçekten varsa
+                    if (g_windowsMap.find(childKey) != g_windowsMap.end())
+                    {
+                        g_windowsMap[childKey].groupId = s.childWindowGroupId;
+                        g_windowsMap[childKey].isChildWindow = true;
+                        g_windowsMap[childKey].associatedShapeId = s.id;
+
+                        if (g_windowsMap[childKey].renderFunc)
+                            g_windowsMap[childKey].renderFunc();
+
+                        auto& childWindowData = g_windowsMap[childKey];
+                        std::stable_sort(childWindowData.layers.begin(), childWindowData.layers.end(), CompareLayersByZOrder);
+                        for (auto& layer : childWindowData.layers)
+                        {
+                            if (!layer.visible) continue;
+                            std::stable_sort(layer.shapes.begin(), layer.shapes.end(), CompareShapesByZOrder);
+                            for (auto& childShape : layer.shapes)
+                            {
+                                if (childShape.ownerWindow == childKey && childShape.parent == nullptr)
+                                    DrawShape(ImGui::GetWindowDrawList(), childShape, ImGui::GetWindowPos());
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ShapeItem* targetShape = nullptr;
+                        auto allShapes = GetAllShapes();
+                        for (auto sh : allShapes)
+                        {
+                            if (sh->name == childKey)
+                            {
+                                targetShape = sh;
+                                break;
+                            }
+                        }
+                        if (targetShape)
+                            DrawShape(ImGui::GetWindowDrawList(), *targetShape, ImGui::GetWindowPos());
+                        else
+                            ImGui::Text("Child window content not registered.");
+                    }
+                    ImGui::EndChild();
+                    ImGui::PopStyleVar();
+                }
+            }
+       }
+
+       // Son olarak çerçeve vs. çizilecekse
+       if (s.borderThickness > 0.0f)
+       {
+           ImDrawList* dl = ImGui::GetWindowDrawList();
+           float sf = globalScaleFactor;
+           ImVec2 rectMin = ImVec2(wp.x + s.position.x * sf, wp.y + s.position.y * sf);
+           ImVec2 rectMax = ImVec2(rectMin.x + s.size.x * sf, rectMin.y + s.size.y * sf);
+           dl->AddRect(rectMin, rectMax, ColU32(s.borderColor), s.cornerRadius * sf, 0, s.borderThickness * sf);
+       }
     }
+
+
 
 
     inline void DrawShape_DrawBorder(ImDrawList* dlEffective, ShapeItem& s, float scaleFactor, ImVec2 c, ImVec2 wp) {
@@ -1582,94 +1626,13 @@ namespace DesignManager
         }
     }
 
+
     inline void DrawShape_FinalOnClick(ShapeItem& s) {
         if (s.shouldCallOnClick) {
-            if (s.isChildWindow) {
-                if (s.toggleChildWindow) {
-                    std::string targetWindowKey = (!s.associatedChildWindow.empty()) ? s.associatedChildWindow : s.name;
-                    bool newState = !IsWindowOpen(targetWindowKey);
-                    if (s.childWindowGroupId > 0 && g_windowsMap.find(targetWindowKey) != g_windowsMap.end())
-                        g_windowsMap[targetWindowKey].groupId = s.childWindowGroupId;
-                    SetWindowOpen(targetWindowKey, newState);
-                    if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow)
-                        s.visible = newState;
-                    if (newState && exclusiveChildWindowMode && s.childWindowGroupId > 0) {
-                        for (auto& [otherWinName, otherWindowData] : g_windowsMap) {
-                            if (otherWindowData.isChildWindow && otherWindowData.groupId == s.childWindowGroupId && otherWinName != targetWindowKey) {
-                                otherWindowData.isOpen = false;
-                                if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow) {
-                                    for (auto& [currWinName, currWindowData] : g_windowsMap) {
-                                        for (auto& layer : currWindowData.layers) {
-                                            for (auto& childShape : layer.shapes) {
-                                                if (childShape.isChildWindow && childShape.name == otherWinName)
-                                                    childShape.visible = false;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                else if (s.childWindowSync) {
-                    std::string targetWindowKey = (!s.associatedChildWindow.empty()) ? s.associatedChildWindow : s.name;
-                    bool newState = !IsWindowOpen(targetWindowKey);
-                    if (s.childWindowGroupId > 0 && g_windowsMap.find(targetWindowKey) != g_windowsMap.end())
-                        g_windowsMap[targetWindowKey].groupId = s.childWindowGroupId;
-                    SetWindowOpen(targetWindowKey, newState);
-                    if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow)
-                        s.visible = newState;
-                }
-                else {
-                    if (s.useOnClick && s.onClick)
-                        s.onClick();
-                }
-            }
-            else {
-                if (s.toggleChildWindow) {
-                    std::string targetWindowKey = (!s.associatedChildWindow.empty()) ? s.associatedChildWindow : s.name;
-                    bool newState = !IsWindowOpen(targetWindowKey);
-                    if (s.childWindowGroupId > 0 && g_windowsMap.find(targetWindowKey) != g_windowsMap.end())
-                        g_windowsMap[targetWindowKey].groupId = s.childWindowGroupId;
-                    SetWindowOpen(targetWindowKey, newState);
-                    if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow)
-                        s.visible = newState;
-                    if (newState && exclusiveChildWindowMode && s.childWindowGroupId > 0) {
-                        for (auto& [otherWinName, otherWindowData] : g_windowsMap) {
-                            if (otherWindowData.isChildWindow && otherWindowData.groupId == s.childWindowGroupId && otherWinName != targetWindowKey) {
-                                otherWindowData.isOpen = false;
-                                if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow) {
-                                    for (auto& [currWinName, currWindowData] : g_windowsMap) {
-                                        for (auto& layer : currWindowData.layers) {
-                                            for (auto& childShape : layer.shapes) {
-                                                if (childShape.isChildWindow && childShape.name == otherWinName)
-                                                    childShape.visible = false;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                else if (s.childWindowSync) {
-                    std::string targetWindowKey = (!s.associatedChildWindow.empty()) ? s.associatedChildWindow : s.name;
-                    bool newState = !IsWindowOpen(targetWindowKey);
-                    if (s.childWindowGroupId > 0 && g_windowsMap.find(targetWindowKey) != g_windowsMap.end())
-                        g_windowsMap[targetWindowKey].groupId = s.childWindowGroupId;
-                    SetWindowOpen(targetWindowKey, newState);
-                    if (s.toggleBehavior == ChildWindowToggleBehavior::ShapeAndWindow)
-                        s.visible = newState;
-                }
-                else {
-                    if (s.useOnClick && s.onClick)
-                        s.onClick();
-                }
-            }
+            DispatchEvent(s, "onClick");
             s.shouldCallOnClick = false;
         }
     }
-
 
 
 
@@ -2083,21 +2046,7 @@ namespace DesignManager
         } // end for each window
     }
 
-    inline std::vector<ShapeItem*> GetAllButtonShapes() {
-        std::vector<ShapeItem*> buttons;
-        for (auto& [winName, windowData] : DesignManager::g_windowsMap)
-        {
-            for (auto& layer : windowData.layers)
-            {
-                for (auto& shape : layer.shapes)
-                {
-                    if (shape.isButton)
-                        buttons.push_back(&shape);
-                }
-            }
-        }
-        return buttons;
-    }
+
 
     inline ImVec2 ComputeChainOffset(const ShapeItem& shape) {
         const ChainAnimation& chain = shape.chainAnimation;
@@ -2485,7 +2434,7 @@ namespace DesignManager
         }
         return varName;
     }
-
+    
 
 
     inline std::string escapeNewlines(const std::string& input) {
@@ -2826,6 +2775,13 @@ namespace DesignManager
             }
         }
 
+        // Event handlers
+        for (const auto& handler : shape.eventHandlers) {
+            code += "    .addEventHandler(\"" + handler.eventType + "\", \"" + handler.name + "\", [](ShapeItem& s) {\n";
+            code += "        // TODO: Implement " + handler.name + "\n";
+            code += "    })\n";
+        }
+
         code += "    .build();\n";
 
         if (shape.isButton && shape.useOnClick)
@@ -2956,364 +2912,170 @@ namespace DesignManager
     }
 
 
-
-
-    inline void DrawResetButtonUI(ShapeItem& s) {
-        if (ImGui::Button("Reset Shape")) {
-            //
-            s.position = s.basePosition;
-            s.size = s.baseSize;
-            s.rotation = s.baseRotation;
-            for (auto& anim : s.onClickAnimations) {
-                anim.progress = 0.0f;
-                anim.isPlaying = false;
-            }
-            s.currentAnimation = nullptr;
-            MarkSceneUpdated();
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Apply Offset")) {
-            //
-            s.basePosition = s.position;
-            s.baseSize = s.size;
-            s.baseRotation = s.rotation;
-            //
-            for (auto& anim : s.onClickAnimations) {
-                anim.progress = 0.0f;
-                anim.isPlaying = false;
-            }
-            s.currentAnimation = nullptr;
-            MarkSceneUpdated();
-        }
-    }
-
-    inline void EvaluateGlobalLogicMappings() {
-        for (auto& mapping : g_logicMappings)
-        {
-            std::vector<int>& sourceButtons = std::get<0>(mapping);
-            std::string& logicOp = std::get<1>(mapping);
-            std::vector<std::string>& targetWindows = std::get<2>(mapping);
-
-            int activeCount = 0;
-            int totalCount = sourceButtons.size();
-            for (int btnId : sourceButtons) {
-                bool state = false;
-                for (auto& [wName, winData] : g_windowsMap) {
-                    for (auto& layer : winData.layers) {
-                        for (auto& sh : layer.shapes) {
-                            if (sh.isButton && sh.id == btnId) {
-                                if (sh.buttonState) {
-                                    activeCount++;
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            bool conditionMet = false;
-            if (totalCount == 0) {
-                conditionMet = false;
-            }
-            else if (logicOp == "AND") {
-                conditionMet = (activeCount == totalCount);
-            }
-            else if (logicOp == "OR") {
-                conditionMet = (activeCount > 0);
-            }
-            else if (logicOp == "XOR") {
-                // XOR: true if an odd number of buttons are active.
-                conditionMet = (activeCount % 2 == 1);
-            }
-            else if (logicOp == "NAND") {
-                // NAND: NOT of AND.
-                conditionMet = !(activeCount == totalCount);
-            }
-            else if (logicOp == "IF_THEN") {
-                // IF_THEN: Only supports 2 sources.
-                if (totalCount == 2) {
-                    bool first = false, second = false;
-                    for (auto& [wName, winData] : g_windowsMap) {
-                        for (auto& layer : winData.layers) {
-                            for (auto& sh : layer.shapes) {
-                                if (sh.isButton && sh.id == sourceButtons[0])
-                                    first = sh.buttonState;
-                                if (sh.isButton && sh.id == sourceButtons[1])
-                                    second = sh.buttonState;
-                            }
-                        }
-                    }
-                    // If the first is active then the second must be active; otherwise condition is true.
-                    conditionMet = (!first) || (first && second);
-                }
-            }
-            else if (logicOp == "IFF") {
-                // IFF: if and only if; 
-                // - If only 1 source exists, target depends on that button's state.
-                // - If 2 or more sources exist, target is opened only if all sources are active.
-                if (totalCount == 1) {
-                    bool state = false;
-                    for (auto& [wName, winData] : g_windowsMap) {
-                        for (auto& layer : winData.layers) {
-                            for (auto& sh : layer.shapes) {
-                                if (sh.isButton && sh.id == sourceButtons[0]) {
-                                    state = sh.buttonState;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    conditionMet = state;
-                }
-                else {
-                    bool firstState = false;
-                    bool found = false;
-                    for (auto& [wName, winData] : g_windowsMap) {
-                        for (auto& layer : winData.layers) {
-                            for (auto& sh : layer.shapes) {
-                                if (sh.isButton && sh.id == sourceButtons[0]) {
-                                    firstState = sh.buttonState;
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (found) break;
-                        }
-                        if (found) break;
-                    }
-                    bool allEqual = true;
-                    for (int btnId : sourceButtons) {
-                        bool state = false;
-                        for (auto& [wName, winData] : g_windowsMap) {
-                            for (auto& layer : winData.layers) {
-                                for (auto& sh : layer.shapes) {
-                                    if (sh.isButton && sh.id == btnId) {
-                                        state = sh.buttonState;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        if (state != firstState) {
-                            allEqual = false;
-                            break;
-                        }
-                    }
-                    // Target opens only if all sources are active.
-                    conditionMet = allEqual && firstState;
-                }
-            }
-            // For each target child window, update isOpen directly while bypassing exclusivity:
-            for (const auto& targetKey : targetWindows) {
-                if (g_windowsMap.find(targetKey) != g_windowsMap.end()) {
-                    g_windowsMap[targetKey].isOpen = conditionMet;
-                }
-            }
-        }
-    }
-
-
-    inline void ShowUI(GLFWwindow* window)
+    inline void ShowUI_WindowSelectionAndGroupSettings(WindowData& windowData)
     {
-        auto& windowData = g_windowsMap[DesignManager::selectedGuiWindow];
-
-        // Index corrections
-        if (selectedLayerIndex >= windowData.layers.size())
-            selectedLayerIndex = windowData.layers.empty() ? -1 : 0;
-        if (selectedLayerIndex != -1 &&
-            selectedShapeIndex >= windowData.layers[selectedLayerIndex].shapes.size())
+        ImGui::TextUnformatted("Select Target ImGui Window:");
+        if (ImGui::BeginCombo("##SelectedImGuiWindow", DesignManager::selectedGuiWindow.c_str()))
         {
-            selectedShapeIndex = windowData.layers[selectedLayerIndex].shapes.empty() ? -1 : 0;
+            for (const auto& [winName, winData] : g_windowsMap)
+            {
+                bool is_sel = (DesignManager::selectedGuiWindow == winName);
+                if (ImGui::Selectable(winName.c_str(), is_sel))
+                {
+                    DesignManager::selectedGuiWindow = winName;
+                    MarkSceneUpdated();
+                }
+                if (is_sel)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
         }
 
-        ImGui::Begin("Shape Key & Layer Manager");
+        if (!g_windowsMap.empty())
         {
-            ImGui::TextUnformatted("Select Target ImGui Window:");
-            if (ImGui::BeginCombo("##SelectedImGuiWindow", DesignManager::selectedGuiWindow.c_str()))
+            ImGui::Separator();
+            ImGui::TextUnformatted("Window Group Settings:");
+
+            int groupId = windowData.groupId;
+            if (ImGui::InputInt("Window Group ID", &groupId))
             {
-                for (const auto& [winName, winData] : g_windowsMap)
-                {
-                    bool is_sel = (DesignManager::selectedGuiWindow == winName);
-                    if (ImGui::Selectable(winName.c_str(), is_sel))
-                    {
-                        DesignManager::selectedGuiWindow = winName;
-                        MarkSceneUpdated();
-                    }
-                    if (is_sel)
-                        ImGui::SetItemDefaultFocus();
-                }
-                ImGui::EndCombo();
+                if (groupId < 0) groupId = 0;
+                windowData.groupId = groupId;
+                MarkSceneUpdated();
             }
 
-            // Add window group ID field
-            if (!g_windowsMap.empty())
-            {
-                ImGui::Separator();
-                ImGui::TextUnformatted("Window Group Settings:");
+            ImGui::TextWrapped("Windows with the same group ID (>0) will behave exclusively - only one window in the group can be open at a time.");
 
-                // Group ID for the current window
-                int groupId = windowData.groupId;
-                if (ImGui::InputInt("Window Group ID", &groupId))
+            if (ImGui::Button("Test Open Window"))
+            {
+                if (windowData.groupId > 0)
                 {
-                    if (groupId < 0) groupId = 0; // Prevent negative group IDs
-                    windowData.groupId = groupId;
+                    for (auto& [winName, winData] : g_windowsMap)
+                    {
+                        if (winName == DesignManager::selectedGuiWindow)
+                            continue;
+                        if (winData.groupId == windowData.groupId && winData.isOpen)
+                        {
+                            winData.isOpen = false;
+                        }
+                    }
+                }
+                SetWindowOpen(DesignManager::selectedGuiWindow, true);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Test Close Window"))
+            {
+                SetWindowOpen(DesignManager::selectedGuiWindow, false);
+            }
+        }
+    }
+
+    inline void ShowUI_LayerManagement(WindowData& windowData, int& selectedLayerIndex, int& selectedShapeIndex)
+    {
+        if (ImGui::Button("Add New Layer"))
+        {
+            std::string newLayerName = "Layer " + std::to_string(windowData.layers.size() + 1);
+            windowData.layers.emplace_back(newLayerName);
+            windowData.layers.back().zOrder = static_cast<int>(windowData.layers.size()) - 1;
+            MarkSceneUpdated();
+        }
+        ImGui::Separator();
+
+        for (int i = 0; i < static_cast<int>(windowData.layers.size()); i++)
+        {
+            ImGui::PushID(i);
+            Layer& layer = windowData.layers[i];
+
+            if (ImGui::TreeNodeEx((layer.name + "##Layer_" + std::to_string(i)).c_str(),
+                ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                if (ImGui::Button(("Add Shape to " + layer.name).c_str()))
+                {
+                    ShapeItem newShape;
+                    newShape.id = DesignManager::nextShapeID++;
+                    newShape.name = "Shape " + std::to_string(newShape.id);
+                    newShape.ownerWindow = DesignManager::selectedGuiWindow;
+                    newShape.position = ImVec2(100.0f, 100.0f);
+                    newShape.size = ImVec2(200.0f, 150.0f);
+                    newShape.rotation = 0.0f;
+                    newShape.basePosition = newShape.position;
+                    newShape.baseSize = newShape.size;
+                    newShape.baseRotation = newShape.rotation;
+
+                    ButtonAnimation sizeXAnim;
+                    sizeXAnim.name = "SizeX Animation";
+                    sizeXAnim.duration = 1.0f;
+                    sizeXAnim.speed = 1.0f;
+                    sizeXAnim.animationTargetPosition = newShape.basePosition;
+                    sizeXAnim.animationTargetSize = ImVec2(300.0f, newShape.baseSize.y);
+                    sizeXAnim.transformRotation = newShape.baseRotation;
+                    newShape.onClickAnimations.push_back(sizeXAnim);
+
+                    ButtonAnimation sizeYAnim;
+                    sizeYAnim.name = "SizeY Animation";
+                    sizeYAnim.duration = 1.0f;
+                    sizeYAnim.speed = 1.0f;
+                    sizeYAnim.animationTargetPosition = newShape.basePosition;
+                    sizeYAnim.animationTargetSize = ImVec2(newShape.baseSize.x, 300.0f);
+                    sizeYAnim.transformRotation = newShape.baseRotation;
+                    newShape.onClickAnimations.push_back(sizeYAnim);
+
+                    layer.shapes.push_back(newShape);
+                    selectedLayerIndex = i;
+                    selectedShapeIndex = static_cast<int>(layer.shapes.size()) - 1;
                     MarkSceneUpdated();
                 }
 
-                ImGui::TextWrapped("Windows with the same group ID (>0) will behave exclusively - only one window in the group can be open at a time.");
+                ImGui::Separator();
 
-                // Button to test opening the window
-                if (ImGui::Button("Test Open Window"))
+                for (int j = 0; j < static_cast<int>(layer.shapes.size()); j++)
                 {
-                    // First, if this window belongs to a group, close all other windows in the same group
-                    if (windowData.groupId > 0)
+                    ImGui::PushID(j);
+                    ShapeItem& shape = layer.shapes[j];
+                    bool isSelected = (selectedLayerIndex == i && selectedShapeIndex == j);
+
+                    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow;
+                    if (isSelected)
+                        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+
+                    if (ImGui::TreeNodeEx((shape.name + "##Shape_" + std::to_string(j)).c_str(),
+                        nodeFlags))
                     {
-                        for (auto& [winName, winData] : g_windowsMap)
+                        if (ImGui::IsItemClicked())
                         {
-                            // Skip the current window
-                            if (winName == DesignManager::selectedGuiWindow)
-                                continue;
-
-                            // If this window is in the same group, close it
-                            if (winData.groupId == windowData.groupId && winData.isOpen)
-                            {
-                                winData.isOpen = false;
-                            }
+                            selectedLayerIndex = i;
+                            selectedShapeIndex = j;
+                            MarkSceneUpdated();
                         }
+                        ImGui::TreePop();
                     }
+                    ImGui::PopID();
+                }
 
-                    // Now open the current window
-                    SetWindowOpen(DesignManager::selectedGuiWindow, true);
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Test Close Window"))
-                {
-                    SetWindowOpen(DesignManager::selectedGuiWindow, false);
-                }
+                ImGui::TreePop();
             }
+            ImGui::PopID();
         }
-        ImGui::Separator();
+    }
 
-        // -- If the chosen window actually exists in g_windowsMap
-        if (!g_windowsMap.empty() &&
-            g_windowsMap.find(DesignManager::selectedGuiWindow) != g_windowsMap.end())
-        {
-            // Add new layer
-            if (ImGui::Button("Add New Layer"))
-            {
-                std::string newLayerName = "Layer " + std::to_string(windowData.layers.size() + 1);
-                windowData.layers.emplace_back(newLayerName);
-                windowData.layers.back().zOrder = static_cast<int>(windowData.layers.size()) - 1;
-                MarkSceneUpdated();
-            }
-            ImGui::Separator();
-
-            // List layers
-            for (int i = 0; i < static_cast<int>(windowData.layers.size()); i++)
-            {
-                ImGui::PushID(i);  // <--- Balanced with PopID at the end of this loop
-                Layer& layer = windowData.layers[i];
-
-                if (ImGui::TreeNodeEx((layer.name + "##Layer_" + std::to_string(i)).c_str(),
-                    ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    // "Add Shape" button
-                    if (ImGui::Button(("Add Shape to " + layer.name).c_str()))
-                    {
-                        ShapeItem newShape;
-                        newShape.id = DesignManager::nextShapeID++;
-                        newShape.name = "Shape " + std::to_string(newShape.id);
-                        newShape.ownerWindow = DesignManager::selectedGuiWindow;
-                        newShape.position = ImVec2(100.0f, 100.0f);
-                        newShape.size = ImVec2(200.0f, 150.0f);
-                        newShape.rotation = 0.0f;
-                        newShape.basePosition = newShape.position;
-                        newShape.baseSize = newShape.size;
-                        newShape.baseRotation = newShape.rotation;
-
-                        // Example onClickAnimations
-                        ButtonAnimation sizeXAnim;
-                        sizeXAnim.name = "SizeX Animation";
-                        sizeXAnim.duration = 1.0f;
-                        sizeXAnim.speed = 1.0f;
-                        sizeXAnim.animationTargetPosition = newShape.basePosition;
-                        sizeXAnim.animationTargetSize = ImVec2(300.0f, newShape.baseSize.y);
-                        sizeXAnim.transformRotation = newShape.baseRotation;
-                        newShape.onClickAnimations.push_back(sizeXAnim);
-
-                        ButtonAnimation sizeYAnim;
-                        sizeYAnim.name = "SizeY Animation";
-                        sizeYAnim.duration = 1.0f;
-                        sizeYAnim.speed = 1.0f;
-                        sizeYAnim.animationTargetPosition = newShape.basePosition;
-                        sizeYAnim.animationTargetSize = ImVec2(newShape.baseSize.x, 300.0f);
-                        sizeYAnim.transformRotation = newShape.baseRotation;
-                        newShape.onClickAnimations.push_back(sizeYAnim);
-
-                        layer.shapes.push_back(newShape);
-                        selectedLayerIndex = i;
-                        selectedShapeIndex = static_cast<int>(layer.shapes.size()) - 1;
-                        MarkSceneUpdated();
-                    }
-
-                    ImGui::Separator();
-
-                    // List shapes of this layer
-                    for (int j = 0; j < static_cast<int>(layer.shapes.size()); j++)
-                    {
-                        ImGui::PushID(j);  // Balanced with PopID right after the selectable
-                        ShapeItem& shape = layer.shapes[j];
-                        bool isSelected =
-                            (selectedLayerIndex == i && selectedShapeIndex == j);
-
-                        ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow;
-                        if (isSelected)
-                            nodeFlags |= ImGuiTreeNodeFlags_Selected;
-
-                        if (ImGui::TreeNodeEx((shape.name + "##Shape_" + std::to_string(j)).c_str(),
-                            nodeFlags))
-                        {
-                            // Clicking on node?
-                            if (ImGui::IsItemClicked())
-                            {
-                                selectedLayerIndex = i;
-                                selectedShapeIndex = j;
-                                MarkSceneUpdated();
-                            }
-                            ImGui::TreePop();
-                        }
-                        ImGui::PopID();  // (j)
-                    }
-
-                    ImGui::TreePop(); // end of layer node
-                }
-                ImGui::PopID(); // (i)
-            }
-        }
-
-        // ------------- If there's a valid selected layer/shape, show shape details -------------
-        ImGui::Separator();
+    inline void ShowUI_ShapeDetails(WindowData& windowData, int selectedLayerIndex, int selectedShapeIndex)
+    {
         if (selectedLayerIndex >= 0 && selectedShapeIndex >= 0 &&
             selectedLayerIndex < static_cast<int>(windowData.layers.size()))
         {
-            // We must check if the shape index is valid for the selected layer:
             Layer& selLayer = windowData.layers[selectedLayerIndex];
             if (selectedShapeIndex < static_cast<int>(selLayer.shapes.size()))
             {
                 ShapeItem& s = selLayer.shapes[selectedShapeIndex];
 
-                // Basic shape info
                 ImGui::Text("Selected Shape: %s", s.name.c_str());
                 ImGui::Separator();
 
-                // "Reset Shape" + "Apply Offset to Base" row
                 if (ImGui::Button("Reset Shape"))
                 {
                     s.position = s.basePosition;
                     s.size = s.baseSize;
                     s.rotation = s.baseRotation;
-                    // Reset animations
                     for (auto& anim : s.onClickAnimations)
                     {
                         anim.progress = 0.0f;
@@ -3328,7 +3090,6 @@ namespace DesignManager
                     s.basePosition = s.position;
                     s.baseSize = s.size;
                     s.baseRotation = s.rotation;
-                    // Reset animations
                     for (auto& anim : s.onClickAnimations)
                     {
                         anim.progress = 0.0f;
@@ -3339,7 +3100,6 @@ namespace DesignManager
                 }
                 ImGui::Separator();
 
-                // --- Base Transform ---
                 if (ImGui::CollapsingHeader("Original (Base) Transform", ImGuiTreeNodeFlags_DefaultOpen))
                 {
                     if (ImGui::DragFloat2("Base Position", (float*)&s.basePosition, 1.0f))
@@ -3355,50 +3115,29 @@ namespace DesignManager
                     }
                 }
 
-                // --- Final Transform (read-only info) ---
                 if (ImGui::CollapsingHeader("Final Transform", ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    ImVec2 posOffset = ImVec2(s.position.x - s.basePosition.x,
-                        s.position.y - s.basePosition.y);
-                    ImVec2 sizeOffset = ImVec2(s.size.x - s.baseSize.x,
-                        s.size.y - s.baseSize.y);
-
+                    ImVec2 posOffset = ImVec2(s.position.x - s.basePosition.x, s.position.y - s.basePosition.y);
+                    ImVec2 sizeOffset = ImVec2(s.size.x - s.baseSize.x, s.size.y - s.baseSize.y);
                     float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
                     float finalRotDeg = s.rotation * (180.0f / IM_PI);
                     float rotOffsetDeg = finalRotDeg - baseRotDeg;
 
-                    ImGui::Text("Position (Final): (%.1f, %.1f)", s.position.x, s.position.y);
-                    ImGui::SameLine(); ImGui::TextUnformatted("= Base (");
-                    ImGui::SameLine(); ImGui::Text("%.1f, %.1f", s.basePosition.x, s.basePosition.y);
-                    ImGui::SameLine(); ImGui::TextUnformatted(") + Offset (");
-                    ImGui::SameLine(); ImGui::Text("%.1f, %.1f)", posOffset.x, posOffset.y);
-
-                    ImGui::Text("Size (Final): (%.1f, %.1f)", s.size.x, s.size.y);
-                    ImGui::SameLine(); ImGui::TextUnformatted("= Base (");
-                    ImGui::SameLine(); ImGui::Text("%.1f, %.1f", s.baseSize.x, s.baseSize.y);
-                    ImGui::SameLine(); ImGui::TextUnformatted(") + Offset (");
-                    ImGui::SameLine(); ImGui::Text("%.1f, %.1f)", sizeOffset.x, sizeOffset.y);
-
-                    ImGui::Text("Rotation (Final): %.1f°", finalRotDeg);
-                    ImGui::SameLine(); ImGui::TextUnformatted("= Base (");
-                    ImGui::SameLine(); ImGui::Text("%.1f°", baseRotDeg);
-                    ImGui::SameLine(); ImGui::TextUnformatted(") + Offset (");
-                    ImGui::SameLine(); ImGui::Text("%.1f°)", rotOffsetDeg);
+                    ImGui::Text("Position (Final): (%.1f, %.1f) = Base (%.1f, %.1f) + Offset (%.1f, %.1f)", s.position.x, s.position.y, s.basePosition.x, s.basePosition.y, posOffset.x, posOffset.y);
+                    ImGui::Text("Size (Final): (%.1f, %.1f) = Base (%.1f, %.1f) + Offset (%.1f, %.1f)", s.size.x, s.size.y, s.baseSize.x, s.baseSize.y, sizeOffset.x, sizeOffset.y);
+                    ImGui::Text("Rotation (Final): %.1f° = Base (%.1f°) + Offset (%.1f°)", finalRotDeg, baseRotDeg, rotOffsetDeg);
                 }
 
                 ImGui::Separator();
 
-                // --- Shape Keys ---
                 if (ImGui::CollapsingHeader("Shape Keys", ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    // List existing shape keys
                     for (int iKey = 0; iKey < (int)s.shapeKeys.size(); iKey++)
                     {
                         ImGui::PushID(iKey);
                         auto& sk = s.shapeKeys[iKey];
                         if (ImGui::TreeNode(("ShapeKey: " + sk.name + "##" + std::to_string(iKey)).c_str()))
                         {
-                            // Key Name
                             char nameBuf[128];
                             strncpy(nameBuf, sk.name.c_str(), sizeof(nameBuf));
                             if (ImGui::InputText("Key Name", nameBuf, sizeof(nameBuf)))
@@ -3406,7 +3145,6 @@ namespace DesignManager
                                 sk.name = nameBuf;
                                 MarkSceneUpdated();
                             }
-                            // Key Type
                             const char* types[] = { "SizeX", "SizeY", "PositionX", "PositionY", "Rotation" };
                             int currentType = (int)sk.type;
                             if (ImGui::Combo("Type", &currentType, types, IM_ARRAYSIZE(types)))
@@ -3414,30 +3152,24 @@ namespace DesignManager
                                 sk.type = (ShapeKeyType)currentType;
                                 MarkSceneUpdated();
                             }
-                            // Start / End window size
-                            if (ImGui::DragFloat2("Start Window Size", (float*)&sk.startWindowSize,
-                                10.0f, 300.0f, 8000.0f, "%.0f"))
+                            if (ImGui::DragFloat2("Start Window Size", (float*)&sk.startWindowSize, 10.0f, 300.0f, 8000.0f, "%.0f"))
                             {
                                 MarkSceneUpdated();
                             }
-                            if (ImGui::DragFloat2("End Window Size", (float*)&sk.endWindowSize,
-                                10.0f, 300.0f, 8000.0f, "%.0f"))
+                            if (ImGui::DragFloat2("End Window Size", (float*)&sk.endWindowSize, 10.0f, 300.0f, 8000.0f, "%.0f"))
                             {
                                 MarkSceneUpdated();
                             }
-                            // Depending on type, show rotation or value/offset
                             if (sk.type == ShapeKeyType::Rotation)
                             {
                                 float targetRotDeg = sk.targetRotation;
-                                if (ImGui::DragFloat("Target Rotation (deg)", &targetRotDeg,
-                                    1.0f, 0.0f, 360.0f))
+                                if (ImGui::DragFloat("Target Rotation (deg)", &targetRotDeg, 1.0f, 0.0f, 360.0f))
                                 {
                                     sk.targetRotation = targetRotDeg;
                                     MarkSceneUpdated();
                                 }
                                 float rotationOffsetDeg = sk.rotationOffset;
-                                if (ImGui::DragFloat("Rotation Offset (deg)", &rotationOffsetDeg,
-                                    1.0f, -360.0f, 360.0f))
+                                if (ImGui::DragFloat("Rotation Offset (deg)", &rotationOffsetDeg, 1.0f, -360.0f, 360.0f))
                                 {
                                     sk.rotationOffset = rotationOffsetDeg;
                                     MarkSceneUpdated();
@@ -3445,18 +3177,15 @@ namespace DesignManager
                             }
                             else
                             {
-                                if (ImGui::DragFloat2("Target Value", (float*)&sk.targetValue,
-                                    1.0f, 0.0f, 10000.0f, "%.1f"))
+                                if (ImGui::DragFloat2("Target Value", (float*)&sk.targetValue, 1.0f, 0.0f, 10000.0f, "%.1f"))
                                 {
                                     MarkSceneUpdated();
                                 }
-                                if (ImGui::DragFloat2("Offset", (float*)&sk.offset,
-                                    1.0f, -1000.0f, 1000.0f, "%.1f"))
+                                if (ImGui::DragFloat2("Offset", (float*)&sk.offset, 1.0f, -1000.0f, 1000.0f, "%.1f"))
                                 {
                                     MarkSceneUpdated();
                                 }
                             }
-                            // Remove key button
                             if (ImGui::Button("Remove This Key"))
                             {
                                 s.shapeKeys.erase(s.shapeKeys.begin() + iKey);
@@ -3465,16 +3194,12 @@ namespace DesignManager
                                 iKey--;
                                 continue;
                             }
-                            // Show progress
                             ImGui::Text("Shape Key Progress = %.1f%%", sk.value);
-                            float frac = sk.value / 100.0f;
-                            ImGui::ProgressBar(frac, ImVec2(-1, 0),
-                                (std::to_string((int)sk.value) + "%").c_str());
+                            ImGui::ProgressBar(sk.value / 100.0f, ImVec2(-1, 0), (std::to_string((int)sk.value) + "%").c_str());
                             ImGui::TreePop();
                         }
                         ImGui::PopID();
                     }
-                    // Base Offsets
                     if (ImGui::CollapsingHeader("Base Offsets", ImGuiTreeNodeFlags_DefaultOpen))
                     {
                         if (ImGui::DragFloat2("Base Position Offset", (float*)&s.baseKeyOffset, 1.0f))
@@ -3483,9 +3208,7 @@ namespace DesignManager
                             MarkSceneUpdated();
 
                         float baseOffsetRotDeg = s.baseKeyRotationOffset * (180.0f / IM_PI);
-                        if (ImGui::DragFloat("Base Rotation Offset (deg)",
-                            &baseOffsetRotDeg,
-                            1.0f, -360.0f, 360.0f))
+                        if (ImGui::DragFloat("Base Rotation Offset (deg)", &baseOffsetRotDeg, 1.0f, -360.0f, 360.0f))
                         {
                             s.baseKeyRotationOffset = baseOffsetRotDeg * (IM_PI / 180.0f);
                             MarkSceneUpdated();
@@ -3498,7 +3221,6 @@ namespace DesignManager
                             MarkSceneUpdated();
                         }
                     }
-                    // Add new shape key
                     if (ImGui::Button("Add New Shape Key"))
                     {
                         ShapeKey newKey;
@@ -3514,10 +3236,8 @@ namespace DesignManager
                     }
                 }
 
-                // Update animation base on resize
                 ImGui::Checkbox("Update Animation Base On Resize", &s.updateAnimBaseOnResize);
 
-                // --- Button Animations ---
                 if (ImGui::CollapsingHeader("Button Animations", ImGuiTreeNodeFlags_DefaultOpen))
                 {
                     for (int aIdx = 0; aIdx < (int)s.onClickAnimations.size(); aIdx++)
@@ -3526,7 +3246,6 @@ namespace DesignManager
                         ButtonAnimation& anim = s.onClickAnimations[aIdx];
                         if (ImGui::TreeNode((anim.name + "##Anim_" + std::to_string(aIdx)).c_str()))
                         {
-                            // Basic text input
                             char animNameBuf[128];
                             strncpy(animNameBuf, anim.name.c_str(), sizeof(animNameBuf));
                             if (ImGui::InputText("Name", animNameBuf, sizeof(animNameBuf)))
@@ -3537,12 +3256,10 @@ namespace DesignManager
                             ImGui::DragFloat("Duration (s)", &anim.duration, 0.1f, 0.1f, 20.0f);
                             ImGui::DragFloat("Speed", &anim.speed, 0.1f, 0.1f, 10.0f);
 
-                            // Transform
                             ImGui::DragFloat2("Target Pos", (float*)&anim.animationTargetPosition, 1.0f);
                             ImGui::DragFloat2("Target Size", (float*)&anim.animationTargetSize, 1.0f);
                             float targetRotDeg = anim.transformRotation * (180.0f / IM_PI);
-                            if (ImGui::DragFloat("Target Rotation (deg)", &targetRotDeg,
-                                1.0f, 0.0f, 360.0f))
+                            if (ImGui::DragFloat("Target Rotation (deg)", &targetRotDeg, 1.0f, 0.0f, 360.0f))
                             {
                                 anim.transformRotation = targetRotDeg * DEG2RAD;
                                 MarkSceneUpdated();
@@ -3550,7 +3267,6 @@ namespace DesignManager
 
                             ImGui::InputInt("Repeat Count (0=inf)", &anim.repeatCount);
 
-                            // Playback order
                             const char* poItems[] = { "Sıralı", "HemenArkasina" };
                             int poIdx = (int)anim.playbackOrder;
                             if (ImGui::Combo("Playback Order", &poIdx, poItems, IM_ARRAYSIZE(poItems)))
@@ -3558,43 +3274,28 @@ namespace DesignManager
                                 anim.playbackOrder = (PlaybackOrder)poIdx;
                                 MarkSceneUpdated();
                             }
-                            // Interpolation
                             const char* interpItems[] = { "Linear", "EaseInOut" };
                             int interpIdx = (int)anim.interpolationMethod;
-                            if (ImGui::Combo("Interpolation", &interpIdx, interpItems,
-                                IM_ARRAYSIZE(interpItems)))
+                            if (ImGui::Combo("Interpolation", &interpIdx, interpItems, IM_ARRAYSIZE(interpItems)))
                             {
-                                anim.interpolationMethod =
-                                    (ButtonAnimation::InterpolationMethod)interpIdx;
+                                anim.interpolationMethod = (ButtonAnimation::InterpolationMethod)interpIdx;
                                 MarkSceneUpdated();
                             }
-                            // Trigger
                             const char* triggerItems[] = { "OnClick", "OnHover" };
                             int trigIdx = (int)anim.triggerMode;
-                            if (ImGui::Combo("Trigger Mode", &trigIdx, triggerItems,
-                                IM_ARRAYSIZE(triggerItems)))
+                            if (ImGui::Combo("Trigger Mode", &trigIdx, triggerItems, IM_ARRAYSIZE(triggerItems)))
                             {
                                 anim.triggerMode = (ButtonAnimation::TriggerMode)trigIdx;
                                 MarkSceneUpdated();
                             }
-                            // Behavior
-                            const char* behaviorItems[] = {
-                                "Play Once and Stay",
-                                "Play Once and Reverse",
-                                "Toggle",
-                                "Play While Holding and Reverse on Release",
-                                "Play While Holding and Stay"
-                            };
+                            const char* behaviorItems[] = { "Play Once and Stay", "Play Once and Reverse", "Toggle", "Play While Holding and Reverse on Release", "Play While Holding and Stay" };
                             int behIdx = (int)anim.behavior;
-                            if (ImGui::Combo("Behavior", &behIdx, behaviorItems,
-                                IM_ARRAYSIZE(behaviorItems)))
+                            if (ImGui::Combo("Behavior", &behIdx, behaviorItems, IM_ARRAYSIZE(behaviorItems)))
                             {
-                                anim.behavior =
-                                    (ButtonAnimation::AnimationBehavior)behIdx;
+                                anim.behavior = (ButtonAnimation::AnimationBehavior)behIdx;
                                 MarkSceneUpdated();
                             }
 
-                            // Remove animation
                             if (ImGui::Button("Remove This Animation"))
                             {
                                 s.onClickAnimations.erase(s.onClickAnimations.begin() + aIdx);
@@ -3628,12 +3329,35 @@ namespace DesignManager
                         MarkSceneUpdated();
                     }
                 }
+
+                if (ImGui::CollapsingHeader("Event Handlers", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    // Display existing handlers
+                    for (int i = 0; i < s.eventHandlers.size(); i++) {
+                        ImGui::PushID(i);
+                        auto& handler = s.eventHandlers[i];
+                        ImGui::Text("%s: %s", handler.eventType.c_str(), handler.name.c_str());
+                        if (ImGui::Button("Remove")) {
+                            s.eventHandlers.erase(s.eventHandlers.begin() + i);
+                            i--;
+                        }
+                        ImGui::PopID();
+                    }
+                    
+                    // Add new handler
+                    static char eventTypeBuffer[128] = "onClick";
+                    static char nameBuffer[128] = "handleEvent";
+                    ImGui::InputText("Event Type", eventTypeBuffer, sizeof(eventTypeBuffer));
+                    ImGui::InputText("Handler Name", nameBuffer, sizeof(nameBuffer));
+                    if (ImGui::Button("Add Handler")) {
+                        s.eventHandlers.push_back({eventTypeBuffer, nameBuffer, [](ShapeItem&) {}});
+                    }
+                }
             }
         }
-        ImGui::End(); // End "Shape Key & Layer Manager"
+    }
 
-
-        // ------------- "Parent Tree" Window -------------
+    inline void ShowUI_ParentTreeWindow()
+    {
         ImGui::SetNextWindowSize(ImVec2(400, 600), ImGuiCond_FirstUseEver);
         ImVec2 windowSize = ImGui::GetWindowSize();
         float buttonAreaHeight = ImGui::GetFrameHeight() * 5 + ImGui::GetStyle().ItemSpacing.y * 4;
@@ -3645,7 +3369,6 @@ namespace DesignManager
             float buttonAreaHeight = ImGui::GetFrameHeight() * 5 + ImGui::GetStyle().ItemSpacing.y * 4;
             float scrollAreaHeight = windowSize.y - buttonAreaHeight - ImGui::GetStyle().WindowPadding.y;
 
-            // Scrollable area with shapes
             ImGui::BeginChild("ScrollArea", ImVec2(0, scrollAreaHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
             for (auto& [windowName, winData] : g_windowsMap)
             {
@@ -3661,7 +3384,7 @@ namespace DesignManager
                             {
                                 ShapeItem* shape = &layer.shapes[j];
                                 if (shape->parent == nullptr)
-                                    DrawShapeTreeNode(shape); // Presumably your recursive function
+                                    DrawShapeTreeNode(shape);
                             }
                             ImGui::TreePop();
                         }
@@ -3671,7 +3394,6 @@ namespace DesignManager
             }
             ImGui::EndChild();
 
-            // Buttons area
             ImGui::SetCursorPosY(ImGui::GetWindowHeight() - buttonAreaHeight + 80);
             ImGui::BeginChild("Buttons", ImVec2(0, buttonAreaHeight), true);
             {
@@ -3703,915 +3425,1047 @@ namespace DesignManager
             }
             ImGui::EndChild();
         }
-        ImGui::End(); // End: "Parent Tree"
+        ImGui::End();
+    }
 
-
-        // ------------- "Layer & Shape Manager" Window -------------
-        ImGui::Begin("Layer & Shape Manager");
+    inline void ShowUI_LayerShapeManager_ChildWindowMappings()
+    {
+        if (ImGui::CollapsingHeader("Child Window Mappings", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            // In an appropriate place in the ShowUI function (for example, below the child window settings), add the following code:
-            if (ImGui::CollapsingHeader("Global Logic Mappings", ImGuiTreeNodeFlags_DefaultOpen))
+            ImGui::SetCursorPosX(10);
+            int mappingIndex = 0;
+            for (auto& mapping : g_combinedChildWindowMappings)
             {
-                int mappingIndex = 0;
-                for (auto& mapping : DesignManager::g_logicMappings)
-                {
-                    std::vector<int>& sourceButtons = std::get<0>(mapping);
-                    std::string& logicOp = std::get<1>(mapping);
-                    std::vector<std::string>& targetWindows = std::get<2>(mapping);
-
-                    ImGui::PushID(mappingIndex);
-                    ImGui::Text("Mapping %d", mappingIndex);
-
-                    // ----- Source Buttons Selection -----
-                    ImGui::Text("Source Buttons:");
-                    auto availableButtons = GetAllButtonShapes();
-                    for (auto* btn : availableButtons)
-                    {
-                        bool isSelected = (std::find(sourceButtons.begin(), sourceButtons.end(), btn->id) != sourceButtons.end());
-                        std::string btnLabel = btn->name + " (ID:" + std::to_string(btn->id) + ")";
-                        if (ImGui::Checkbox(btnLabel.c_str(), &isSelected))
-                        {
-                            if (isSelected) {
-                                if (std::find(sourceButtons.begin(), sourceButtons.end(), btn->id) == sourceButtons.end())
-                                    sourceButtons.push_back(btn->id);
-                            }
-                            else {
-                                sourceButtons.erase(std::remove(sourceButtons.begin(), sourceButtons.end(), btn->id), sourceButtons.end());
-                            }
-                        }
+                ImGui::PushID(mappingIndex);
+                std::vector<ShapeItem*> allShapes = GetAllShapes();
+                int currentShapeIndex = 0;
+                for (int i = 0; i < (int)allShapes.size(); i++) {
+                    if (allShapes[i]->id == mapping.shapeId) {
+                        currentShapeIndex = i;
+                        break;
                     }
-
-                    // ----- Operator Selection -----
-                    // New operator options added:
-                    const char* opOptions[] = { "AND", "OR", "XOR", "NAND", "IF_THEN", "IFF" };
-                    int opCount = IM_ARRAYSIZE(opOptions);
-                    int currentOpIndex = 0;
-                    // Determine the index based on the current logicOp:
-                    for (int i = 0; i < opCount; i++) {
-                        if (logicOp == opOptions[i]) {
-                            currentOpIndex = i;
+                }
+                if (ImGui::Combo("Shape", &currentShapeIndex, [](void* data, int idx, const char** out_text) -> bool {
+                    auto* vec = static_cast<std::vector<ShapeItem*>*>(data);
+                    if (idx < (int)vec->size()) {
+                        *out_text = (*vec)[idx]->name.c_str();
+                        return true;
+                    }
+                    return false;
+                    }, static_cast<void*>(&allShapes), (int)allShapes.size()))
+                {
+                    mapping.shapeId = allShapes[currentShapeIndex]->id;
+                    allShapes[currentShapeIndex]->isChildWindow = true;
+                }
+                const char* opOptions[] = { "AND", "OR", "XOR", "NAND", "IF_THEN", "IFF" };
+                int opCount = IM_ARRAYSIZE(opOptions);
+                int currentOpIndex = 0;
+                for (int i = 0; i < opCount; i++) {
+                    if (mapping.logicOp == opOptions[i]) {
+                        currentOpIndex = i;
+                        break;
+                    }
+                }
+                if (ImGui::Combo("Operator", &currentOpIndex, opOptions, opCount))
+                    mapping.logicOp = opOptions[currentOpIndex];
+                int pairIndex = 0;
+                for (size_t j = 0; j < mapping.buttonIds.size(); j++)
+                {
+                    ImGui::PushID(pairIndex);
+                    std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
+                    int currentButtonIndex = 0;
+                    for (int i = 0; i < (int)availableButtons.size(); i++) {
+                        if (availableButtons[i]->id == mapping.buttonIds[j]) {
+                            currentButtonIndex = i;
                             break;
                         }
                     }
-                    if (ImGui::Combo("Operator", &currentOpIndex, opOptions, opCount))
+                    if (ImGui::Combo("Button", &currentButtonIndex, [](void* data, int idx, const char** out_text) -> bool {
+                        auto* vec = static_cast<std::vector<ShapeItem*>*>(data);
+                        if (idx < (int)vec->size()) {
+                            *out_text = (*vec)[idx]->name.c_str();
+                            return true;
+                        }
+                        return false;
+                        }, static_cast<void*>(&availableButtons), (int)availableButtons.size()))
                     {
-                        logicOp = opOptions[currentOpIndex];
+                        mapping.buttonIds[j] = availableButtons[currentButtonIndex]->id;
                     }
-
-                    // ----- Target Child Windows Selection -----
-                    ImGui::Text("Target Child Windows:");
+                    ImGui::SameLine();
                     std::vector<std::string> availableChildWindows;
-                    for (auto& [key, windowData] : DesignManager::g_windowsMap)
-                    {
-                        if (windowData.isChildWindow)
-                            availableChildWindows.push_back(key);
+                    for (auto& [key, winData] : g_windowsMap)
+                        availableChildWindows.push_back(key);
+                    for (auto sh : GetAllShapes()) {
+                        if (std::find(availableChildWindows.begin(), availableChildWindows.end(), sh->name) == availableChildWindows.end())
+                            availableChildWindows.push_back(sh->name);
                     }
-                    for (auto& childKey : availableChildWindows)
-                    {
-                        bool isSelected = (std::find(targetWindows.begin(), targetWindows.end(), childKey) != targetWindows.end());
-                        if (ImGui::Checkbox(childKey.c_str(), &isSelected))
-                        {
-                            if (isSelected) {
-                                if (std::find(targetWindows.begin(), targetWindows.end(), childKey) == targetWindows.end())
-                                    targetWindows.push_back(childKey);
-                            }
-                            else {
-                                targetWindows.erase(std::remove(targetWindows.begin(), targetWindows.end(), childKey), targetWindows.end());
-                            }
+                    int currentChildIndex = 0;
+                    for (int i = 0; i < (int)availableChildWindows.size(); i++) {
+                        if (availableChildWindows[i] == mapping.childWindowKeys[j]) {
+                            currentChildIndex = i;
+                            break;
                         }
                     }
-
-                    // To remove the mapping:
-                    if (ImGui::Button("Remove Mapping"))
+                    if (ImGui::Combo("Window", &currentChildIndex, [](void* data, int idx, const char** out_text) -> bool {
+                        auto* vec = static_cast<std::vector<std::string>*>(data);
+                        if (idx < (int)vec->size()) {
+                            *out_text = (*vec)[idx].c_str();
+                            return true;
+                        }
+                        return false;
+                        }, static_cast<void*>(&availableChildWindows), (int)availableChildWindows.size()))
                     {
-                        DesignManager::g_logicMappings.erase(DesignManager::g_logicMappings.begin() + mappingIndex);
+                        mapping.childWindowKeys[j] = availableChildWindows[currentChildIndex];
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Remove Pair"))
+                    {
+                        mapping.buttonIds.erase(mapping.buttonIds.begin() + j);
+                        mapping.childWindowKeys.erase(mapping.childWindowKeys.begin() + j);
                         ImGui::PopID();
                         break;
                     }
-                    ImGui::Separator();
                     ImGui::PopID();
-                    mappingIndex++;
+                    pairIndex++;
                 }
-
-                // Button to add a new mapping:
-                if (ImGui::Button("Add New Mapping"))
+                if (ImGui::Button("Add Button Mapping"))
                 {
-                    DesignManager::g_logicMappings.push_back(std::make_tuple(std::vector<int>(), std::string("AND"), std::vector<std::string>()));
-                }
-
-                // Automatic evaluation (this call should be made every frame):
-                DesignManager::EvaluateGlobalLogicMappings();
-            }
-            // ... (rest of the window content)
-
-
-
-            ImGui::Separator();
-            ImGui::Separator();
-            ImGui::Separator();
-            // Let user select the active ImGui window
-            if (ImGui::BeginCombo("Selected ImGui Window", DesignManager::selectedGuiWindow.c_str()))
-            {
-                for (auto const& [windowName, winData] : g_windowsMap)
-                {
-                    bool is_selected = (DesignManager::selectedGuiWindow == windowName);
-                    if (ImGui::Selectable(windowName.c_str(), is_selected))
-                    {
-                        DesignManager::selectedGuiWindow = windowName;
-                        MarkSceneUpdated();
+                    std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
+                    int defaultButtonId = (!availableButtons.empty()) ? availableButtons[0]->id : 0;
+                    std::vector<std::string> availableChildWindows;
+                    for (auto& [key, winData] : g_windowsMap)
+                        availableChildWindows.push_back(key);
+                    for (auto sh : GetAllShapes()) {
+                        if (std::find(availableChildWindows.begin(), availableChildWindows.end(), sh->name) == availableChildWindows.end())
+                            availableChildWindows.push_back(sh->name);
                     }
-                    if (is_selected)
-                        ImGui::SetItemDefaultFocus();
+                    std::string defaultChild = (!availableChildWindows.empty()) ? availableChildWindows[0] : "";
+                    mapping.buttonIds.push_back(defaultButtonId);
+                    mapping.childWindowKeys.push_back(defaultChild);
                 }
-                ImGui::EndCombo();
+                if (ImGui::Button("Remove Mapping"))
+                {
+                    g_combinedChildWindowMappings.erase(g_combinedChildWindowMappings.begin() + mappingIndex);
+                    ImGui::PopID();
+                    break;
+                }
+                ImGui::Separator();
+                ImGui::PopID();
+                mappingIndex++;
             }
-
-            // Create new layer
-            if (ImGui::Button("Add New Layer"))
+            if (ImGui::Button("Add New Mapping"))
             {
-                std::string newLayerName = "Layer " + std::to_string(windowData.layers.size());
-                windowData.layers.emplace_back(newLayerName);
+                std::vector<ShapeItem*> allShapes = GetAllShapes();
+                int defaultShapeId = (!allShapes.empty()) ? allShapes[0]->id : 0;
+                std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
+                int defaultButtonId = (!availableButtons.empty()) ? availableButtons[0]->id : 0;
+                std::vector<std::string> availableChildWindows;
+                for (auto& [key, winData] : g_windowsMap)
+                    availableChildWindows.push_back(key);
+                for (auto sh : GetAllShapes()) {
+                    if (std::find(availableChildWindows.begin(), availableChildWindows.end(), sh->name) == availableChildWindows.end())
+                        availableChildWindows.push_back(sh->name);
+                }
+                std::string defaultChild = (!availableChildWindows.empty()) ? availableChildWindows[0] : "";
+                CombinedMapping newMapping;
+                newMapping.shapeId = defaultShapeId;
+                newMapping.logicOp = "AND";
+                newMapping.buttonIds.push_back(defaultButtonId);
+                newMapping.childWindowKeys.push_back(defaultChild);
+                if (!allShapes.empty()) allShapes[0]->isChildWindow = true;
+                g_combinedChildWindowMappings.push_back(newMapping);
+            }
+        }
+    }
+
+    inline void ShowUI_LayerShapeManager_LayerList(WindowData& windowData, int& selectedLayerIndex, int& selectedShapeIndex)
+    {
+        ImGui::Separator();
+        ImGui::Separator();
+
+        if (ImGui::BeginCombo("Selected ImGui Window", DesignManager::selectedGuiWindow.c_str()))
+        {
+            for (auto const& [windowName, winData] : g_windowsMap)
+            {
+                bool is_selected = (DesignManager::selectedGuiWindow == windowName);
+                if (ImGui::Selectable(windowName.c_str(), is_selected))
+                {
+                    DesignManager::selectedGuiWindow = windowName;
+                    MarkSceneUpdated();
+                }
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::Button("Add New Layer"))
+        {
+            std::string newLayerName = "Layer " + std::to_string(windowData.layers.size());
+            windowData.layers.emplace_back(newLayerName);
+            RefreshLayerIDs();
+            windowData.layers.back().zOrder = (int)windowData.layers.size() - 1;
+            selectedLayerIndex = (int)windowData.layers.size() - 1;
+            selectedShapeIndex = -1;
+            MarkSceneUpdated();
+        }
+        ImGui::Separator();
+
+        for (int i = 0; i < (int)windowData.layers.size(); i++)
+        {
+            ImGui::PushID(i);
+            if (ImGui::Button(("Up##" + std::to_string(i)).c_str()))
+            {
+                if (i > 0)
+                {
+                    std::swap(windowData.layers[i], windowData.layers[i - 1]);
+                    std::swap(windowData.layers[i].zOrder, windowData.layers[i - 1].zOrder);
+                    MarkSceneUpdated();
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(("Down##" + std::to_string(i)).c_str()))
+            {
+                if (i < (int)windowData.layers.size() - 1)
+                {
+                    std::swap(windowData.layers[i], windowData.layers[i + 1]);
+                    std::swap(windowData.layers[i].zOrder, windowData.layers[i + 1].zOrder);
+                    MarkSceneUpdated();
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(("Delete##" + std::to_string(i)).c_str()))
+            {
+                windowData.layers.erase(windowData.layers.begin() + i);
                 RefreshLayerIDs();
-                windowData.layers.back().zOrder = (int)windowData.layers.size() - 1;
-                selectedLayerIndex = (int)windowData.layers.size() - 1;
+                if (windowData.layers.empty())
+                    selectedLayerIndex = -1;
+                else if (selectedLayerIndex >= (int)windowData.layers.size())
+                    selectedLayerIndex = (int)windowData.layers.size() - 1;
+                MarkSceneUpdated();
+                ImGui::PopID();
+                i--;
+                continue;
+            }
+            ImGui::SameLine();
+            if (ImGui::IsItemClicked())
+            {
+                selectedLayerIndex = i;
                 selectedShapeIndex = -1;
+                DesignManager::selectedShapes.clear();
+            }
+            if (ImGui::Button(("Rename Layer##" + std::to_string(i)).c_str()))
+            {
+                static char renameLayerBuffer[128];
+                strncpy(renameLayerBuffer, windowData.layers[i].name.c_str(), 128);
+                renameLayerBuffer[127] = '\0';
+                ImGui::OpenPopup(("RenameLayerPopup##" + DesignManager::selectedGuiWindow + std::to_string(i)).c_str());
+            }
+            if (ImGui::BeginPopupModal(("RenameLayerPopup##" + DesignManager::selectedGuiWindow + std::to_string(i)).c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                static char renameLayerBuffer2[128];
+                ImGui::Text("Enter new layer name:");
+                ImGui::InputText("##NewLayerName", renameLayerBuffer2, IM_ARRAYSIZE(renameLayerBuffer2));
+                if (ImGui::Button("OK"))
+                {
+                    windowData.layers[i].name = renameLayerBuffer2;
+                    ImGui::CloseCurrentPopup();
+                    MarkSceneUpdated();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel"))
+                    ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+            }
+            if (ImGui::Checkbox(("Visible##" + std::to_string(i)).c_str(), &windowData.layers[i].visible))
+            {
                 MarkSceneUpdated();
             }
-            ImGui::Separator();
-
-            // List layers + reorder / rename / remove
-            for (int i = 0; i < (int)windowData.layers.size(); i++)
+            ImGui::SameLine();
+            ImGui::Checkbox(("Locked##" + std::to_string(i)).c_str(), &windowData.layers[i].locked);
+            ImGui::PushItemWidth(100);
+            ImGui::SameLine();
+            if (ImGui::DragInt(("Layer Z-Order##" + std::to_string(i)).c_str(), &windowData.layers[i].zOrder, 0.1f))
             {
-                ImGui::PushID(i);
-                if (ImGui::Button(("Up##" + std::to_string(i)).c_str()))
+                for (int j = 0; j < (int)windowData.layers.size(); j++)
                 {
-                    if (i > 0)
-                    {
-                        std::swap(windowData.layers[i], windowData.layers[i - 1]);
-                        std::swap(windowData.layers[i].zOrder, windowData.layers[i - 1].zOrder);
-                        MarkSceneUpdated();
-                    }
+                    if (j != i && windowData.layers[j].zOrder == windowData.layers[i].zOrder)
+                        windowData.layers[j].zOrder += (windowData.layers[i].zOrder > windowData.layers[j].zOrder ? 1 : -1);
                 }
-                ImGui::SameLine();
-                if (ImGui::Button(("Down##" + std::to_string(i)).c_str()))
-                {
-                    if (i < (int)windowData.layers.size() - 1)
-                    {
-                        std::swap(windowData.layers[i], windowData.layers[i + 1]);
-                        std::swap(windowData.layers[i].zOrder, windowData.layers[i + 1].zOrder);
-                        MarkSceneUpdated();
-                    }
-                }
-                ImGui::SameLine();
-                if (ImGui::Button(("Delete##" + std::to_string(i)).c_str()))
-                {
-                    windowData.layers.erase(windowData.layers.begin() + i);
-                    RefreshLayerIDs();
-                    if (windowData.layers.empty())
-                        selectedLayerIndex = -1;
-                    else if (selectedLayerIndex >= (int)windowData.layers.size())
-                        selectedLayerIndex = (int)windowData.layers.size() - 1;
-                    MarkSceneUpdated();
-                    ImGui::PopID();
-                    i--;
-                    continue;
-                }
-                ImGui::SameLine();
-                if (ImGui::IsItemClicked()) // <--- Possibly meant for the blank area. If you want to separate, add a separate item.
-                {
-                    selectedLayerIndex = i;
-                    selectedShapeIndex = -1;
-                    DesignManager::selectedShapes.clear();
-                }
-                // Rename layer button
-                if (ImGui::Button(("Rename Layer##" + std::to_string(i)).c_str()))
-                {
-                    static char renameLayerBuffer[128];
-                    // Copy current name in
-                    strncpy(renameLayerBuffer, windowData.layers[i].name.c_str(), 128);
-                    renameLayerBuffer[127] = '\0';
-                    ImGui::OpenPopup(("RenameLayerPopup##" + DesignManager::selectedGuiWindow + std::to_string(i)).c_str());
-                }
-                // Modal rename popup
-                if (ImGui::BeginPopupModal(("RenameLayerPopup##" + DesignManager::selectedGuiWindow + std::to_string(i)).c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize))
-                {
-                    static char renameLayerBuffer2[128]; // We could also keep one static for all
-                    ImGui::Text("Enter new layer name:");
-                    ImGui::InputText("##NewLayerName", renameLayerBuffer2, IM_ARRAYSIZE(renameLayerBuffer2));
-                    if (ImGui::Button("OK"))
-                    {
-                        windowData.layers[i].name = renameLayerBuffer2;
-                        ImGui::CloseCurrentPopup();
-                        MarkSceneUpdated();
-                    }
-                    ImGui::SameLine();
-                    if (ImGui::Button("Cancel"))
-                        ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
-                }
-                // Visible + Locked
-                if (ImGui::Checkbox(("Visible##" + std::to_string(i)).c_str(), &windowData.layers[i].visible))
-                {
-                    MarkSceneUpdated();
-                }
-                ImGui::SameLine();
-                ImGui::Checkbox(("Locked##" + std::to_string(i)).c_str(), &windowData.layers[i].locked);
-                ImGui::PushItemWidth(100);
-                ImGui::SameLine();
-                // Z-Order
-                if (ImGui::DragInt(("Layer Z-Order##" + std::to_string(i)).c_str(),
-                    &windowData.layers[i].zOrder,
-                    0.1f))
-                {
-                    // A naive check for collisions
-                    for (int j = 0; j < (int)windowData.layers.size(); j++)
-                    {
-                        if (j != i && windowData.layers[j].zOrder == windowData.layers[i].zOrder)
-                            windowData.layers[j].zOrder +=
-                            (windowData.layers[i].zOrder > windowData.layers[j].zOrder ? 1 : -1);
-                    }
-                    MarkSceneUpdated();
-                }
-                ImGui::PopItemWidth();
+                MarkSceneUpdated();
+            }
+            ImGui::PopItemWidth();
 
-                // TreeNode for shapes
-                if (ImGui::TreeNodeEx((windowData.layers[i].name + "##" + DesignManager::selectedGuiWindow
-                    + std::to_string(windowData.layers[i].id)).c_str(),
-                    (selectedLayerIndex == i ? ImGuiTreeNodeFlags_Selected : 0) |
-                    ImGuiTreeNodeFlags_OpenOnArrow))
+            if (ImGui::TreeNodeEx((windowData.layers[i].name + "##" + DesignManager::selectedGuiWindow + std::to_string(windowData.layers[i].id)).c_str(),
+                (selectedLayerIndex == i ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow))
+            {
+                Layer& L = windowData.layers[i];
+                for (int j = 0; j < (int)L.shapes.size(); j++)
                 {
-                    Layer& L = windowData.layers[i];
-                    for (int j = 0; j < (int)L.shapes.size(); j++)
+                    ImGui::PushID(j + 1000);
+                    bool isSelected = (std::find(DesignManager::selectedShapes.begin(), DesignManager::selectedShapes.end(), &L.shapes[j]) != DesignManager::selectedShapes.end());
+                    if (ImGui::Selectable((L.shapes[j].name + "##" + std::to_string(j)).c_str(), isSelected))
                     {
-                        ImGui::PushID(j + 1000);
-                        bool isSelected = (std::find(DesignManager::selectedShapes.begin(),
-                            DesignManager::selectedShapes.end(),
-                            &L.shapes[j]) != DesignManager::selectedShapes.end());
-                        if (ImGui::Selectable((L.shapes[j].name + "##" + std::to_string(j)).c_str(),
-                            isSelected))
+                        ImGuiIO& io = ImGui::GetIO();
+                        if (!io.KeyCtrl && !io.KeyShift)
                         {
-                            ImGuiIO& io = ImGui::GetIO();
-                            // Normal click (no ctrl/shift)
-                            if (!io.KeyCtrl && !io.KeyShift)
+                            DesignManager::selectedShapes.clear();
+                            DesignManager::selectedShapes.push_back(&L.shapes[j]);
+                            lastSelectedLayerIndex = i;
+                            lastSelectedShapeIndex = j;
+                        }
+                        else if (io.KeyCtrl)
+                        {
+                            auto it = std::find(DesignManager::selectedShapes.begin(), DesignManager::selectedShapes.end(), &L.shapes[j]);
+                            if (it != DesignManager::selectedShapes.end())
+                                DesignManager::selectedShapes.erase(it);
+                            else
+                                DesignManager::selectedShapes.push_back(&L.shapes[j]);
+                            lastSelectedLayerIndex = i;
+                            lastSelectedShapeIndex = j;
+                        }
+                        else if (io.KeyShift)
+                        {
+                            if (lastSelectedLayerIndex == i && lastSelectedShapeIndex != -1)
                             {
+                                int start = std::min(lastSelectedShapeIndex, j);
+                                int end = std::max(lastSelectedShapeIndex, j);
                                 DesignManager::selectedShapes.clear();
+                                for (int k = start; k <= end; k++)
+                                    DesignManager::selectedShapes.push_back(&L.shapes[k]);
+                            }
+                            else
+                            {
                                 DesignManager::selectedShapes.push_back(&L.shapes[j]);
                                 lastSelectedLayerIndex = i;
                                 lastSelectedShapeIndex = j;
                             }
-                            else if (io.KeyCtrl)
-                            {
-                                // Toggle selection
-                                auto it = std::find(DesignManager::selectedShapes.begin(),
-                                    DesignManager::selectedShapes.end(),
-                                    &L.shapes[j]);
-                                if (it != DesignManager::selectedShapes.end())
-                                    DesignManager::selectedShapes.erase(it);
-                                else
-                                    DesignManager::selectedShapes.push_back(&L.shapes[j]);
-                                lastSelectedLayerIndex = i;
-                                lastSelectedShapeIndex = j;
-                            }
-                            else if (io.KeyShift)
-                            {
-                                // Range selection
-                                if (lastSelectedLayerIndex == i && lastSelectedShapeIndex != -1)
-                                {
-                                    int start = std::min(lastSelectedShapeIndex, j);
-                                    int end = std::max(lastSelectedShapeIndex, j);
-                                    DesignManager::selectedShapes.clear();
-                                    for (int k = start; k <= end; k++)
-                                        DesignManager::selectedShapes.push_back(&L.shapes[k]);
-                                }
-                                else
-                                {
-                                    DesignManager::selectedShapes.push_back(&L.shapes[j]);
-                                    lastSelectedLayerIndex = i;
-                                    lastSelectedShapeIndex = j;
-                                }
-                            }
-                            // Update single selected indices
-                            selectedLayerIndex = i;
-                            selectedShapeIndex = j;
                         }
-                        ImGui::PopID();
-                    }
-                    // Create new shape in this layer
-                    if (ImGui::Button(("Add New Shape##" + std::to_string(i)).c_str()))
-                    {
-                        static int newShapeCount = 0;
-                        std::string newShapeName;
-                        // Ensure a unique name is picked
-                        while (true)
-                        {
-                            newShapeName = "Shape " + std::to_string(newShapeCount);
-                            bool alreadyExists = false;
-                            for (auto& lay : windowData.layers)
-                            {
-                                for (auto& shp : lay.shapes)
-                                {
-                                    if (shp.name == newShapeName)
-                                    {
-                                        alreadyExists = true;
-                                        break;
-                                    }
-                                }
-                                if (alreadyExists) break;
-                            }
-                            if (!alreadyExists) break;
-                            newShapeCount++;
-                        }
-                        newShapeCount++;
-
-                        ShapeItem s;
-                        s.name = newShapeName;
-                        s.zOrder = 0;
-                        s.ownerWindow = DesignManager::selectedGuiWindow;
-                        s.id = DesignManager::nextShapeID++;
-                        s.sizeThresholds.emplace_back(
-                            ImVec2(800.0f, 600.0f),
-                            ShapeItem::Transformation{
-                                ImVec2(100.0f, 100.0f),
-                                ImVec2(200.0f, 150.0f),
-                                45.0f, 1.0f
-                            }
-                        );
-                        L.shapes.push_back(s);
-                        selectedShapeIndex = (int)L.shapes.size() - 1;
                         selectedLayerIndex = i;
-                        MarkSceneUpdated();
+                        selectedShapeIndex = j;
                     }
-                    ImGui::TreePop(); // end shape listing
+                    ImGui::PopID();
                 }
-                ImGui::PopID(); // end layer i
+                if (ImGui::Button(("Add New Shape##" + std::to_string(i)).c_str()))
+                {
+                    static int newShapeCount = 0;
+                    std::string newShapeName;
+                    while (true)
+                    {
+                        newShapeName = "Shape " + std::to_string(newShapeCount);
+                        bool alreadyExists = false;
+                        for (auto& lay : windowData.layers)
+                        {
+                            for (auto& shp : lay.shapes)
+                            {
+                                if (shp.name == newShapeName)
+                                {
+                                    alreadyExists = true;
+                                    break;
+                                }
+                            }
+                            if (alreadyExists) break;
+                        }
+                        if (!alreadyExists) break;
+                        newShapeCount++;
+                    }
+                    newShapeCount++;
+
+                    ShapeItem s;
+                    s.name = newShapeName;
+                    s.zOrder = 0;
+                    s.ownerWindow = DesignManager::selectedGuiWindow;
+                    s.id = DesignManager::nextShapeID++;
+                    s.sizeThresholds.emplace_back(ImVec2(800.0f, 600.0f), ShapeItem::Transformation{ ImVec2(100.0f, 100.0f), ImVec2(200.0f, 150.0f), 45.0f, 1.0f });
+                    L.shapes.push_back(s);
+                    selectedShapeIndex = (int)L.shapes.size() - 1;
+                    selectedLayerIndex = i;
+                    MarkSceneUpdated();
+                }
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+    }
+    inline void ShowUI_EventHandlers(ShapeItem& shape) {
+        if (ImGui::CollapsingHeader("Event Handlers", ImGuiTreeNodeFlags_DefaultOpen)) {
+            // Display existing handlers
+            for (int i = 0; i < shape.eventHandlers.size(); i++) {
+                ImGui::PushID(i);
+                auto& handler = shape.eventHandlers[i];
+                ImGui::Text("%s: %s", handler.eventType.c_str(), handler.name.c_str());
+                if (ImGui::Button("Remove")) {
+                    shape.eventHandlers.erase(shape.eventHandlers.begin() + i);
+                    i--;
+                }
+                ImGui::PopID();
+            }
+            
+            // Add new handler
+            static char eventTypeBuffer[128] = "onClick";
+            static char nameBuffer[128] = "handleEvent";
+            ImGui::InputText("Event Type", eventTypeBuffer, sizeof(eventTypeBuffer));
+            ImGui::InputText("Handler Name", nameBuffer, sizeof(nameBuffer));
+            if (ImGui::Button("Add Handler")) {
+                shape.eventHandlers.push_back({eventTypeBuffer, nameBuffer, [](ShapeItem&) {}});
+            }
+        }
+    }
+    inline void ShowUI_LayerShapeManager_ShapeProperties(WindowData& windowData, int& selectedLayerIndex, int& selectedShapeIndex)
+    {
+        if (DesignManager::selectedShapes.size() == 1 && selectedLayerIndex >= 0 && selectedShapeIndex >= 0 && selectedShapeIndex < (int)windowData.layers[selectedLayerIndex].shapes.size())
+        {
+            ImGui::Separator();
+            ShapeItem& s = windowData.layers[selectedLayerIndex].shapes[selectedShapeIndex];
+
+            if (ImGui::Button("Delete Shape"))
+            {
+                windowData.layers[selectedLayerIndex].shapes.erase(windowData.layers[selectedLayerIndex].shapes.begin() + selectedShapeIndex);
+                selectedShapeIndex = -1;
+                DesignManager::selectedShapes.clear();
+                MarkSceneUpdated();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Duplicate Shape"))
+            {
+                ShapeItem duplicatedShape = s;
+                duplicatedShape.id = DesignManager::nextShapeID++;
+                duplicatedShape.name += " Copy";
+                duplicatedShape.ownerWindow = s.ownerWindow;
+                windowData.layers[selectedLayerIndex].shapes.push_back(duplicatedShape);
+                selectedShapeIndex = (int)windowData.layers[selectedLayerIndex].shapes.size() - 1;
+                DesignManager::selectedShapes.clear();
+                DesignManager::selectedShapes.push_back(&windowData.layers[selectedLayerIndex].shapes.back());
+                MarkSceneUpdated();
+            }
+            ImGui::SameLine();
+            static char renameBuffer[128];
+            if (ImGui::Button("Rename Shape"))
+            {
+                strncpy(renameBuffer, s.name.c_str(), 128);
+                renameBuffer[127] = '\0';
+                ImGui::OpenPopup("RenameShapePopup");
+            }
+            if (ImGui::BeginPopupModal("RenameShapePopup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::InputText("New Name", renameBuffer, IM_ARRAYSIZE(renameBuffer));
+                if (ImGui::Button("OK"))
+                {
+                    s.name = renameBuffer;
+                    ImGui::CloseCurrentPopup();
+                    MarkSceneUpdated();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel"))
+                    ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
             }
 
-
-            // If exactly one shape is selected, show "single shape" operations:
-            if (DesignManager::selectedShapes.size() == 1 &&
-                selectedLayerIndex >= 0 &&
-                selectedShapeIndex >= 0 &&
-                selectedShapeIndex < (int)windowData.layers[selectedLayerIndex].shapes.size())
+            if (ImGui::Checkbox("Glass Effect", &s.useGlass))
+                MarkSceneUpdated();
+            if (s.useGlass)
             {
-                ImGui::Separator();
-                ShapeItem& s = windowData.layers[selectedLayerIndex].shapes[selectedShapeIndex];
+                ImGui::SliderFloat("Glass Blur", &s.glassBlur, 1.0f, 100.0f);
+                ImGui::SliderFloat("Glass Alpha", &s.glassAlpha, 0.0f, 1.0f);
+                ImGui::ColorEdit4("Glass Tint Color", (float*)&s.glassColor);
+                MarkSceneUpdated();
+            }
 
-                // Delete shape
-                if (ImGui::Button("Delete Shape"))
+            if (ImGui::TreeNode("Move to Layer"))
+            {
+                for (int li = 0; li < (int)windowData.layers.size(); li++)
                 {
-                    windowData.layers[selectedLayerIndex].shapes.erase(
-                        windowData.layers[selectedLayerIndex].shapes.begin() + selectedShapeIndex);
-                    selectedShapeIndex = -1;
-                    DesignManager::selectedShapes.clear();
-                    MarkSceneUpdated();
-                }
-                ImGui::SameLine();
-                // Duplicate shape
-                if (ImGui::Button("Duplicate Shape"))
-                {
-                    ShapeItem duplicatedShape = s;
-                    duplicatedShape.id = DesignManager::nextShapeID++;
-                    duplicatedShape.name += " Copy";
-                    duplicatedShape.ownerWindow = s.ownerWindow;
-                    windowData.layers[selectedLayerIndex].shapes.push_back(duplicatedShape);
-                    selectedShapeIndex = (int)windowData.layers[selectedLayerIndex].shapes.size() - 1;
-                    DesignManager::selectedShapes.clear();
-                    DesignManager::selectedShapes.push_back(
-                        &windowData.layers[selectedLayerIndex].shapes.back());
-                    MarkSceneUpdated();
-                }
-                ImGui::SameLine();
-                // Rename shape
-                static char renameBuffer[128];
-                if (ImGui::Button("Rename Shape"))
-                {
-                    strncpy(renameBuffer, s.name.c_str(), 128);
-                    renameBuffer[127] = '\0';
-                    ImGui::OpenPopup("RenameShapePopup");
-                }
-                if (ImGui::BeginPopupModal("RenameShapePopup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-                {
-                    ImGui::InputText("New Name", renameBuffer, IM_ARRAYSIZE(renameBuffer));
-                    if (ImGui::Button("OK"))
+                    if (li == selectedLayerIndex)
+                        continue;
+                    if (ImGui::Button(windowData.layers[li].name.c_str()))
                     {
-                        s.name = renameBuffer;
-                        ImGui::CloseCurrentPopup();
+                        windowData.layers[li].shapes.push_back(s);
+                        windowData.layers[selectedLayerIndex].shapes.erase(windowData.layers[selectedLayerIndex].shapes.begin() + selectedShapeIndex);
+                        selectedShapeIndex = -1;
+                        DesignManager::selectedShapes.clear();
                         MarkSceneUpdated();
+                        break;
                     }
-                    ImGui::SameLine();
-                    if (ImGui::Button("Cancel"))
-                        ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
                 }
+                ImGui::TreePop();
+            }
 
-                // Glass effect
-                if (ImGui::Checkbox("Glass Effect", &s.useGlass))
-                    MarkSceneUpdated();
-                if (s.useGlass)
-                {
-                    ImGui::SliderFloat("Glass Blur", &s.glassBlur, 1.0f, 100.0f);
-                    ImGui::SliderFloat("Glass Alpha", &s.glassAlpha, 0.0f, 1.0f);
-                    ImGui::ColorEdit4("Glass Tint Color", (float*)&s.glassColor);
-                    MarkSceneUpdated();
-                }
+            ImGui::Separator();
 
-                // Move to another layer
-                if (ImGui::TreeNode("Move to Layer"))
+            if (ImGui::CollapsingHeader("Child Window Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                if (ImGui::Checkbox("Is Child Window", &s.isChildWindow))
                 {
-                    for (int li = 0; li < (int)windowData.layers.size(); li++)
+                    if (!s.isChildWindow)
                     {
-                        if (li == selectedLayerIndex)
-                            continue;
-                        if (ImGui::Button(windowData.layers[li].name.c_str()))
-                        {
-                            windowData.layers[li].shapes.push_back(s);
-                            windowData.layers[selectedLayerIndex].shapes.erase(
-                                windowData.layers[selectedLayerIndex].shapes.begin() + selectedShapeIndex);
-                            selectedShapeIndex = -1;
-                            DesignManager::selectedShapes.clear();
-                            MarkSceneUpdated();
-                            break;
-                        }
+                        s.childWindowSync = false;
+                        s.toggleChildWindow = false;
+                        s.childWindowGroupId = 0;
                     }
-                    ImGui::TreePop();
+                    MarkSceneUpdated();
                 }
 
-                ImGui::Separator();
-
-                if (ImGui::CollapsingHeader("Child Window Settings", ImGuiTreeNodeFlags_DefaultOpen))
+                if (s.isChildWindow)
                 {
-                    if (ImGui::Checkbox("Is Child Window", &s.isChildWindow))
-                    {
-                        if (!s.isChildWindow)
-                        {
-                            s.childWindowSync = false;
-                            s.toggleChildWindow = false;
-                            s.childWindowGroupId = 0;
-                        }
+                    if (ImGui::Checkbox("Sync with Shape", &s.childWindowSync))
                         MarkSceneUpdated();
-                    }
 
-                    if (s.isChildWindow)
+                    if (ImGui::Checkbox("Toggle Child Window On Click", &s.toggleChildWindow))
+                        MarkSceneUpdated();
+
+                    if (ImGui::CollapsingHeader("Assigned Child Windows", ImGuiTreeNodeFlags_DefaultOpen))
                     {
-                        if (ImGui::Checkbox("Sync with Shape", &s.childWindowSync))
-                            MarkSceneUpdated();
-
-                        if (ImGui::Checkbox("Toggle Child Window On Click", &s.toggleChildWindow))
-                            MarkSceneUpdated();
-
-                        if (s.toggleChildWindow)
+                        int index = 0;
+                        for (auto& childKey : s.assignedChildWindows)
                         {
-                            const char* toggle_behaviors[] = { "Window Only", "Shape and Window" };
-                            int current_behavior = static_cast<int>(s.toggleBehavior);
-                            if (ImGui::Combo("Toggle Behavior", &current_behavior, toggle_behaviors, IM_ARRAYSIZE(toggle_behaviors)))
+                            ImGui::Text("Child Window %d: %s", index, childKey.c_str());
+                            ImGui::SameLine();
+                            std::string removeLabel = "Remove##" + std::to_string(index);
+                            if (ImGui::Button(removeLabel.c_str()))
                             {
-                                s.toggleBehavior = static_cast<ChildWindowToggleBehavior>(current_behavior);
+                                s.assignedChildWindows.erase(s.assignedChildWindows.begin() + index);
                                 MarkSceneUpdated();
+                                break;
                             }
+                            index++;
                         }
 
-                        if (ImGui::InputInt("Child Window Group ID", &s.childWindowGroupId))
-                            MarkSceneUpdated();
-
-                        if (s.childWindowSync)
+                        std::vector<std::string> availableChildWindows;
+                        for (auto& [key, windowData] : g_windowsMap)
                         {
-                            std::vector<ShapeItem*> buttonShapes = GetAllButtonShapes();
-                            if (!buttonShapes.empty())
-                            {
-                                std::vector<std::string> buttonNames;
-                                int currentButtonIndex = -1;
-                                for (size_t i = 0; i < buttonShapes.size(); i++)
-                                {
-                                    buttonNames.push_back(buttonShapes[i]->name + " (ID: " + std::to_string(buttonShapes[i]->id) + ")");
-                                    if (buttonShapes[i]->id == s.targetShapeID)
-                                        currentButtonIndex = static_cast<int>(i);
+                            if (windowData.isChildWindow || key.find("ChildWindow_") != std::string::npos)
+                                availableChildWindows.push_back(key);
+                        }
+                        if (!availableChildWindows.empty())
+                        {
+                            static int selectedChildIndex = 0;
+                            if (ImGui::Combo("Add Child Window", &selectedChildIndex, [](void* data, int idx, const char** out_text) -> bool {
+                                auto& vec = *static_cast<std::vector<std::string>*>(data);
+                                if (idx >= 0 && idx < vec.size()) {
+                                    *out_text = vec[idx].c_str();
+                                    return true;
                                 }
-                                buttonNames.insert(buttonNames.begin(), "None");
-                                if (s.targetShapeID == 0)
-                                    currentButtonIndex = 0;
-                                else
-                                    currentButtonIndex++;
-
-                                if (ImGui::Combo("Toggle Button", &currentButtonIndex, [](void* data, int idx, const char** out_text) {
-                                    auto& names = *static_cast<std::vector<std::string>*>(data);
-                                    if (idx >= 0 && idx < static_cast<int>(names.size())) {
-                                        *out_text = names[idx].c_str();
-                                        return true;
-                                    }
-                                    return false;
-                                    }, &buttonNames, static_cast<int>(buttonNames.size())))
+                                return false;
+                                }, static_cast<void*>(&availableChildWindows), availableChildWindows.size()))
+                            {
+                                if (std::find(s.assignedChildWindows.begin(), s.assignedChildWindows.end(), availableChildWindows[selectedChildIndex]) == s.assignedChildWindows.end())
                                 {
-                                    if (currentButtonIndex == 0)
-                                        s.targetShapeID = 0;
-                                    else
-                                        s.targetShapeID = buttonShapes[currentButtonIndex - 1]->id;
+                                    s.assignedChildWindows.push_back(availableChildWindows[selectedChildIndex]);
                                     MarkSceneUpdated();
                                 }
                             }
-                            else
-                            {
-                                ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "No buttons available");
-                            }
                         }
 
-                        if (ImGui::Button("Toggle Child Window"))
+                        if (!s.assignedChildWindows.empty())
                         {
-                            bool newState = !IsWindowOpen(s.name);
-                            if (newState && DesignManager::exclusiveChildWindowMode && s.childWindowGroupId > 0)
-                            {
-                                for (auto& [winName, windowData] : g_windowsMap)
-                                {
-                                    if (windowData.isChildWindow && windowData.groupId == s.childWindowGroupId && winName != s.name)
-                                        windowData.isOpen = false;
+                            if (ImGui::Combo("Active Child Window", &s.selectedChildWindowIndex, [](void* data, int idx, const char** out_text) -> bool {
+                                auto& vec = *static_cast<std::vector<std::string>*>(data);
+                                if (idx >= 0 && idx < vec.size()) {
+                                    *out_text = vec[idx].c_str();
+                                    return true;
                                 }
+                                return false;
+                                }, static_cast<void*>(&s.assignedChildWindows), s.assignedChildWindows.size()))
+                            {
+                                MarkSceneUpdated();
                             }
-                            SetWindowOpen(s.name, newState);
+                        }
+                    }
+
+                    if (s.toggleChildWindow)
+                    {
+                        const char* toggle_behaviors[] = { "Window Only", "Shape and Window" };
+                        int current_behavior = static_cast<int>(s.toggleBehavior);
+                        if (ImGui::Combo("Toggle Behavior", &current_behavior, toggle_behaviors, IM_ARRAYSIZE(toggle_behaviors)))
+                        {
+                            s.toggleBehavior = static_cast<ChildWindowToggleBehavior>(current_behavior);
                             MarkSceneUpdated();
                         }
                     }
 
-                    if (ImGui::Checkbox("Exclusive Child Window Mode", &DesignManager::exclusiveChildWindowMode))
-                        MarkSceneUpdated();
-                }
-
-                ImGui::Separator();
-                if (ImGui::InputInt("Group Id", &s.groupId))
-                    MarkSceneUpdated();
-
-                ImGui::Separator();
-                // Embedded image
-                if (ImGui::Checkbox("Has Embedded Image", &s.hasEmbeddedImage))
-                    MarkSceneUpdated();
-                if (s.hasEmbeddedImage)
-                {
-                    if (ImGui::Combo("Embedded Image", &s.embeddedImageIndex,
-                        g_embeddedImageFunctions, g_embeddedImageFunctionsCount))
+                    int groupId = s.childWindowGroupId;
+                    if (ImGui::InputInt("Child Window Group ID", &groupId))
                     {
-                        MarkSceneUpdated();
-                    }
-                    if (s.embeddedImageIndex >= 0)
-                    {
-                        ImGui::TextWrapped("Embedded Image from function: %s",
-                            g_embeddedImageFunctions[s.embeddedImageIndex]);
-                    }
-                    else
-                    {
-                        ImGui::TextWrapped("No global embedded image selected. (Inline bin2c output...)");
-                    }
-                }
-
-                // Button options
-                if (ImGui::Checkbox("Is Button", &s.isButton))
-                    MarkSceneUpdated();
-
-                ImGui::Checkbox("Allow Item Overlap", &s.allowItemOverlap);
-                ImGui::BeginDisabled(!s.allowItemOverlap);
-                ImGui::Checkbox("Force Overlay (Foreground)", &s.forceOverlap);
-                if (!s.allowItemOverlap && ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Enable 'Allow Item Overlap' to activate Force Overlay");
-                ImGui::EndDisabled();
-                ImGui::Checkbox("Block Underlying Items", &s.blockUnderlying);
-                if (s.isButton)
-                {
-                    if (ImGui::ColorEdit4("Hover Color", (float*)&s.hoverColor))
-                        MarkSceneUpdated();
-                    if (ImGui::ColorEdit4("Click Color", (float*)&s.clickedColor))
-                        MarkSceneUpdated();
-
-                    const char* buttonBehaviors[] = { "SingleClick", "Toggle", "Hold" };
-                    int currentBehavior = static_cast<int>(s.buttonBehavior);
-                    if (ImGui::Combo("Button Behavior", &currentBehavior,
-                        buttonBehaviors, IM_ARRAYSIZE(buttonBehaviors)))
-                    {
-                        s.buttonBehavior = (ShapeItem::ButtonBehavior)currentBehavior;
+                        s.childWindowGroupId = groupId;
                         MarkSceneUpdated();
                     }
 
-                    bool oldUseOnClick = s.useOnClick;
-                    if (ImGui::Checkbox("Use OnClick", &s.useOnClick))
+                    if (s.childWindowSync)
                     {
-                        if (!oldUseOnClick && s.useOnClick)
+                        std::vector<ShapeItem*> buttonShapes = GetAllButtonShapes();
+                        if (!buttonShapes.empty())
                         {
-                            if (!s.storedOnClick)
-                                s.onClick = [&]() { /* Default onClick behavior */ };
+                            std::vector<std::string> buttonNames;
+                            int currentButtonIndex = -1;
+                            for (size_t i = 0; i < buttonShapes.size(); i++)
+                            {
+                                buttonNames.push_back(buttonShapes[i]->name + " (ID: " + std::to_string(buttonShapes[i]->id) + ")");
+                                if (buttonShapes[i]->id == s.targetShapeID)
+                                    currentButtonIndex = static_cast<int>(i);
+                            }
+                            buttonNames.insert(buttonNames.begin(), "None");
+                            if (s.targetShapeID == 0)
+                                currentButtonIndex = 0;
                             else
-                                s.onClick = s.storedOnClick;
+                                currentButtonIndex++;
+
+                            if (ImGui::Combo("Toggle Button", &currentButtonIndex, [](void* data, int idx, const char** out_text) -> bool {
+                                auto& names = *static_cast<std::vector<std::string>*>(data);
+                                if (idx >= 0 && idx < static_cast<int>(names.size()))
+                                {
+                                    *out_text = names[idx].c_str();
+                                    return true;
+                                }
+                                return false;
+                                }, &buttonNames, static_cast<int>(buttonNames.size())))
+                            {
+                                if (currentButtonIndex == 0)
+                                    s.targetShapeID = 0;
+                                else
+                                    s.targetShapeID = buttonShapes[currentButtonIndex - 1]->id;
+                                MarkSceneUpdated();
+                            }
                         }
-                        else if (oldUseOnClick && !s.useOnClick)
+                        else
                         {
-                            s.storedOnClick = s.onClick;
-                            s.onClick = nullptr;
+                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "No buttons available");
                         }
-                        MarkSceneUpdated();
                     }
-                    if (ImGui::Button("Generate Code For This Button"))
+
+                    if (ImGui::Button("Toggle Child Window"))
                     {
-                        DesignManager::generatedCodeForButton = GenerateCodeForSingleButton(s);
-                    }
-                    if (!DesignManager::generatedCodeForButton.empty())
-                    {
-                        ImGui::Separator();
-                        ImGui::TextUnformatted("Auto-Generated Button Code (.h + .cpp):");
-                        ImGui::BeginChild("ButtonCodeChild", ImVec2(-FLT_MIN, 120.0f),
-                            true, ImGuiWindowFlags_HorizontalScrollbar);
-                        ImGui::TextUnformatted(DesignManager::generatedCodeForButton.c_str());
-                        ImGui::EndChild();
-                        if (ImGui::Button("Copy Button Code"))
+                        std::string targetWindowKey;
+                        if (!s.assignedChildWindows.empty())
                         {
-                            ImGui::SetClipboardText(DesignManager::generatedCodeForButton.c_str());
+                            int idx = s.selectedChildWindowIndex;
+                            if (idx < 0 || idx >= static_cast<int>(s.assignedChildWindows.size()))
+                                idx = 0;
+                            targetWindowKey = s.assignedChildWindows[idx];
                         }
-                    }
-                }
-                // --- Base Transform ---
-                if (ImGui::CollapsingHeader("Original (Base) Transform", ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    if (ImGui::DragFloat2("Base Position", (float*)&s.basePosition, 1.0f))
-                        MarkSceneUpdated();
-                    if (ImGui::DragFloat2("Base Size", (float*)&s.baseSize, 1.0f))
-                        MarkSceneUpdated();
-
-                    float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
-                    if (ImGui::DragFloat("Base Rotation (deg)", &baseRotDeg, 1.0f, 0.0f, 360.0f))
-                    {
-                        s.baseRotation = baseRotDeg * (IM_PI / 180.0f);
-                        MarkSceneUpdated();
-                    }
-                }
-                // Text
-                if (ImGui::Checkbox("Has Text", &s.hasText))
-                    MarkSceneUpdated();
-                if (s.hasText)
-                {
-                    static char textBuffer[1024];
-                    strncpy(textBuffer, s.text.c_str(), sizeof(textBuffer) - 1);
-                    textBuffer[sizeof(textBuffer) - 1] = '\0';
-                    if (ImGui::InputTextMultiline("Text", textBuffer, sizeof(textBuffer),
-                        ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3)))
-                    {
-                        s.text = textBuffer;
-                        MarkSceneUpdated();
-                    }
-                    if (ImGui::ColorEdit4("Text Color", (float*)&s.textColor))
-                        MarkSceneUpdated();
-                    if (ImGui::DragFloat("Text Size", &s.textSize, 0.1f, 6.0f, 64.0f))
-                        MarkSceneUpdated();
-                    if (ImGui::DragFloat2("Text Position", (float*)&s.textPosition, 1.0f))
-                        MarkSceneUpdated();
-                    if (ImGui::DragFloat("Text Rotation (deg)", &s.textRotation,
-                        1.0f, 0.0f, 360.0f))
-                    {
-                        MarkSceneUpdated();
-                    }
-                    static const char* items[] = {
-                        "Default", "SmallFont", "LargeFont", "SmallFont2",
-                        "TinyFont", "PaneuropaFont", "PaneuropaFont_tiny"
-                    };
-                    int font_idx = s.textFont;
-                    if (ImGui::Combo("Font", &font_idx, items, IM_ARRAYSIZE(items)))
-                    {
-                        s.textFont = font_idx;
-                        MarkSceneUpdated();
-                    }
-                    // New additions
-                    if (ImGui::Checkbox("Dynamic Text Size", &s.dynamicTextSize))
-                        MarkSceneUpdated();
-
-                    const char* alignItems[] = { "Left", "Center", "Right" };
-                    int textAlign = s.textAlignment;
-                    if (ImGui::Combo("Text Alignment", &textAlign, alignItems, IM_ARRAYSIZE(alignItems)))
-                    {
-                        s.textAlignment = textAlign;
-                        MarkSceneUpdated();
-                    }
-                }
-
-                if (ImGui::DragFloat("Corner Radius", &s.cornerRadius, 0.5f, 0.0f, 200.0f))
-                    MarkSceneUpdated();
-                if (ImGui::DragFloat("Border Thickness", &s.borderThickness, 0.1f, 0.0f, 20.0f))
-                    MarkSceneUpdated();
-                if (ImGui::ColorEdit4("Fill Color", (float*)&s.fillColor))
-                    MarkSceneUpdated();
-                if (ImGui::ColorEdit4("Border Color", (float*)&s.borderColor))
-                    MarkSceneUpdated();
-                if (ImGui::ColorEdit4("Shadow Color", (float*)&s.shadowColor))
-                    MarkSceneUpdated();
-                if (ImGui::DragFloat4("Shadow Spread", (float*)&s.shadowSpread, 0.1f, 0.0f, 100.0f))
-                    MarkSceneUpdated();
-
-                float so[2] = { s.shadowOffset.x, s.shadowOffset.y };
-                if (ImGui::DragFloat2("Shadow Offset", so, 0.5f, -100, 100))
-                {
-                    s.shadowOffset.x = so[0];
-                    s.shadowOffset.y = so[1];
-                    MarkSceneUpdated();
-                }
-                if (ImGui::Checkbox("Shadow Use Corner Radius", &s.shadowUseCornerRadius))
-                    MarkSceneUpdated();
-
-                int st = (int)s.type;
-                if (ImGui::Combo("Type", &st, "Rectangle\0Circle\0"))
-                {
-                    s.type = (ShapeType)st;
-                    MarkSceneUpdated();
-                }
-
-                float shadow_rd = s.shadowRotation * (180.0f / 3.1415926535f);
-                if (ImGui::DragFloat("Shadow Rotation (deg)", &shadow_rd, 1.0f, 0.0f, 360.0f))
-                {
-                    s.shadowRotation = shadow_rd * (3.1415926535f / 180.0f);
-                    MarkSceneUpdated();
-                }
-                if (ImGui::DragFloat("Blur Amount", &s.blurAmount, 0.1f, 0.0f, 20.0f))
-                    MarkSceneUpdated();
-                if (ImGui::Checkbox("Visible", &s.visible))
-                    MarkSceneUpdated();
-                ImGui::Checkbox("Locked", &s.locked);
-                if (ImGui::DragInt("Shape Z-Order", &s.zOrder, 0.1f))
-                    MarkSceneUpdated();
-
-                if (ImGui::Checkbox("Use Gradient", &s.useGradient))
-                    MarkSceneUpdated();
-                if (s.useGradient)
-                {
-                    float gradr = s.gradientRotation;
-                    if (ImGui::DragFloat("Gradient Rotation (deg)", &gradr, 1.0f, 0.0f, 360.0f))
-                    {
-                        s.gradientRotation = gradr;
-                        MarkSceneUpdated();
-                    }
-                    int interpolation_type = (int)s.gradientInterpolation;
-                    const char* interpItems[] = { "Linear", "Ease", "Constant", "Cardinal", "BSpline" };
-                    if (ImGui::Combo("Interpolation", &interpolation_type, interpItems,
-                        IM_ARRAYSIZE(interpItems)))
-                    {
-                        s.gradientInterpolation = (ShapeItem::GradientInterpolation)interpolation_type;
-                        MarkSceneUpdated();
-                    }
-                    ImGui::Text("Color Ramp");
-                    for (int ci = 0; ci < (int)s.colorRamp.size(); ci++)
-                    {
-                        ImGui::PushID(ci + 3000);
-                        if (ImGui::SliderFloat(("Pos##" + std::to_string(ci)).c_str(),
-                            &s.colorRamp[ci].first,
-                            0.0f, 1.0f, "%.3f"))
+                        else
                         {
-                            MarkSceneUpdated();
+                            std::vector<std::string> globalChildWindows;
+                            for (auto& [key, windowData] : g_windowsMap)
+                            {
+                                if (windowData.isChildWindow || key.find("ChildWindow_") != std::string::npos)
+                                    globalChildWindows.push_back(key);
+                            }
+                            if (!globalChildWindows.empty())
+                            {
+                                targetWindowKey = globalChildWindows[0];
+                                s.assignedChildWindows.push_back(targetWindowKey);
+                                s.selectedChildWindowIndex = 0;
+                                MarkSceneUpdated();
+                            }
                         }
-                        if (ImGui::ColorEdit4(("Color##" + std::to_string(ci)).c_str(),
-                            (float*)&s.colorRamp[ci].second))
+                        bool newState = !IsWindowOpen(targetWindowKey);
+                        if (newState && DesignManager::exclusiveChildWindowMode && s.childWindowGroupId > 0)
                         {
-                            MarkSceneUpdated();
+                            for (const auto& otherKey : s.assignedChildWindows)
+                            {
+                                if (otherKey != targetWindowKey)
+                                    SetWindowOpen(otherKey, false);
+                            }
                         }
-                        ImGui::SameLine();
-                        if (ImGui::Button(("Delete##" + std::to_string(ci)).c_str()) &&
-                            s.colorRamp.size() > 1)
-                        {
-                            s.colorRamp.erase(s.colorRamp.begin() + ci);
-                            ci--;
-                            MarkSceneUpdated();
-                        }
-                        ImGui::PopID();
-                    }
-                    if (ImGui::Button("Add Color"))
-                    {
-                        s.colorRamp.emplace_back(0.5f, ImVec4(1, 1, 1, 1));
+                        SetWindowOpen(targetWindowKey, newState);
                         MarkSceneUpdated();
                     }
+                }
+
+                if (ImGui::Checkbox("Exclusive Child Window Mode", &DesignManager::exclusiveChildWindowMode))
+                    MarkSceneUpdated();
+            }
+
+            ImGui::Separator();
+            if (ImGui::InputInt("Group Id", &s.groupId))
+                MarkSceneUpdated();
+
+            ImGui::Separator();
+            if (ImGui::Checkbox("Has Embedded Image", &s.hasEmbeddedImage))
+                MarkSceneUpdated();
+            if (s.hasEmbeddedImage)
+            {
+                if (ImGui::Combo("Embedded Image", &s.embeddedImageIndex, g_embeddedImageFunctions, g_embeddedImageFunctionsCount))
+                {
+                    MarkSceneUpdated();
+                }
+                if (s.embeddedImageIndex >= 0)
+                {
+                    ImGui::TextWrapped("Embedded Image from function: %s", g_embeddedImageFunctions[s.embeddedImageIndex]);
+                }
+                else
+                {
+                    ImGui::TextWrapped("No global embedded image selected. (Inline bin2c output...)");
                 }
             }
 
-            else if (DesignManager::selectedShapes.size() > 1)
+            if (ImGui::Checkbox("Is Button", &s.isButton))
+                MarkSceneUpdated();
+
+            ImGui::Checkbox("Allow Item Overlap", &s.allowItemOverlap);
+            ImGui::BeginDisabled(!s.allowItemOverlap);
+            ImGui::Checkbox("Force Overlay (Foreground)", &s.forceOverlap);
+            if (!s.allowItemOverlap && ImGui::IsItemHovered())
+                ImGui::SetTooltip("Enable 'Allow Item Overlap' to activate Force Overlay");
+            ImGui::EndDisabled();
+            ImGui::Checkbox("Block Underlying Items", &s.blockUnderlying);
+            if (s.isButton)
             {
-                // Multi-select transforms, offsets, etc. 
-                // (Showing a simplified multi-edit block)
-                ImGui::Separator();
-                ImGui::Text("Multiple shapes selected.");
+                if (ImGui::ColorEdit4("Hover Color", (float*)&s.hoverColor))
+                    MarkSceneUpdated();
+                if (ImGui::ColorEdit4("Click Color", (float*)&s.clickedColor))
+                    MarkSceneUpdated();
 
-                static bool rotOffsetMode = false;
-                static bool colOffsetMode = false;
+                const char* buttonBehaviors[] = { "SingleClick", "Toggle", "Hold" };
+                int currentBehavior = static_cast<int>(s.buttonBehavior);
+                if (ImGui::Combo("Button Behavior", &currentBehavior, buttonBehaviors, IM_ARRAYSIZE(buttonBehaviors)))
+                {
+                    s.buttonBehavior = (ShapeItem::ButtonBehavior)currentBehavior;
+                    MarkSceneUpdated();
+                }
 
-                // Position offset
-                static float deltaPos[2] = { 0.0f, 0.0f };
-                if (ImGui::DragFloat2("Delta Position", deltaPos, 1.0f))
+                bool oldUseOnClick = s.useOnClick;
+                if (ImGui::Checkbox("Use OnClick", &s.useOnClick))
+                {
+                    if (!oldUseOnClick && s.useOnClick)
+                    {
+                        if (!s.storedOnClick)
+                            s.onClick = [&]() { /* Default onClick behavior */ };
+                        else
+                            s.onClick = s.storedOnClick;
+                    }
+                    else if (oldUseOnClick && !s.useOnClick)
+                    {
+                        s.storedOnClick = s.onClick;
+                        s.onClick = nullptr;
+                    }
+                    MarkSceneUpdated();
+                }
+                if (ImGui::Button("Generate Code For This Button"))
+                {
+                    DesignManager::generatedCodeForButton = GenerateCodeForSingleButton(s);
+                }
+                if (!DesignManager::generatedCodeForButton.empty())
+                {
+                    ImGui::Separator();
+                    ImGui::TextUnformatted("Auto-Generated Button Code (.h + .cpp):");
+                    ImGui::BeginChild("ButtonCodeChild", ImVec2(-FLT_MIN, 120.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+                    ImGui::TextUnformatted(DesignManager::generatedCodeForButton.c_str());
+                    ImGui::EndChild();
+                    if (ImGui::Button("Copy Button Code"))
+                    {
+                        ImGui::SetClipboardText(DesignManager::generatedCodeForButton.c_str());
+                    }
+                }
+            }
+            if (ImGui::CollapsingHeader("Original (Base) Transform", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                if (ImGui::DragFloat2("Base Position", (float*)&s.basePosition, 1.0f))
+                    MarkSceneUpdated();
+                if (ImGui::DragFloat2("Base Size", (float*)&s.baseSize, 1.0f))
+                    MarkSceneUpdated();
+
+                float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
+                if (ImGui::DragFloat("Base Rotation (deg)", &baseRotDeg, 1.0f, 0.0f, 360.0f))
+                {
+                    s.baseRotation = baseRotDeg * (IM_PI / 180.0f);
+                    MarkSceneUpdated();
+                }
+            }
+            if (ImGui::Checkbox("Has Text", &s.hasText))
+                MarkSceneUpdated();
+            if (s.hasText)
+            {
+                static char textBuffer[1024];
+                strncpy(textBuffer, s.text.c_str(), sizeof(textBuffer) - 1);
+                textBuffer[sizeof(textBuffer) - 1] = '\0';
+                if (ImGui::InputTextMultiline("Text", textBuffer, sizeof(textBuffer), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3)))
+                {
+                    s.text = textBuffer;
+                    MarkSceneUpdated();
+                }
+                if (ImGui::ColorEdit4("Text Color", (float*)&s.textColor))
+                    MarkSceneUpdated();
+                if (ImGui::DragFloat("Text Size", &s.textSize, 0.1f, 6.0f, 64.0f))
+                    MarkSceneUpdated();
+                if (ImGui::DragFloat2("Text Position", (float*)&s.textPosition, 1.0f))
+                    MarkSceneUpdated();
+                if (ImGui::DragFloat("Text Rotation (deg)", &s.textRotation, 1.0f, 0.0f, 360.0f))
+                {
+                    MarkSceneUpdated();
+                }
+                static const char* items[] = { "Default", "SmallFont", "LargeFont", "SmallFont2", "TinyFont", "PaneuropaFont", "PaneuropaFont_tiny" };
+                int font_idx = s.textFont;
+                if (ImGui::Combo("Font", &font_idx, items, IM_ARRAYSIZE(items)))
+                {
+                    s.textFont = font_idx;
+                    MarkSceneUpdated();
+                }
+                if (ImGui::Checkbox("Dynamic Text Size", &s.dynamicTextSize))
+                    MarkSceneUpdated();
+
+                const char* alignItems[] = { "Left", "Center", "Right" };
+                int textAlign = s.textAlignment;
+                if (ImGui::Combo("Text Alignment", &textAlign, alignItems, IM_ARRAYSIZE(alignItems)))
+                {
+                    s.textAlignment = textAlign;
+                    MarkSceneUpdated();
+                }
+            }
+
+            if (ImGui::DragFloat("Corner Radius", &s.cornerRadius, 0.5f, 0.0f, 200.0f))
+                MarkSceneUpdated();
+            if (ImGui::DragFloat("Border Thickness", &s.borderThickness, 0.1f, 0.0f, 20.0f))
+                MarkSceneUpdated();
+            if (ImGui::ColorEdit4("Fill Color", (float*)&s.fillColor))
+                MarkSceneUpdated();
+            if (ImGui::ColorEdit4("Border Color", (float*)&s.borderColor))
+                MarkSceneUpdated();
+            if (ImGui::ColorEdit4("Shadow Color", (float*)&s.shadowColor))
+                MarkSceneUpdated();
+            if (ImGui::DragFloat4("Shadow Spread", (float*)&s.shadowSpread, 0.1f, 0.0f, 100.0f))
+                MarkSceneUpdated();
+
+            float so[2] = { s.shadowOffset.x, s.shadowOffset.y };
+            if (ImGui::DragFloat2("Shadow Offset", so, 0.5f, -100, 100))
+            {
+                s.shadowOffset.x = so[0];
+                s.shadowOffset.y = so[1];
+                MarkSceneUpdated();
+            }
+            if (ImGui::Checkbox("Shadow Use Corner Radius", &s.shadowUseCornerRadius))
+                MarkSceneUpdated();
+
+            int st = (int)s.type;
+            if (ImGui::Combo("Type", &st, "Rectangle\0Circle\0"))
+            {
+                s.type = (ShapeType)st;
+                MarkSceneUpdated();
+            }
+
+            float shadow_rd = s.shadowRotation * (180.0f / 3.1415926535f);
+            if (ImGui::DragFloat("Shadow Rotation (deg)", &shadow_rd, 1.0f, 0.0f, 360.0f))
+            {
+                s.shadowRotation = shadow_rd * (3.1415926535f / 180.0f);
+                MarkSceneUpdated();
+            }
+            if (ImGui::DragFloat("Blur Amount", &s.blurAmount, 0.1f, 0.0f, 20.0f))
+                MarkSceneUpdated();
+            if (ImGui::Checkbox("Visible", &s.visible))
+                MarkSceneUpdated();
+            ImGui::Checkbox("Locked", &s.locked);
+            if (ImGui::DragInt("Shape Z-Order", &s.zOrder, 0.1f))
+                MarkSceneUpdated();
+
+            if (ImGui::Checkbox("Use Gradient", &s.useGradient))
+                MarkSceneUpdated();
+            if (s.useGradient)
+            {
+                float gradr = s.gradientRotation;
+                if (ImGui::DragFloat("Gradient Rotation (deg)", &gradr, 1.0f, 0.0f, 360.0f))
+                {
+                    s.gradientRotation = gradr;
+                    MarkSceneUpdated();
+                }
+                int interpolation_type = (int)s.gradientInterpolation;
+                const char* interpItems[] = { "Linear", "Ease", "Constant", "Cardinal", "BSpline" };
+                if (ImGui::Combo("Interpolation", &interpolation_type, interpItems, IM_ARRAYSIZE(interpItems)))
+                {
+                    s.gradientInterpolation = (ShapeItem::GradientInterpolation)interpolation_type;
+                    MarkSceneUpdated();
+                }
+                ImGui::Text("Color Ramp");
+                for (int ci = 0; ci < (int)s.colorRamp.size(); ci++)
+                {
+                    ImGui::PushID(ci + 3000);
+                    if (ImGui::SliderFloat(("Pos##" + std::to_string(ci)).c_str(), &s.colorRamp[ci].first, 0.0f, 1.0f, "%.3f"))
+                    {
+                        MarkSceneUpdated();
+                    }
+                    if (ImGui::ColorEdit4(("Color##" + std::to_string(ci)).c_str(), (float*)&s.colorRamp[ci].second))
+                    {
+                        MarkSceneUpdated();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button(("Delete##" + std::to_string(ci)).c_str()) && s.colorRamp.size() > 1)
+                    {
+                        s.colorRamp.erase(s.colorRamp.begin() + ci);
+                        ci--;
+                        MarkSceneUpdated();
+                    }
+                    ImGui::PopID();
+                }
+                if (ImGui::Button("Add Color"))
+                {
+                    s.colorRamp.emplace_back(0.5f, ImVec4(1, 1, 1, 1));
+                    MarkSceneUpdated();
+                }
+            }
+
+            ShowUI_EventHandlers(s);
+        }
+    }
+
+    inline void ShowUI_LayerShapeManager_MultiShapeEdit()
+    {
+        if (DesignManager::selectedShapes.size() > 1)
+        {
+            ImGui::Separator();
+            ImGui::Text("Multiple shapes selected.");
+
+            static bool rotOffsetMode = false;
+            static bool colOffsetMode = false;
+
+            static float deltaPos[2] = { 0.0f, 0.0f };
+            if (ImGui::DragFloat2("Delta Position", deltaPos, 1.0f))
+            {
+                for (ShapeItem* shape : DesignManager::selectedShapes)
+                {
+                    shape->basePosition.x += deltaPos[0];
+                    shape->basePosition.y += deltaPos[1];
+                }
+                deltaPos[0] = deltaPos[1] = 0.0f;
+                MarkSceneUpdated();
+            }
+
+            ImGui::Checkbox("Offset Mode (Rotation)", &rotOffsetMode);
+            if (!rotOffsetMode)
+            {
+                ShapeItem* first = DesignManager::selectedShapes.front();
+                float rot = first->baseRotation * (180.0f / IM_PI);
+                if (ImGui::DragFloat("Rotation", &rot, 1.0f, 0.0f, 360.0f))
                 {
                     for (ShapeItem* shape : DesignManager::selectedShapes)
                     {
-                        shape->basePosition.x += deltaPos[0];
-                        shape->basePosition.y += deltaPos[1];
+                        shape->baseRotation = rot * (IM_PI / 180.0f);
                     }
-                    deltaPos[0] = deltaPos[1] = 0.0f;
                     MarkSceneUpdated();
                 }
-
-                // Rotation offset
-                ImGui::Checkbox("Offset Mode (Rotation)", &rotOffsetMode);
-                if (!rotOffsetMode)
-                {
-                    // If not offset mode, we set them all to the same
-                    ShapeItem* first = DesignManager::selectedShapes.front();
-                    float rot = first->baseRotation * (180.0f / IM_PI);
-                    if (ImGui::DragFloat("Rotation", &rot, 1.0f, 0.0f, 360.0f))
-                    {
-                        for (ShapeItem* shape : DesignManager::selectedShapes)
-                        {
-                            shape->baseRotation = rot * (IM_PI / 180.0f);
-                        }
-                        MarkSceneUpdated();
-                    }
-                }
-                else
-                {
-                    // If offset mode, we apply a delta
-                    static float deltaRot = 0.0f;
-                    if (ImGui::DragFloat("Delta Rotation", &deltaRot, 1.0f, -360.0f, 360.0f))
-                    {
-                        for (ShapeItem* shape : DesignManager::selectedShapes)
-                        {
-                            shape->baseRotation += (deltaRot * (IM_PI / 180.0f));
-                        }
-                        deltaRot = 0.0f;
-                        MarkSceneUpdated();
-                    }
-                }
-
-                // Fill color
-                ImGui::Checkbox("Offset Mode (Fill Color)", &colOffsetMode);
-                if (!colOffsetMode)
-                {
-                    // All shapes become same color as first selected
-                    ShapeItem* first = DesignManager::selectedShapes.front();
-                    float col[4] = { first->fillColor.x, first->fillColor.y, first->fillColor.z, first->fillColor.w };
-                    if (ImGui::ColorEdit4("Fill Color", col))
-                    {
-                        for (ShapeItem* shape : DesignManager::selectedShapes)
-                        {
-                            shape->fillColor = ImVec4(col[0], col[1], col[2], col[3]);
-                        }
-                        MarkSceneUpdated();
-                    }
-                }
-                else
-                {
-                    // Offset color
-                    float deltaCol[4] = { 0, 0, 0, 0 };
-                    if (ImGui::DragFloat4("Delta Fill Color", deltaCol, 0.01f))
-                    {
-                        for (ShapeItem* shape : DesignManager::selectedShapes)
-                        {
-                            shape->fillColor.x += deltaCol[0];
-                            shape->fillColor.y += deltaCol[1];
-                            shape->fillColor.z += deltaCol[2];
-                            shape->fillColor.w += deltaCol[3];
-                        }
-                        MarkSceneUpdated();
-                    }
-                }
             }
-
-            // --- Code generation buttons ---
-            if (ImGui::Button("Generate Code for Selected Shape"))
+            else
             {
-                if (DesignManager::selectedShapes.size() == 1 &&
-                    selectedLayerIndex >= 0 &&
-                    selectedShapeIndex >= 0 &&
-                    selectedShapeIndex < (int)windowData.layers[selectedLayerIndex].shapes.size())
+                static float deltaRot = 0.0f;
+                if (ImGui::DragFloat("Delta Rotation", &deltaRot, 1.0f, -360.0f, 360.0f))
                 {
-                    ShapeItem& shape = windowData.layers[selectedLayerIndex].shapes[selectedShapeIndex];
-                    generatedCodeForSingleShape = GenerateSingleShapeCode(shape);
+                    for (ShapeItem* shape : DesignManager::selectedShapes)
+                    {
+                        shape->baseRotation += (deltaRot * (IM_PI / 180.0f));
+                    }
+                    deltaRot = 0.0f;
+                    MarkSceneUpdated();
                 }
             }
-            if (!generatedCodeForSingleShape.empty())
-            {
-                ImGui::Separator();
-                ImGui::TextUnformatted("Single Shape Code:");
-                ImGui::BeginChild("SingleShapeCode", ImVec2(-FLT_MIN, 100.0f), true,
-                    ImGuiWindowFlags_HorizontalScrollbar);
-                ImGui::TextUnformatted(generatedCodeForSingleShape.c_str());
-                ImGui::EndChild();
-                if (ImGui::Button("Copy Single Shape Code"))
-                    ImGui::SetClipboardText(generatedCodeForSingleShape.c_str());
-            }
 
-            if (ImGui::Button(("Generate Code for " + DesignManager::selectedGuiWindow).c_str()))
-                generatedCodeForWindow = GenerateCodeForWindow(DesignManager::selectedGuiWindow);
-            ImGui::SameLine();
-            if (ImGui::Button("Copy Code"))
+            ImGui::Checkbox("Offset Mode (Fill Color)", &colOffsetMode);
+            if (!colOffsetMode)
             {
-                if (!generatedCodeForWindow.empty())
-                    CopyToClipboard(generatedCodeForWindow);
+                ShapeItem* first = DesignManager::selectedShapes.front();
+                float col[4] = { first->fillColor.x, first->fillColor.y, first->fillColor.z, first->fillColor.w };
+                if (ImGui::ColorEdit4("Fill Color", col))
+                {
+                    for (ShapeItem* shape : DesignManager::selectedShapes)
+                    {
+                        shape->fillColor = ImVec4(col[0], col[1], col[2], col[3]);
+                    }
+                    MarkSceneUpdated();
+                }
             }
-            ImGui::BeginChild("GeneratedCodeWindow", ImVec2(-FLT_MIN, 200.0f), true,
-                ImGuiWindowFlags_HorizontalScrollbar);
-            ImGui::TextUnformatted(generatedCodeForWindow.c_str());
+            else
+            {
+                float deltaCol[4] = { 0, 0, 0, 0 };
+                if (ImGui::DragFloat4("Delta Fill Color", deltaCol, 0.01f))
+                {
+                    for (ShapeItem* shape : DesignManager::selectedShapes)
+                    {
+                        shape->fillColor.x += deltaCol[0];
+                        shape->fillColor.y += deltaCol[1];
+                        shape->fillColor.z += deltaCol[2];
+                        shape->fillColor.w += deltaCol[3];
+                    }
+                    MarkSceneUpdated();
+                }
+            }
+        }
+    }
+
+    inline void ShowUI_LayerShapeManager_CodeGeneration(WindowData& windowData, int selectedLayerIndex, int selectedShapeIndex)
+    {
+        ImGui::Separator();
+        if (ImGui::Button("Generate Code for Selected Shape"))
+        {
+            if (DesignManager::selectedShapes.size() == 1 && selectedLayerIndex >= 0 && selectedShapeIndex >= 0 && selectedShapeIndex < (int)windowData.layers[selectedLayerIndex].shapes.size())
+            {
+                ShapeItem& shape = windowData.layers[selectedLayerIndex].shapes[selectedShapeIndex];
+                generatedCodeForSingleShape = GenerateSingleShapeCode(shape);
+            }
+        }
+        if (!generatedCodeForSingleShape.empty())
+        {
+            ImGui::Separator();
+            ImGui::TextUnformatted("Single Shape Code:");
+            ImGui::BeginChild("SingleShapeCode", ImVec2(-FLT_MIN, 100.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+            ImGui::TextUnformatted(generatedCodeForSingleShape.c_str());
             ImGui::EndChild();
+            if (ImGui::Button("Copy Single Shape Code"))
+                ImGui::SetClipboardText(generatedCodeForSingleShape.c_str());
+        }
 
-            // Render your extra windows and all registered windows
+        if (ImGui::Button(("Generate Code for " + DesignManager::selectedGuiWindow).c_str()))
+            generatedCodeForWindow = GenerateCodeForWindow(DesignManager::selectedGuiWindow);
+        ImGui::SameLine();
+        if (ImGui::Button("Copy Code"))
+        {
+            if (!generatedCodeForWindow.empty())
+                CopyToClipboard(generatedCodeForWindow);
+        }
+        ImGui::BeginChild("GeneratedCodeWindow", ImVec2(-FLT_MIN, 200.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::TextUnformatted(generatedCodeForWindow.c_str());
+        ImGui::EndChild();
+    }
+
+
+    inline void ShowUI(GLFWwindow* window)
+    {
+        auto& windowData = g_windowsMap[DesignManager::selectedGuiWindow];
+
+        if (selectedLayerIndex >= windowData.layers.size())
+            selectedLayerIndex = windowData.layers.empty() ? -1 : 0;
+        if (selectedLayerIndex != -1 && selectedShapeIndex >= windowData.layers[selectedLayerIndex].shapes.size())
+        {
+            selectedShapeIndex = windowData.layers[selectedLayerIndex].shapes.empty() ? -1 : 0;
+        }
+
+        ImGui::Begin("Shape Key & Layer Manager");
+        {
+            ShowUI_WindowSelectionAndGroupSettings(windowData);
+        }
+        ImGui::Separator();
+
+        if (!g_windowsMap.empty() && g_windowsMap.find(DesignManager::selectedGuiWindow) != g_windowsMap.end())
+        {
+            ShowUI_LayerManagement(windowData, selectedLayerIndex, selectedShapeIndex);
+        }
+
+        ImGui::Separator();
+        ShowUI_ShapeDetails(windowData, selectedLayerIndex, selectedShapeIndex);
+
+        ImGui::End();
+
+        ShowUI_ParentTreeWindow();
+
+        ImGui::Begin("Layer & Shape Manager");
+        {
+            ShowUI_LayerShapeManager_ChildWindowMappings();
+            ShowUI_LayerShapeManager_LayerList(windowData, selectedLayerIndex, selectedShapeIndex);
+            ShowUI_LayerShapeManager_ShapeProperties(windowData, selectedLayerIndex, selectedShapeIndex);
+            ShowUI_LayerShapeManager_MultiShapeEdit();
+            ShowUI_LayerShapeManager_CodeGeneration(windowData, selectedLayerIndex, selectedShapeIndex);
+
             DesignManager::RenderTemporaryWindows();
             RenderAllRegisteredWindows();
         }
-        ImGui::End(); // End "Layer & Shape Manager"
+        ImGui::End();
     }
-
 
     inline std::string SaveConfiguration() {
         return GenerateCodeForWindow(DesignManager::selectedGuiWindow);
@@ -4878,6 +4732,12 @@ namespace DesignManager
         // Helper: Return a ShapeKeyBuilder
         static ShapeKeyBuilder createShapeKey() {
             return ShapeKeyBuilder();
+        }
+
+        // Add event handler
+        ShapeBuilder& addEventHandler(const std::string& eventType, const std::string& name, const std::function<void(ShapeItem&)>& handler) {
+            shape.eventHandlers.push_back({eventType, name, handler});
+            return *this;
         }
 
         // Returns the ShapeItem when all settings are complete.
