@@ -92,6 +92,8 @@ int main()
 
 ## Project Structure
 ```
+Whatever you like actually but here is mine.
+
 your_project/
 ├── external/
 │   └── imgui/                # Dear ImGui source files
@@ -107,7 +109,7 @@ your_project/
   - Full HTML parser (Gumbo integration)
   - CSS property mapping
   - Responsive design handling
-  - Live UI updates
+  - Live UI updates for parser
 
 ## Contributing
 - Open issues for bugs and suggestions.
