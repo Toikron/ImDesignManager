@@ -2493,7 +2493,7 @@ namespace DesignManager
         ImGui::SetClipboardText(text.c_str());
     }
 
-    // -------------------------
+        // -------------------------
     // Helper: Function to generate ButtonAnimation code (Updated)
     // -------------------------
 
@@ -2826,7 +2826,35 @@ namespace DesignManager
 
         return code;
     }
-
+    // -------------------------
+// New: Function to generate global Child Window Mappings code
+// -------------------------
+    inline std::string GenerateChildWindowMappingsCode() {
+        std::string code;
+        code += "// Global Child Window Mappings\n";
+        code += "g_combinedChildWindowMappings.clear();\n";
+        for (const auto& mapping : g_combinedChildWindowMappings) {
+            code += "g_combinedChildWindowMappings.push_back(CombinedMapping{\n";
+            code += "    " + std::to_string(mapping.shapeId) + ",\n";
+            code += "    \"" + mapping.logicOp + "\",\n";
+            code += "    {";
+            for (size_t i = 0; i < mapping.buttonIds.size(); i++) {
+                code += std::to_string(mapping.buttonIds[i]);
+                if (i < mapping.buttonIds.size() - 1)
+                    code += ", ";
+            }
+            code += "},\n";
+            code += "    {";
+            for (size_t i = 0; i < mapping.childWindowKeys.size(); i++) {
+                code += "\"" + mapping.childWindowKeys[i] + "\"";
+                if (i < mapping.childWindowKeys.size() - 1)
+                    code += ", ";
+            }
+            code += "}\n";
+            code += "});\n";
+        }
+        return code;
+    }
     // -------------------------
 // Updated version of the GenerateCodeForWindow function (using GenerateSingleShapeCode calls)
 // -------------------------
@@ -2868,6 +2896,9 @@ namespace DesignManager
             }
             code += "g_windowsMap[\"" + windowName + "\"].layers.push_back(" + layerVar + ");\n\n";
         }
+        // Append the generated code for global child window mappings.
+        code += GenerateChildWindowMappingsCode();
+        centralHeader << code;
         centralHeader.close();
         return code;
     }
