@@ -485,8 +485,8 @@ namespace DesignManager
         bool isChildWindow = false;
         std::function<void()> renderFunc;
         std::vector<Layer> layers;
-        int associatedShapeId = -1; 
-        int groupId = -1;           
+        int associatedShapeId = -1;
+        int groupId = -1;
     };
 
     inline std::map<std::string, WindowData> g_windowsMap;
@@ -507,7 +507,7 @@ namespace DesignManager
             for (auto& layer : winData.layers) {
                 for (auto& shape : layer.shapes) {
                     if (shape.isButton)
-                        buttonShapes.push_back(&shape);  // &shape, &shape.id değil!
+                        buttonShapes.push_back(&shape);
                 }
             }
         }
@@ -524,33 +524,23 @@ namespace DesignManager
         ImGui::SetNextItemAllowOverlap();
     }
 
-
     inline void SetWindowOpen(const std::string& name, bool open)
     {
-        // Eğer name g_windowsMap içerisinde yoksa çık
         auto it = g_windowsMap.find(name);
         if (it == g_windowsMap.end())
             return;
-
-        // Açacağımız pencere bir gruba aitse ve open = true ise,
-        // o gruptaki diğer tüm pencereleri kapatalım
         if (open && it->second.groupId > 0)
         {
             int groupId = it->second.groupId;
             for (auto& [winName, windowData] : g_windowsMap)
             {
                 if (winName == name)
-                    continue; // Kendimiz hariç hepsini kapat
+                    continue;
                 if (windowData.groupId == groupId && windowData.isOpen)
                     windowData.isOpen = false;
             }
         }
-
-        // İstenen pencere state'ini ayarla
         it->second.isOpen = open;
-
-        // Eğer bu pencere bir shape'e (İsmi shape'le aynı) denk geliyorsa
-        // o shape'i de child window olarak işaretleyelim
         for (auto shape : GetAllShapes())
         {
             if (shape->name == name)
@@ -581,7 +571,7 @@ namespace DesignManager
                 }
             }
         }
-        return nullptr; 
+        return nullptr;
     }
 
     inline void UpdateGlobalScaleFactor(int currentW, int currentH)
@@ -1179,7 +1169,6 @@ namespace DesignManager
             }
         }
     }
-
     inline void DrawShape_ProcessButtonLogic(ImDrawList* dlEffective, ShapeItem& s, float scaleFactor, ImVec2 wp, ImVec4& drawColor) {
         ImVec2 button_abs_pos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
         ImVec2 button_size = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);
@@ -1271,7 +1260,18 @@ namespace DesignManager
         }
         else if (s.buttonBehavior == ShapeItem::ButtonBehavior::Toggle) {
             if (ImGui::IsItemClicked()) {
-                s.buttonState = !s.buttonState;
+                bool newState = !s.buttonState;
+                // If toggling on and a group is set (groupId > 0), disable other buttons in the same group.
+                if (newState && s.groupId > 0) {
+                    auto allButtons = GetAllButtonShapes();
+                    for (auto* otherButton : allButtons) {
+                        if (otherButton->id != s.id && otherButton->groupId == s.groupId) {
+                            otherButton->buttonState = false;
+                            // Their associated child windows will be closed via SetWindowOpen later.
+                        }
+                    }
+                }
+                s.buttonState = newState;
                 s.shouldCallOnClick = true;
             }
             if (s.buttonState) drawColor = s.clickedColor;
@@ -1300,7 +1300,8 @@ namespace DesignManager
                 std::vector<int> onClickIndices;
                 onClickIndices.reserve(s.onClickAnimations.size());
                 for (int i = 0; i < (int)s.onClickAnimations.size(); i++) {
-                    if (s.onClickAnimations[i].triggerMode == ButtonAnimation::TriggerMode::OnClick) onClickIndices.push_back(i);
+                    if (s.onClickAnimations[i].triggerMode == ButtonAnimation::TriggerMode::OnClick)
+                        onClickIndices.push_back(i);
                 }
                 static int currentAnimIndex = -1;
                 if (!onClickIndices.empty()) {
@@ -1318,6 +1319,7 @@ namespace DesignManager
         }
         s.isHeld = ImGui::IsItemActive();
     }
+
 
 
 
@@ -1391,107 +1393,144 @@ namespace DesignManager
             if (mapping.shapeId != s.id)
                 continue;
 
-            // Otomatik olarak shape'i child window kabul edelim
             s.isChildWindow = true;
 
-            int activeCount = 0;
-            for (int btnId : mapping.buttonIds)
+            // If using "None", process each button-child window pair individually.
+            if (mapping.logicOp == "None")
             {
-                for (auto& [wName, winData] : g_windowsMap)
+                // For each pair, assign the group id so that SetWindowOpen can enforce exclusivity.
+                for (size_t i = 0; i < mapping.buttonIds.size(); i++)
                 {
-                    for (auto& layer : winData.layers)
+                    bool btnState = false;
+                    // Get the current state of the button.
+                    for (auto& [wName, winData] : g_windowsMap)
                     {
-                        for (auto& sh : layer.shapes)
+                        for (auto& layer : winData.layers)
                         {
-                            if (sh.isButton && sh.id == btnId && sh.buttonState)
-                                activeCount++;
+                            for (auto& sh : layer.shapes)
+                            {
+                                if (sh.isButton && sh.id == mapping.buttonIds[i])
+                                {
+                                    btnState = sh.buttonState;
+                                    break;
+                                }
+                            }
                         }
                     }
+
+                    const std::string& childKey = mapping.childWindowKeys[i];
+                    // Set the group id for the child window to enable exclusivity.
+                    g_windowsMap[childKey].groupId = s.childWindowGroupId;
+                    // Open or close the window based on the button state.
+                    SetWindowOpen(childKey, btnState);
                 }
             }
-            int totalCount = (int)mapping.buttonIds.size();
-            bool conditionMet = false;
-            if (totalCount > 0) {
-                if (mapping.logicOp == "AND")
-                    conditionMet = (activeCount == totalCount);
-                else if (mapping.logicOp == "OR")
-                    conditionMet = (activeCount > 0);
-                else if (mapping.logicOp == "XOR")
-                    conditionMet = (activeCount % 2 == 1);
-                else if (mapping.logicOp == "NAND")
-                    conditionMet = !(activeCount == totalCount);
-                else if (mapping.logicOp == "IF_THEN") {
-                    if (totalCount == 2) {
-                        bool first = false, second = false;
-                        for (auto& [wName, winData] : g_windowsMap) {
-                            for (auto& layer : winData.layers) {
-                                for (auto& sh : layer.shapes) {
-                                    if (sh.isButton && sh.id == mapping.buttonIds[0])
-                                        first = sh.buttonState;
-                                    if (sh.isButton && sh.id == mapping.buttonIds[1])
-                                        second = sh.buttonState;
-                                }
+            else
+            {
+                int activeCount = 0;
+                for (int btnId : mapping.buttonIds)
+                {
+                    for (auto& [wName, winData] : g_windowsMap)
+                    {
+                        for (auto& layer : winData.layers)
+                        {
+                            for (auto& sh : layer.shapes)
+                            {
+                                if (sh.isButton && sh.id == btnId && sh.buttonState)
+                                    activeCount++;
                             }
                         }
-                        conditionMet = (!first) || (first && second);
                     }
                 }
-                else if (mapping.logicOp == "IFF") {
-                    if (totalCount == 1) {
-                        bool state = false;
-                        for (auto& [wName, winData] : g_windowsMap) {
-                            for (auto& layer : winData.layers) {
-                                for (auto& sh : layer.shapes) {
-                                    if (sh.isButton && sh.id == mapping.buttonIds[0]) {
-                                        state = sh.buttonState;
-                                        break;
+                int totalCount = (int)mapping.buttonIds.size();
+                bool conditionMet = false;
+                if (totalCount > 0) {
+                    if (mapping.logicOp == "AND")
+                        conditionMet = (activeCount == totalCount);
+                    else if (mapping.logicOp == "OR")
+                        conditionMet = (activeCount > 0);
+                    else if (mapping.logicOp == "XOR")
+                        conditionMet = (activeCount % 2 == 1);
+                    else if (mapping.logicOp == "NAND")
+                        conditionMet = !(activeCount == totalCount);
+                    else if (mapping.logicOp == "IF_THEN") {
+                        if (totalCount == 2) {
+                            bool first = false, second = false;
+                            for (auto& [wName, winData] : g_windowsMap) {
+                                for (auto& layer : winData.layers) {
+                                    for (auto& sh : layer.shapes) {
+                                        if (sh.isButton && sh.id == mapping.buttonIds[0])
+                                            first = sh.buttonState;
+                                        if (sh.isButton && sh.id == mapping.buttonIds[1])
+                                            second = sh.buttonState;
                                     }
                                 }
                             }
+                            conditionMet = (!first) || (first && second);
                         }
-                        conditionMet = state;
                     }
-                    else {
-                        bool firstState = false;
-                        bool found = false;
-                        for (auto& [wName, winData] : g_windowsMap) {
-                            for (auto& layer : winData.layers) {
-                                for (auto& sh : layer.shapes) {
-                                    if (sh.isButton && sh.id == mapping.buttonIds[0]) {
-                                        firstState = sh.buttonState;
-                                        found = true;
-                                        break;
-                                    }
-                                }
-                                if (found) break;
-                            }
-                            if (found) break;
-                        }
-                        bool allEqual = true;
-                        for (int btnId : mapping.buttonIds) {
+                    else if (mapping.logicOp == "IFF") {
+                        if (totalCount == 1) {
                             bool state = false;
                             for (auto& [wName, winData] : g_windowsMap) {
                                 for (auto& layer : winData.layers) {
                                     for (auto& sh : layer.shapes) {
-                                        if (sh.isButton && sh.id == btnId) {
+                                        if (sh.isButton && sh.id == mapping.buttonIds[0]) {
                                             state = sh.buttonState;
                                             break;
                                         }
                                     }
                                 }
                             }
-                            if (state != firstState) { allEqual = false; break; }
+                            conditionMet = state;
                         }
-                        conditionMet = allEqual && firstState;
+                        else {
+                            bool firstState = false;
+                            bool found = false;
+                            for (auto& [wName, winData] : g_windowsMap) {
+                                for (auto& layer : winData.layers) {
+                                    for (auto& sh : layer.shapes) {
+                                        if (sh.isButton && sh.id == mapping.buttonIds[0]) {
+                                            firstState = sh.buttonState;
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                    if (found) break;
+                                }
+                                if (found) break;
+                            }
+                            bool allEqual = true;
+                            for (int btnId : mapping.buttonIds) {
+                                bool state = false;
+                                for (auto& [wName, winData] : g_windowsMap) {
+                                    for (auto& layer : winData.layers) {
+                                        for (auto& sh : layer.shapes) {
+                                            if (sh.isButton && sh.id == btnId) {
+                                                state = sh.buttonState;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (state != firstState) { allEqual = false; break; }
+                            }
+                            conditionMet = allEqual && firstState;
+                        }
                     }
                 }
+                // Set group id for each child window before opening.
+                for (auto& childKey : mapping.childWindowKeys)
+                {
+                    g_windowsMap[childKey].groupId = s.childWindowGroupId;
+                    SetWindowOpen(childKey, conditionMet);
+                }
             }
+
+            // Draw the child windows that are open.
             for (auto& childKey : mapping.childWindowKeys)
             {
-                SetWindowOpen(childKey, conditionMet);
-
-                // Eğer conditionMet açtıysa child window'u draw edelim
-                if (conditionMet)
+                if (IsWindowOpen(childKey))
                 {
                     if (s.childWindowSync)
                     {
@@ -1499,21 +1538,15 @@ namespace DesignManager
                         ImGui::SetNextWindowPos(AddV(syncPos, ImGui::GetWindowPos()));
                         ImGui::SetNextWindowSize(ImVec2(s.size.x * globalScaleFactor, s.size.y * globalScaleFactor));
                     }
-
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 15));
                     ImGui::BeginChild(childKey.c_str(), ImVec2(s.size.x * globalScaleFactor, s.size.y * globalScaleFactor),
                         false, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysUseWindowPadding);
-
-                    // Pencere gerçekten varsa
                     if (g_windowsMap.find(childKey) != g_windowsMap.end())
                     {
-                        g_windowsMap[childKey].groupId = s.childWindowGroupId;
                         g_windowsMap[childKey].isChildWindow = true;
                         g_windowsMap[childKey].associatedShapeId = s.id;
-
                         if (g_windowsMap[childKey].renderFunc)
                             g_windowsMap[childKey].renderFunc();
-
                         auto& childWindowData = g_windowsMap[childKey];
                         std::stable_sort(childWindowData.layers.begin(), childWindowData.layers.end(), CompareLayersByZOrder);
                         for (auto& layer : childWindowData.layers)
@@ -1548,18 +1581,19 @@ namespace DesignManager
                     ImGui::PopStyleVar();
                 }
             }
-       }
-
-       // Son olarak çerçeve vs. çizilecekse
-       if (s.borderThickness > 0.0f)
-       {
-           ImDrawList* dl = ImGui::GetWindowDrawList();
-           float sf = globalScaleFactor;
-           ImVec2 rectMin = ImVec2(wp.x + s.position.x * sf, wp.y + s.position.y * sf);
-           ImVec2 rectMax = ImVec2(rectMin.x + s.size.x * sf, rectMin.y + s.size.y * sf);
-           dl->AddRect(rectMin, rectMax, ColU32(s.borderColor), s.cornerRadius * sf, 0, s.borderThickness * sf);
-       }
+        }
+        if (s.borderThickness > 0.0f)
+        {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            float sf = globalScaleFactor;
+            ImVec2 rectMin = ImVec2(wp.x + s.position.x * sf, wp.y + s.position.y * sf);
+            ImVec2 rectMax = ImVec2(rectMin.x + s.size.x * sf, rectMin.y + s.size.y * sf);
+            dl->AddRect(rectMin, rectMax, ColU32(s.borderColor), s.cornerRadius * sf, 0, s.borderThickness * sf);
+        }
     }
+
+
+
 
 
 
