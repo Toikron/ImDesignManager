@@ -30,6 +30,7 @@ inline const std::vector<unsigned char>& GetShape0_embeddedData() {
     return data;
 }
 
+
 static const char* g_embeddedImageFunctions[] = {
     "GetShape0_embeddedData",
     // "GetShape1_embeddedData",
@@ -41,6 +42,8 @@ static const int g_embeddedImageFunctionsCount = sizeof(g_embeddedImageFunctions
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////FOR IMAGE IMPORTS//////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 static int oldWindowWidth = 0;
 static int oldWindowHeight = 0;
@@ -2833,7 +2836,7 @@ namespace DesignManager
 
         if (shape.isButton && shape.useOnClick)
         {
-            std::string eventHandlerName = SanitizeVariableName(shape.name);
+            std::string eventHandlerName = SanitizeVariableName(shape.name) + "_OnClick";
             code += "    .addEventHandler(\"onClick\", \"" + eventHandlerName + "\", [](ShapeItem& s) { " + eventHandlerName + "(); })\n";
         }
         code += "    .build();\n";
