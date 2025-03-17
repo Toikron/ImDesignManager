@@ -19,8 +19,6 @@
 #include <iostream>
 #include <functional>
 #include <sstream> // for stringstream usage
-#include "GeneratedButtons.h"
-#include "Images_BINARY.h"
 
 static int oldWindowWidth = 0;
 static int oldWindowHeight = 0;
