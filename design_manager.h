@@ -20,25 +20,35 @@
 #include <functional>
 #include <sstream> // for stringstream usage
 
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////FOR IMAGE IMPORTS//////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+using EmbeddedDataFunc = const std::vector<unsigned char>& (*)();
 inline const std::vector<unsigned char>& GetShape0_embeddedData() {
     static std::vector<unsigned char> data(Shape0_embeddedData,
-        Shape0_embeddedData + sizeof(Shape0_embeddedData));
+        Shape0_embeddedData + sizeof(Shape0_embeddedData)); 
+    return data;
+}
+inline const std::vector<unsigned char>& GetShape1_embeddedData() {
+    static std::vector<unsigned char> data(Shape1_embeddedData,
+        Shape1_embeddedData + sizeof(Shape1_embeddedData));
     return data;
 }
 
-
 static const char* g_embeddedImageFunctions[] = {
     "GetShape0_embeddedData",
-    // "GetShape1_embeddedData",
+    "GetShape1_embeddedData",
     // "GetShape2_embeddedData",
 };
-
+static const EmbeddedDataFunc g_embeddedImageFuncs[] = {
+    &GetShape0_embeddedData,
+    &GetShape1_embeddedData,
+	// can be added more
+};
 static const int g_embeddedImageFunctionsCount = sizeof(g_embeddedImageFunctions) / sizeof(g_embeddedImageFunctions[0]);
-
+static const int g_embeddedImageFuncsCount = sizeof(g_embeddedImageFuncs) / sizeof(g_embeddedImageFuncs[0]);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////FOR IMAGE IMPORTS//////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1138,16 +1148,31 @@ namespace DesignManager
     }
 
     inline void DrawShape_LoadEmbeddedImageIfNeeded(ShapeItem& item) {
+        // Gömülü resim yoksa veya zaten texture oluşturulmuşsa devam etme
         if (!item.hasEmbeddedImage) return;
         if (item.embeddedImageTexture != 0) return;
+
+        // Veri boşsa ve geçerli bir index varsa, otomatik olarak yükle
+        if (item.embeddedImageData.empty() && item.embeddedImageIndex >= 0 && item.embeddedImageIndex < g_embeddedImageFuncsCount) {
+            // İlgili fonksiyonu diziden al ve çağır
+            item.embeddedImageData = g_embeddedImageFuncs[item.embeddedImageIndex]();
+        }
+
+        // Veri hâlâ boşsa devam etme
         if (item.embeddedImageData.empty()) return;
+
+        // Resmi belleğe yükle ve texture oluştur
         int w = 0, h = 0, ch = 0;
         unsigned char* decoded = stbi_load_from_memory(
             item.embeddedImageData.data(),
             (int)item.embeddedImageData.size(),
             &w, &h, &ch, 4
         );
-        if (!decoded) return;
+        if (!decoded) {
+            std::cerr << "Resim yüklenemedi: " << item.name << std::endl;
+            return;
+        }
+
         GLuint tex = 0;
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
@@ -1156,6 +1181,8 @@ namespace DesignManager
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, decoded);
         glBindTexture(GL_TEXTURE_2D, 0);
         stbi_image_free(decoded);
+
+        // Texture bilgilerini güncelle
         item.embeddedImageWidth = w;
         item.embeddedImageHeight = h;
         item.embeddedImageChannels = 4;
@@ -4606,20 +4633,8 @@ namespace DesignManager
         io.Fonts->AddFontDefault();
 
         // Register windows:
-        RegisterWindow("Dersler_ButtonShapeWindow", RenderDersler_ButtonShapeWindow);
-        RegisterWindow("Derslikler_ButtonShapeWindow", RenderDerslikler_ButtonShapeWindow);
-        RegisterWindow("Siniflar_ButtonShapeWindow", RenderSiniflar_ButtonShapeWindow);
-        RegisterWindow("Ogretmenler_ButtonShapeWindow", RenderOgretmenler_ButtonShapeWindow);
-        RegisterWindow("GunlukDersSayilari_ButtonShapeWindow", RenderGunlukDersSayilari_ButtonShapeWindow);
-        RegisterWindow("SiniflardaOkutulanDersler_ButtonShapeWindow", RenderSiniflardaOkutulanDersler_ButtonShapeWindow);
-        RegisterWindow("DersliklereDersAtanmasi_ButtonShapeWindow", RenderDersliklereDersAtanmasi_ButtonShapeWindow);
-        RegisterWindow("OgretmenlereDersAtanmasi_ButtonShapeWindow", RenderOgretmenlereDersAtanmasi_ButtonShapeWindow);
-        RegisterWindow("OgretmenlerinDersProgrami_ButtonShapeWindow", RenderOgretmenlerinDersProgrami_ButtonShapeWindow);
-        RegisterWindow("SiniflarinDersProgrami_ButtonShapeWindow", RenderSiniflarinDersProgrami_ButtonShapeWindow);
-        RegisterWindow("DersliklerinDersProgrami_ButtonShapeWindow", RenderDersliklerinDersProgrami_ButtonShapeWindow);
         RegisterWindow("ChildWindow_1", RenderChildWindowForShape1);
         RegisterWindow("ChildWindow_2", RenderChildWindowForShape2);
-        RegisterWindow("ChildWindow_3", RenderChildWindowForShape3);
     }
 
 
@@ -4817,6 +4832,7 @@ namespace DesignManager
 #undef DEFINE_ANIM_SETTER
 #undef DEFINE_SHAPEKEY_SETTER
 #undef DEFINE_SETTER
+
 
 
     inline void GeneratedCode()
