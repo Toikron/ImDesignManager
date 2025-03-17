@@ -30,7 +30,6 @@ inline const std::vector<unsigned char>& GetShape0_embeddedData() {
     return data;
 }
 
-// Global embed image fonksiyon isimlerini tutan dizi:
 static const char* g_embeddedImageFunctions[] = {
     "GetShape0_embeddedData",
     // "GetShape1_embeddedData",
