@@ -55,7 +55,6 @@ static const int g_embeddedImageFuncsCount = sizeof(g_embeddedImageFuncs) / size
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
 static int oldWindowWidth = 0;
 static int oldWindowHeight = 0;
 static bool shouldCaptureScene = false;
@@ -563,7 +562,26 @@ namespace DesignManager
         auto it = g_windowsMap.find(name);
         if (it == g_windowsMap.end())
             return;
-        if (open && it->second.groupId > 0)
+
+        // Eğer bu pencere için herhangi bir mapping’de buttonId -1 ("None") seçeneği varsa,
+        // pencerenin her zaman açık kalmasını sağla.
+        bool forceAlwaysOpen = false;
+        for (const auto& mapping : g_combinedChildWindowMappings) {
+            for (size_t i = 0; i < mapping.childWindowKeys.size(); ++i) {
+                if (mapping.childWindowKeys[i] == name && mapping.buttonIds[i] == -1) {
+                    forceAlwaysOpen = true;
+                    break;
+                }
+            }
+            if (forceAlwaysOpen)
+                break;
+        }
+
+        if (forceAlwaysOpen)
+            open = true;
+
+        // Child olmayan pencereler için grup davranışı: açılırken aynı gruptaki diğer pencereleri kapat.
+        if (!it->second.isChildWindow && open && it->second.groupId > 0)
         {
             int groupId = it->second.groupId;
             for (auto& [winName, windowData] : g_windowsMap)
@@ -574,16 +592,24 @@ namespace DesignManager
                     windowData.isOpen = false;
             }
         }
+
+        // Pencerenin açık/kapalı durumunu ayarla.
         it->second.isOpen = open;
-        for (auto shape : GetAllShapes())
+
+        // Eğer pencere child window ise, ilişkilendirilmiş ShapeItem'ın bayrağını güncelle.
+        if (it->second.isChildWindow)
         {
-            if (shape->name == name)
+            for (auto shape : GetAllShapes())
             {
-                shape->isChildWindow = true;
-                break;
+                if (shape->name == name)
+                {
+                    shape->isChildWindow = open;
+                    break;
+                }
             }
         }
     }
+
 
     inline bool IsWindowOpen(const std::string& name)
     {
@@ -1224,13 +1250,13 @@ namespace DesignManager
         ImVec2 button_abs_pos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
         ImVec2 button_size = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);
         std::string button_id = "##button_" + std::to_string(s.id);
-        if (s.forceOverlap) ImGui::SetNextItemAllowOverlap();
+        if (s.forceOverlap)
+            ImGui::SetNextItemAllowOverlap();
         ImGui::SetCursorScreenPos(button_abs_pos);
         ImGui::InvisibleButton(button_id.c_str(), button_size);
         ImGui::SetCursorPos(ImVec2(0, 10));
         bool is_hovered = ImGui::IsItemHovered();
         bool is_active = ImGui::IsItemActive();
-        bool is_released = ImGui::IsMouseReleased(0);
         if (!s.allowItemOverlap) {
             ImGuiID myID = ImGui::GetID(button_id.c_str());
             if (ImGui::GetHoveredID() != myID) {
@@ -1243,7 +1269,8 @@ namespace DesignManager
             ImRect buttonRect(button_abs_pos, ImVec2(button_abs_pos.x + button_size.x, button_abs_pos.y + button_size.y));
             if (buttonRect.Contains(mousePos)) {
                 is_hovered = true;
-                if (ImGui::IsMouseDown(0)) is_active = true;
+                if (ImGui::IsMouseDown(0))
+                    is_active = true;
             }
         }
         if (s.forceOverlap && s.allowItemOverlap && s.blockUnderlying) {
@@ -1258,7 +1285,8 @@ namespace DesignManager
             ImGui::EndChild();
             ImGui::PopStyleColor();
         }
-        if (is_hovered) drawColor = s.hoverColor;
+        if (is_hovered)
+            drawColor = s.hoverColor;
         for (auto& anim : s.onClickAnimations) {
             if (anim.triggerMode == ButtonAnimation::TriggerMode::OnHover) {
                 if (is_hovered) {
@@ -1283,9 +1311,8 @@ namespace DesignManager
                 }
                 else {
                     if (anim.isPlaying) {
-                        if (anim.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndReverse && anim.progress > 0.0f && anim.speed > 0.0f) {
+                        if (anim.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndReverse && anim.progress > 0.0f && anim.speed > 0.0f)
                             anim.speed = -fabs(anim.speed);
-                        }
                         if (anim.behavior == ButtonAnimation::AnimationBehavior::Toggle) {
                             if (anim.toggleState) {
                                 anim.isPlaying = true;
@@ -1297,37 +1324,35 @@ namespace DesignManager
             }
         }
         if (s.buttonBehavior == ShapeItem::ButtonBehavior::SingleClick) {
-            if (is_active) {
-                if (!s.buttonState) s.buttonState = true;
-                drawColor = s.clickedColor;
-            }
-            else if (!is_active && s.buttonState) {
+            if (ImGui::IsItemClicked()) {
+                s.buttonState = !s.buttonState;
                 s.shouldCallOnClick = true;
-                s.buttonState = false;
             }
-            else if (is_hovered) {
+            if (ImGui::IsItemActive())
+                drawColor = s.clickedColor;
+            else if (is_hovered)
                 drawColor = s.hoverColor;
-            }
+            else
+                drawColor = s.fillColor;
         }
         else if (s.buttonBehavior == ShapeItem::ButtonBehavior::Toggle) {
             if (ImGui::IsItemClicked()) {
                 bool newState = !s.buttonState;
-                // If toggling on and a group is set (groupId > 0), disable other buttons in the same group.
                 if (newState && s.groupId > 0) {
                     auto allButtons = GetAllButtonShapes();
                     for (auto* otherButton : allButtons) {
-                        if (otherButton->id != s.id && otherButton->groupId == s.groupId) {
+                        if (otherButton->id != s.id && otherButton->groupId == s.groupId)
                             otherButton->buttonState = false;
-                            // Their associated child windows will be closed via SetWindowOpen later.
-                        }
                     }
                 }
                 s.buttonState = newState;
                 s.shouldCallOnClick = true;
             }
-            if (s.buttonState) drawColor = s.clickedColor;
+            if (s.buttonState)
+                drawColor = s.clickedColor;
             else if (!s.buttonState && !s.openWindow) {
-                if (!is_hovered) drawColor = s.fillColor;
+                if (!is_hovered)
+                    drawColor = s.fillColor;
             }
         }
         else if (s.buttonBehavior == ShapeItem::ButtonBehavior::Hold) {
@@ -1338,12 +1363,14 @@ namespace DesignManager
                     s.buttonState = true;
                 }
             }
-            if (is_released && s.buttonState) {
+            if (ImGui::IsMouseReleased(0) && s.buttonState) {
                 s.shouldCallOnClick = true;
                 s.buttonState = false;
             }
-            if (s.buttonState) drawColor = s.clickedColor;
-            else if (is_hovered) drawColor = s.hoverColor;
+            if (s.buttonState)
+                drawColor = s.clickedColor;
+            else if (is_hovered)
+                drawColor = s.hoverColor;
         }
         if (s.shouldCallOnClick) {
             DispatchEvent(s, "onClick");
@@ -1356,8 +1383,10 @@ namespace DesignManager
                 }
                 static int currentAnimIndex = -1;
                 if (!onClickIndices.empty()) {
-                    if (currentAnimIndex < 0) currentAnimIndex = 0;
-                    else currentAnimIndex = (currentAnimIndex + 1) % onClickIndices.size();
+                    if (currentAnimIndex < 0)
+                        currentAnimIndex = 0;
+                    else
+                        currentAnimIndex = (currentAnimIndex + 1) % onClickIndices.size();
                     int idx = onClickIndices[currentAnimIndex];
                     auto& anim = s.onClickAnimations[idx];
                     anim.progress = 0.0f;
@@ -3555,6 +3584,9 @@ namespace DesignManager
                         break;
                     }
                 }
+
+                // Combo genişliğini pencereye göre ayarla
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 20);
                 if (ImGui::Combo("Shape", &currentShapeIndex, [](void* data, int idx, const char** out_text) -> bool {
                     auto* vec = static_cast<std::vector<ShapeItem*>*>(data);
                     if (idx < (int)vec->size()) {
@@ -3567,6 +3599,8 @@ namespace DesignManager
                     mapping.shapeId = allShapes[currentShapeIndex]->id;
                     allShapes[currentShapeIndex]->isChildWindow = true;
                 }
+
+                // Operator combo
                 const char* opOptions[] = { "None", "AND", "OR", "XOR", "NAND", "IF_THEN", "IFF" };
                 int opCount = IM_ARRAYSIZE(opOptions);
                 int currentOpIndex = 0;
@@ -3576,32 +3610,57 @@ namespace DesignManager
                         break;
                     }
                 }
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 20);
                 if (ImGui::Combo("Operator", &currentOpIndex, opOptions, opCount))
                     mapping.logicOp = opOptions[currentOpIndex];
+
                 int pairIndex = 0;
                 for (size_t j = 0; j < mapping.buttonIds.size(); j++)
                 {
                     ImGui::PushID(pairIndex);
                     std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
+
+                    // Button combo’sunda ilk seçenek null (None) olacak şekilde ayarlıyoruz.
                     int currentButtonIndex = 0;
-                    for (int i = 0; i < (int)availableButtons.size(); i++) {
-                        if (availableButtons[i]->id == mapping.buttonIds[j]) {
-                            currentButtonIndex = i;
-                            break;
+                    if (mapping.buttonIds[j] != -1) {
+                        for (int i = 0; i < (int)availableButtons.size(); i++) {
+                            if (availableButtons[i]->id == mapping.buttonIds[j]) {
+                                currentButtonIndex = i + 1; // 0 index, null için ayrılmıştır.
+                                break;
+                            }
                         }
                     }
+
+                    // Button ve Window combo'ları aynı satırda, toplam genişliğin yarısını kullanacak şekilde ayarlandı.
+                    float totalWidth = ImGui::GetContentRegionAvail().x - 20; // biraz boşluk bırakılıyor
+                    float comboWidth = totalWidth * 0.45f;
+                    ImGui::SetNextItemWidth(comboWidth);
                     if (ImGui::Combo("Button", &currentButtonIndex, [](void* data, int idx, const char** out_text) -> bool {
                         auto* vec = static_cast<std::vector<ShapeItem*>*>(data);
-                        if (idx < (int)vec->size()) {
-                            *out_text = (*vec)[idx]->name.c_str();
+                        if (idx == 0) {
+                            *out_text = "None";
+                            return true;
+                        }
+                        int index = idx - 1;
+                        if (index < (int)vec->size()) {
+                            *out_text = (*vec)[index]->name.c_str();
                             return true;
                         }
                         return false;
-                        }, static_cast<void*>(&availableButtons), (int)availableButtons.size()))
+                        }, static_cast<void*>(&availableButtons), (int)availableButtons.size() + 1))
                     {
-                        mapping.buttonIds[j] = availableButtons[currentButtonIndex]->id;
+                        if (currentButtonIndex == 0) {
+                            mapping.buttonIds[j] = -1; // "None" seçildi.
+                            // "None" seçildiğinde ilgili child window'ı zorla açıyoruz
+                            SetWindowOpen(mapping.childWindowKeys[j], true);
+                        }
+                        else {
+                            mapping.buttonIds[j] = availableButtons[currentButtonIndex - 1]->id;
+                        }
+
                     }
                     ImGui::SameLine();
+
                     std::vector<std::string> availableChildWindows;
                     for (auto& [key, winData] : g_windowsMap)
                         availableChildWindows.push_back(key);
@@ -3616,6 +3675,7 @@ namespace DesignManager
                             break;
                         }
                     }
+                    ImGui::SetNextItemWidth(comboWidth);
                     if (ImGui::Combo("Window", &currentChildIndex, [](void* data, int idx, const char** out_text) -> bool {
                         auto* vec = static_cast<std::vector<std::string>*>(data);
                         if (idx < (int)vec->size()) {
@@ -3641,7 +3701,10 @@ namespace DesignManager
                 if (ImGui::Button("Add Button Mapping"))
                 {
                     std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
-                    int defaultButtonId = (!availableButtons.empty()) ? availableButtons[0]->id : 0;
+                    // Varsayılan olarak null seçeneğini (yani -1) atıyoruz, eğer availableButtons boş değilse ilk butonun id'sini de kullanabilirsiniz.
+                    int defaultButtonId = -1;
+                    if (!availableButtons.empty())
+                        defaultButtonId = availableButtons[0]->id;
                     std::vector<std::string> availableChildWindows;
                     for (auto& [key, winData] : g_windowsMap)
                         availableChildWindows.push_back(key);
@@ -3668,7 +3731,9 @@ namespace DesignManager
                 std::vector<ShapeItem*> allShapes = GetAllShapes();
                 int defaultShapeId = (!allShapes.empty()) ? allShapes[0]->id : 0;
                 std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
-                int defaultButtonId = (!availableButtons.empty()) ? availableButtons[0]->id : 0;
+                int defaultButtonId = -1;
+                if (!availableButtons.empty())
+                    defaultButtonId = availableButtons[0]->id;
                 std::vector<std::string> availableChildWindows;
                 for (auto& [key, winData] : g_windowsMap)
                     availableChildWindows.push_back(key);
@@ -3687,6 +3752,7 @@ namespace DesignManager
             }
         }
     }
+
 
     inline void ShowUI_LayerShapeManager_LayerList(WindowData& windowData, int& selectedLayerIndex, int& selectedShapeIndex)
     {
@@ -4565,6 +4631,7 @@ namespace DesignManager
             }
         }
     }
+
 
     inline void RenderChildWindowForShape1()
     {
