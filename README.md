@@ -104,10 +104,11 @@ your_project/
 └── README.md                 # This file
 ```
 
-## HTML/CSS to ImGui (Experimental Ultra Mega Super Alpha Beta Gamma Zeta)
+## HTML/CSS OR React to ImGui (Experimental Ultra Mega Super Alpha Beta Gamma Zeta)
 - **Planned Features**:
   - Full HTML parser (Gumbo integration)
   - CSS property mapping
+  - Typescript react code to Design manager.
   - Responsive design handling
   - Live UI updates for parser
 
