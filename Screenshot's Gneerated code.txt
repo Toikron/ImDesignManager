@@ -1,0 +1,1483 @@
+// Generated code for window: Main
+
+// Layer: Background Layer
+DesignManager::Layer BackgroundLayer("Background Layer");
+BackgroundLayer.zOrder = -2;
+
+// Single Shape: First Background Left
+auto FirstBackgroundLeft = ShapeBuilder()
+    .setId(48)
+    .setName("First Background Left")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(6.000000f, 259.000000f))
+    .setBaseSize(ImVec2(1115.000000f, 143.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(44.000000f)
+    .setBorderThickness(2.000000f)
+    .setFillColor(ImVec4(0.933333f, 0.933333f, 0.933333f, 0.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.301961f, 0.000000f, 1.000000f, 0.050980f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setZOrder(-5)
+    .setOpenWindow(true)
+    .setIsChildWindow(true)
+    .setChildWindowSync(false)
+    .setToggleChildWindow(false)
+    .setChildWindowGroupId(-1)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+BackgroundLayer.shapes.push_back(FirstBackgroundLeft);
+
+// Single Shape: Second Background Right
+auto SecondBackgroundRight = ShapeBuilder()
+    .setId(46)
+    .setName("Second Background Right")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1352.000000f, 206.000000f))
+    .setBaseSize(ImVec2(435.000000f, 252.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(63.000000f)
+    .setBorderThickness(2.000000f)
+    .setFillColor(ImVec4(0.933333f, 0.933333f, 0.933333f, 0.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.301961f, 0.000000f, 1.000000f, 0.050980f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(true)
+    .setIsChildWindow(true)
+    .setChildWindowSync(false)
+    .setToggleChildWindow(false)
+    .setChildWindowGroupId(-1)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+BackgroundLayer.shapes.push_back(SecondBackgroundRight);
+
+// Single Shape: Thirth Background
+auto ThirthBackground = ShapeBuilder()
+    .setId(50)
+    .setName("Thirth Background")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(15.000000f, 493.000000f))
+    .setBaseSize(ImVec2(1858.000000f, 411.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(63.000000f)
+    .setBorderThickness(2.000000f)
+    .setFillColor(ImVec4(0.933333f, 0.933333f, 0.933333f, 0.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.301961f, 0.000000f, 1.000000f, 0.043137f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(true)
+    .setIsChildWindow(true)
+    .setChildWindowSync(false)
+    .setToggleChildWindow(false)
+    .setChildWindowGroupId(-1)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+BackgroundLayer.shapes.push_back(ThirthBackground);
+
+g_windowsMap["Main"].layers.push_back(BackgroundLayer);
+
+// Layer: Layer 0
+DesignManager::Layer Layer0("Layer 0");
+Layer0.zOrder = 3;
+
+// Single Shape: Shape 0
+auto Shape0 = ShapeBuilder()
+    .setId(17)
+    .setName("Shape 0")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(12.000000f, 14.000000f))
+    .setBaseSize(ImVec2(1884.000000f, 92.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Design Manager")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 17.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(true)
+    .setIsChildWindow(true)
+    .setChildWindowSync(false)
+    .setToggleChildWindow(false)
+    .setChildWindowGroupId(-1)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(Shape0);
+
+// Single Shape: Created In Design Manager
+auto CreatedInDesignManager = ShapeBuilder()
+    .setId(18)
+    .setName("Created In Design Manager")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1454.000000f, 915.000000f))
+    .setBaseSize(ImVec2(433.000000f, 79.000000f))
+    .setBaseRotation(0.000000f)
+    .setFillColor(ImVec4(1.000000f, 0.969231f, 0.600000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Created ALL in Design Manager\n    The mouse cursor too :D")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 8.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(CreatedInDesignManager);
+
+// Single Shape: Create shapes and click Is Button
+auto CreateshapesandclickIsButton = ShapeBuilder()
+    .setId(19)
+    .setName("Create shapes and click Is Button")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(12.000000f, 283.000000f))
+    .setBaseSize(ImVec2(409.000000f, 89.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Create shapes and click Is Button")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 22.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(CreateshapesandclickIsButton);
+
+// Single Shape: arrow1
+auto arrow1 = ShapeBuilder()
+    .setId(20)
+    .setName("arrow1")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(429.000000f, 320.000000f))
+    .setBaseSize(ImVec2(253.000000f, 5.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(arrow1);
+
+// Single Shape: arrow2
+auto arrow2 = ShapeBuilder()
+    .setId(21)
+    .setName("arrow2")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(578.000000f, 332.000000f))
+    .setBaseSize(ImVec2(43.000000f, 6.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(arrow2);
+
+// Single Shape: arrow3
+auto arrow3 = ShapeBuilder()
+    .setId(22)
+    .setName("arrow3")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(633.000000f, 308.000000f))
+    .setBaseSize(ImVec2(43.000000f, 6.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(arrow3);
+
+// Single Shape: button
+auto button = ShapeBuilder()
+    .setId(23)
+    .setName("button")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(698.000000f, 283.000000f))
+    .setBaseSize(ImVec2(409.000000f, 84.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(14.000000f)
+    .setBorderThickness(0.500000f)
+    .setFillColor(ImVec4(0.412308f, 1.000000f, 0.625685f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.290196f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setIsButton(true)
+    .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::SingleClick)
+    .setUseOnClick(false)
+    .setHoverColor(ImVec4(0.996923f, 0.699380f, 0.699380f, 1.000000f))
+    .setClickedColor(ImVec4(0.525046f, 0.570635f, 0.720000f, 1.000000f))
+    .setHasText(true)
+    .setText("BUTTON")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 17.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(button);
+
+// Single Shape: Shape 0 Copy Copy Copy Copy Copy
+auto Shape0CopyCopyCopyCopyCopy = ShapeBuilder()
+    .setId(24)
+    .setName("Shape 0 Copy Copy Copy Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1125.000000f, 309.000000f))
+    .setBaseSize(ImVec2(155.000000f, 12.000000f))
+    .setBaseRotation(0.523599f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.953846f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(0.523599f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(Shape0CopyCopyCopyCopyCopy);
+
+// Single Shape: Shape 0 Copy Copy Copy Copy Copy Copy
+auto Shape0CopyCopyCopyCopyCopyCopy = ShapeBuilder()
+    .setId(25)
+    .setName("Shape 0 Copy Copy Copy Copy Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1125.000000f, 338.000000f))
+    .setBaseSize(ImVec2(155.000000f, 12.000000f))
+    .setBaseRotation(0.523599f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.900308f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(0.523599f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(Shape0CopyCopyCopyCopyCopyCopy);
+
+// Single Shape: Change every Aspect in Ui in realtime
+auto ChangeeveryAspectinUiinrealtime = ShapeBuilder()
+    .setId(26)
+    .setName("Change every Aspect in Ui in realtime")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(284.000000f, 223.000000f))
+    .setBaseSize(ImVec2(507.000000f, 27.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Change every Aspect in Ui in realtime")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(25.000000f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, -1.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(ChangeeveryAspectinUiinrealtime);
+
+// Single Shape: Change even "hover" and "click" statement colors.
+auto Changeevenhoverandclickstatementcolors = ShapeBuilder()
+    .setId(27)
+    .setName("Change even "hover" and "click" statement colors.")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(828.000000f, 416.000000f))
+    .setBaseSize(ImVec2(507.000000f, 27.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(1.000000f, 0.865846f, 0.600000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Change even "hover" and "click" statement colors.")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(25.000000f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, -1.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(Changeevenhoverandclickstatementcolors);
+
+// Single Shape: button Copy
+auto buttonCopy = ShapeBuilder()
+    .setId(28)
+    .setName("button Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1364.000000f, 242.000000f))
+    .setBaseSize(ImVec2(409.000000f, 84.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(14.000000f)
+    .setBorderThickness(0.500000f)
+    .setFillColor(ImVec4(0.996078f, 0.698039f, 0.698039f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.290196f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setIsButton(true)
+    .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::SingleClick)
+    .setUseOnClick(false)
+    .setHoverColor(ImVec4(0.996923f, 0.699380f, 0.699380f, 1.000000f))
+    .setClickedColor(ImVec4(0.525046f, 0.570635f, 0.720000f, 1.000000f))
+    .setHasText(true)
+    .setText("HoveredButtonColor")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 17.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(buttonCopy);
+
+// Single Shape: button Copy Copy
+auto buttonCopyCopy = ShapeBuilder()
+    .setId(29)
+    .setName("button Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1364.000000f, 335.000000f))
+    .setBaseSize(ImVec2(409.000000f, 84.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(14.000000f)
+    .setBorderThickness(0.500000f)
+    .setFillColor(ImVec4(0.525490f, 0.572549f, 0.721569f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.290196f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setIsButton(true)
+    .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::SingleClick)
+    .setUseOnClick(false)
+    .setHoverColor(ImVec4(0.996923f, 0.699380f, 0.699380f, 1.000000f))
+    .setClickedColor(ImVec4(0.525046f, 0.570635f, 0.720000f, 1.000000f))
+    .setHasText(true)
+    .setText("ClickedButtonColor")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 17.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(buttonCopyCopy);
+
+// Single Shape:     All in Realtime Uilike right settings panel
+auto AllinRealtimeUilikerightsettingspanel = ShapeBuilder()
+    .setId(47)
+    .setName("    All in Realtime Uilike right settings panel")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1632.000000f, 111.000000f))
+    .setBaseSize(ImVec2(269.000000f, 76.000000f))
+    .setBaseRotation(0.000000f)
+    .setFillColor(ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.423529f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("    All in Realtime Ui\nlike right settings panel")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(19.200001f)
+    .setTextFont(6)
+    .setTextPosition(ImVec2(0.000000f, 11.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(true)
+    .setIsChildWindow(true)
+    .setChildWindowSync(false)
+    .setToggleChildWindow(false)
+    .setChildWindowGroupId(-1)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(AllinRealtimeUilikerightsettingspanel);
+
+// Single Shape: Create shapes and click Is Button Copy
+auto CreateshapesandclickIsButtonCopy = ShapeBuilder()
+    .setId(51)
+    .setName("Create shapes and click Is Button Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(17.000000f, 644.000000f))
+    .setBaseSize(ImVec2(493.000000f, 90.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Create shapes and click Has Embedded Image")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 22.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(CreateshapesandclickIsButtonCopy);
+
+// Single Shape: arrow1 Copy
+auto arrow1Copy = ShapeBuilder()
+    .setId(52)
+    .setName("arrow1 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(518.000000f, 688.000000f))
+    .setBaseSize(ImVec2(253.000000f, 5.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(arrow1Copy);
+
+// Single Shape: arrow2 Copy
+auto arrow2Copy = ShapeBuilder()
+    .setId(53)
+    .setName("arrow2 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(667.000000f, 700.000000f))
+    .setBaseSize(ImVec2(43.000000f, 6.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(arrow2Copy);
+
+// Single Shape: arrow3 Copy
+auto arrow3Copy = ShapeBuilder()
+    .setId(54)
+    .setName("arrow3 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(722.000000f, 676.000000f))
+    .setBaseSize(ImVec2(43.000000f, 6.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(arrow3Copy);
+
+// Single Shape: Shape 5
+auto Shape5 = ShapeBuilder()
+    .setId(56)
+    .setName("Shape 5")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(802.000000f, 528.000000f))
+    .setBaseSize(ImVec2(365.000000f, 340.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(80.000000f)
+    .setBorderThickness(7.400000f)
+    .setFillColor(ImVec4(0.933333f, 0.933333f, 0.933333f, 0.000000f))
+    .setBorderColor(ImVec4(0.489231f, 0.976426f, 1.000000f, 0.800000f))
+    .setShadowColor(ImVec4(0.717647f, 0.705882f, 1.000000f, 0.564706f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setHasEmbeddedImage(true)
+    .setEmbeddedImageIndex(0)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer0.shapes.push_back(Shape5);
+
+// Single Shape: Create shapes and click Is Button Copy Copy
+auto CreateshapesandclickIsButtonCopyCopy = ShapeBuilder()
+    .setId(57)
+    .setName("Create shapes and click Is Button Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1308.000000f, 507.000000f))
+    .setBaseSize(ImVec2(452.000000f, 124.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(22.000000f)
+    .setFillColor(ImVec4(0.600000f, 0.974154f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.474510f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Alternatively, add a child window for \ndrawing shapes, adding ImGui elements, \nor simply maintaining different designs.")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(32.700001f)
+    .setTextFont(4)
+    .setTextPosition(ImVec2(0.000000f, 11.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .setDynamicTextSize(true)
+    .build();
+Layer0.shapes.push_back(CreateshapesandclickIsButtonCopyCopy);
+
+// Single Shape: Shape 6
+auto Shape6 = ShapeBuilder()
+    .setId(59)
+    .setName("Shape 6")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1314.000000f, 656.000000f))
+    .setBaseSize(ImVec2(430.000000f, 223.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(8.400000f)
+    .setFillColor(ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.329412f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("A")
+    .setTextColor(ImVec4(0.486154f, 0.000000f, 1.000000f, 1.000000f))
+    .setTextSize(30.000000f)
+    .setTextFont(1)
+    .setTextPosition(ImVec2(4.000000f, -3.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(0)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer0.shapes.push_back(Shape6);
+
+// Single Shape: Shape 6 Copy
+auto Shape6Copy = ShapeBuilder()
+    .setId(60)
+    .setName("Shape 6 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1335.000000f, 680.000000f))
+    .setBaseSize(ImVec2(430.000000f, 223.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(8.400000f)
+    .setFillColor(ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.329412f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("D")
+    .setTextColor(ImVec4(0.486275f, 0.000000f, 1.000000f, 1.000000f))
+    .setTextSize(23.200001f)
+    .setTextFont(1)
+    .setTextPosition(ImVec2(5.000000f, 0.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(0)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer0.shapes.push_back(Shape6Copy);
+
+// Single Shape: Shape 6 Copy Copy
+auto Shape6CopyCopy = ShapeBuilder()
+    .setId(61)
+    .setName("Shape 6 Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1353.000000f, 699.000000f))
+    .setBaseSize(ImVec2(397.000000f, 56.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(8.400000f)
+    .setFillColor(ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.329412f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("D")
+    .setTextColor(ImVec4(0.486275f, 0.000000f, 1.000000f, 1.000000f))
+    .setTextSize(35.299999f)
+    .setTextFont(1)
+    .setTextPosition(ImVec2(4.000000f, -4.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(0)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer0.shapes.push_back(Shape6CopyCopy);
+
+// Single Shape: Shape 6 Copy Copy Copy
+auto Shape6CopyCopyCopy = ShapeBuilder()
+    .setId(62)
+    .setName("Shape 6 Copy Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1353.000000f, 773.000000f))
+    .setBaseSize(ImVec2(395.000000f, 30.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(8.400000f)
+    .setFillColor(ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.329412f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("Anything accordingly with Layer Feature")
+    .setTextColor(ImVec4(0.486275f, 0.000000f, 1.000000f, 1.000000f))
+    .setTextSize(29.400000f)
+    .setTextFont(1)
+    .setTextPosition(ImVec2(21.000000f, -1.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(0)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer0.shapes.push_back(Shape6CopyCopyCopy);
+
+// Single Shape: Shape 6 Copy Copy Copy Copy
+auto Shape6CopyCopyCopyCopy = ShapeBuilder()
+    .setId(63)
+    .setName("Shape 6 Copy Copy Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1353.000000f, 819.000000f))
+    .setBaseSize(ImVec2(191.000000f, 72.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(8.400000f)
+    .setFillColor(ImVec4(1.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.329412f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer0.shapes.push_back(Shape6CopyCopyCopyCopy);
+
+// Single Shape: Shape 6 Copy Copy Copy Copy Copy
+auto Shape6CopyCopyCopyCopyCopy = ShapeBuilder()
+    .setId(64)
+    .setName("Shape 6 Copy Copy Copy Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1555.000000f, 819.000000f))
+    .setBaseSize(ImVec2(191.000000f, 72.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(8.400000f)
+    .setFillColor(ImVec4(0.000000f, 1.000000f, 0.233846f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.329412f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer0.shapes.push_back(Shape6CopyCopyCopyCopyCopy);
+
+g_windowsMap["Main"].layers.push_back(Layer0);
+
+// Layer: Layer 2
+DesignManager::Layer Layer2("Layer 2");
+Layer2.zOrder = 3;
+
+// Single Shape: Shape 2
+auto Shape2 = ShapeBuilder()
+    .setId(40)
+    .setName("Shape 2")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1688.000000f, 352.000000f))
+    .setBaseSize(ImVec2(21.000000f, 5.000000f))
+    .setBaseRotation(0.383972f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(1.900000f)
+    .setFillColor(ImVec4(1.000000f, 0.196923f, 0.196923f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.200000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(0.383972f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer2.shapes.push_back(Shape2);
+
+// Single Shape: Shape 2 Copy
+auto Shape2Copy = ShapeBuilder()
+    .setId(41)
+    .setName("Shape 2 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1701.000000f, 344.000000f))
+    .setBaseSize(ImVec2(21.000000f, 5.000000f))
+    .setBaseRotation(1.151917f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(1.900000f)
+    .setFillColor(ImVec4(1.000000f, 0.196923f, 0.196923f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.200000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(1.151917f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer2.shapes.push_back(Shape2Copy);
+
+// Single Shape: Shape 2 Copy Copy
+auto Shape2CopyCopy = ShapeBuilder()
+    .setId(42)
+    .setName("Shape 2 Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1715.000000f, 346.000000f))
+    .setBaseSize(ImVec2(21.000000f, 5.000000f))
+    .setBaseRotation(2.007129f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(1.900000f)
+    .setFillColor(ImVec4(1.000000f, 0.196923f, 0.196923f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.200000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(2.007129f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer2.shapes.push_back(Shape2CopyCopy);
+
+g_windowsMap["Main"].layers.push_back(Layer2);
+
+// Layer: Layer 1
+DesignManager::Layer Layer1("Layer 1");
+Layer1.zOrder = 4;
+
+// Single Shape: 1
+auto _1 = ShapeBuilder()
+    .setId(31)
+    .setName("1")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1695.000000f, 296.000000f))
+    .setBaseSize(ImVec2(54.000000f, 3.000000f))
+    .setBaseRotation(1.082104f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(2.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(1.082104f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_1);
+
+// Single Shape: 2
+auto _2 = ShapeBuilder()
+    .setId(32)
+    .setName("2")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1705.000000f, 285.000000f))
+    .setBaseSize(ImVec2(54.000000f, 3.000000f))
+    .setBaseRotation(0.506145f)
+    .setCornerRadius(190.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(0.506145f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_2);
+
+// Single Shape: 3
+auto _3 = ShapeBuilder()
+    .setId(33)
+    .setName("3")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1743.000000f, 299.000000f))
+    .setBaseSize(ImVec2(11.000000f, 3.000000f))
+    .setBaseRotation(2.792527f)
+    .setCornerRadius(190.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(2.792527f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_3);
+
+// Single Shape: 4
+auto _4 = ShapeBuilder()
+    .setId(34)
+    .setName("4")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1728.000000f, 310.000000f))
+    .setBaseSize(ImVec2(22.000000f, 3.000000f))
+    .setBaseRotation(2.007129f)
+    .setCornerRadius(190.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(2.007129f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_4);
+
+// Single Shape: 1 Copy
+auto _1Copy = ShapeBuilder()
+    .setId(35)
+    .setName("1 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1698.000000f, 384.000000f))
+    .setBaseSize(ImVec2(54.000000f, 3.000000f))
+    .setBaseRotation(1.082104f)
+    .setCornerRadius(10.000000f)
+    .setBorderThickness(2.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(1.082104f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_1Copy);
+
+// Single Shape: 2 Copy
+auto _2Copy = ShapeBuilder()
+    .setId(36)
+    .setName("2 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1708.000000f, 373.000000f))
+    .setBaseSize(ImVec2(54.000000f, 3.000000f))
+    .setBaseRotation(0.506145f)
+    .setCornerRadius(190.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(0.506145f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_2Copy);
+
+// Single Shape: 3 Copy
+auto _3Copy = ShapeBuilder()
+    .setId(37)
+    .setName("3 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1746.000000f, 387.000000f))
+    .setBaseSize(ImVec2(11.000000f, 3.000000f))
+    .setBaseRotation(2.792527f)
+    .setCornerRadius(190.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(2.792527f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_3Copy);
+
+// Single Shape: 4 Copy
+auto _4Copy = ShapeBuilder()
+    .setId(38)
+    .setName("4 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1731.000000f, 398.000000f))
+    .setBaseSize(ImVec2(22.000000f, 3.000000f))
+    .setBaseRotation(2.007129f)
+    .setCornerRadius(190.000000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setRotation(2.007129f)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer1.shapes.push_back(_4Copy);
+
+g_windowsMap["Main"].layers.push_back(Layer1);
+
+// Layer: Layer 4
+DesignManager::Layer Layer4("Layer 4");
+Layer4.zOrder = 4;
+
+// Single Shape: Shape 7
+auto Shape7 = ShapeBuilder()
+    .setId(66)
+    .setName("Shape 7")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(727.000000f, 914.000000f))
+    .setBaseSize(ImVec2(528.000000f, 53.000000f))
+    .setBaseRotation(0.000000f)
+    .setBorderThickness(2.000000f)
+    .setFillColor(ImVec4(0.932000f, 0.932000f, 0.932000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.800000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.200000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("External images should be imported before compilation. ")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(29.100000f)
+    .setTextFont(1)
+    .setTextPosition(ImVec2(0.000000f, 14.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer4.shapes.push_back(Shape7);
+
+// Single Shape: Shape 7 Copy
+auto Shape7Copy = ShapeBuilder()
+    .setId(67)
+    .setName("Shape 7 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1220.000000f, 918.000000f))
+    .setBaseSize(ImVec2(14.000000f, 32.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(6.500000f)
+    .setFillColor(ImVec4(1.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer4.shapes.push_back(Shape7Copy);
+
+// Single Shape: Shape 7 Copy Copy
+auto Shape7CopyCopy = ShapeBuilder()
+    .setId(68)
+    .setName("Shape 7 Copy Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(1221.000000f, 952.000000f))
+    .setBaseSize(ImVec2(12.000000f, 12.000000f))
+    .setBaseRotation(0.000000f)
+    .setCornerRadius(6.500000f)
+    .setFillColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer4.shapes.push_back(Shape7CopyCopy);
+
+// Single Shape: Shape 7 Copy
+auto Shape7Copy = ShapeBuilder()
+    .setId(69)
+    .setName("Shape 7 Copy")
+    .setOwnerWindow("Main")
+    .setBasePosition(ImVec2(674.000000f, 972.000000f))
+    .setBaseSize(ImVec2(632.000000f, 34.000000f))
+    .setBaseRotation(0.000000f)
+    .setBorderThickness(2.000000f)
+    .setFillColor(ImVec4(0.984615f, 0.736189f, 0.869193f, 1.000000f))
+    .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.800000f))
+    .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.200000f))
+    .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+    .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+    .setShadowUseCornerRadius(true)
+    .setVisible(true)
+    .setLocked(false)
+    .setColorRamp({
+        {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+        {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+    })
+    .setHasText(true)
+    .setText("There is animation capabilities too but all this features just Experimental.")
+    .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+    .setTextSize(29.100000f)
+    .setTextFont(1)
+    .setTextPosition(ImVec2(0.000000f, 3.000000f))
+    .setTextRotation(0.000000f)
+    .setTextAlignment(1)
+    .setOpenWindow(false)
+    .setIsChildWindow(false)
+    .setAllowItemOverlap(false)
+    .setBlockUnderlying(true)
+    .build();
+Layer4.shapes.push_back(Shape7Copy);
+
+g_windowsMap["Main"].layers.push_back(Layer4);
+
+// Global Child Window Mappings
+g_combinedChildWindowMappings.clear();
