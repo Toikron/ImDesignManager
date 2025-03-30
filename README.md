@@ -7,7 +7,8 @@
 
 **ImGui Visual Design Manager** is a powerful, single-header C++ library that integrates a Figma-like visual design workflow directly into your Dear ImGui application. Design, iterate, and animate your UI visually, then seamlessly use those designs as real, interactive ImGui elements.
 
-![Showcase GIF - Replace with a good GIF showing the editor in action](https://github.com/user-attachments/assets/05cb57a1-e197-4d94-837d-e9476407a33d)
+![Showcase GIF - Replace with a good GIF showing the editor in action](https://github.com/user-attachments/assets/cf74a7a0-8bb4-42a8-8feb-1e3d250f013e)
+
 *(Caption: Visually design shapes, layers, and properties directly within your ImGui application)*
 
 ---
@@ -51,9 +52,9 @@
 
 <img src="https://github.com/user-attachments/assets/05cb57a1-e197-4d94-837d-e9476407a33d" width="200"> | <img src="https://github.com/user-attachments/assets/dac9e7ff-de4f-4e55-bd82-624fe03e172d" width="200"> | <img src="https://github.com/user-attachments/assets/02a6c4fe-5572-44ae-848b-80da43185e2c" width="200"> |
 |---|---|---|
-| *Visual Editor Interface* | *Shape Property Editing* | *Layer Management* |
+| |  |  |
 | <img src="https://github.com/user-attachments/assets/adf6fc34-cc35-462c-b7f9-7b2597c3c1ab" width="200"> | <img src="https://github.com/user-attachments/assets/36e5171d-ec67-43bd-993c-13f0aa7aca7f" width="200"> | <img src="https://github.com/user-attachments/assets/40365b18-1b8b-4632-adad-79bf04e08d23" width="200"> |
-| *Animation Configuration* | *Child Window Mapping* | *Gradient Editor* |
+|  |  |  |
 
 ## Getting Started
 
