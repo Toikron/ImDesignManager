@@ -3,9 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- Add other relevant badges here, e.g., build status, version -->
 
-**Tired of tweaking ImGui code endlessly to get your UI layout *just* right? Wish you could visually design your ImGui interfaces like in Figma, but have it directly translate into usable components in your application?**
+**ImGui Visual Design Manager is a single-header C++ library that adds a visual design workflow to Dear ImGui.**
 
-**ImGui Visual Design Manager** is a powerful, single-header C++ library that integrates a Figma-like visual design workflow directly into your Dear ImGui application. Design, iterate, and animate your UI visually, then seamlessly use those designs as real, interactive ImGui elements.
+**It lets you build and arrange UI components interactively—similar to tools like Figma—directly within your ImGui-based application. Designed components can be exported and used as standard ImGui elements with minimal code changes.**
 
 ![Showcase GIF - Replace with a good GIF showing the editor in action](https://github.com/user-attachments/assets/cf74a7a0-8bb4-42a8-8feb-1e3d250f013e)
 
