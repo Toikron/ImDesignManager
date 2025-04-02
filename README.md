@@ -7,9 +7,10 @@
 
 **It lets you build and arrange UI components interactively—similar to tools like Figma—directly within your ImGui-based application. Designed components can be exported and used as standard ImGui elements with minimal code changes.**
 
-![Showcase GIF - Replace with a good GIF showing the editor in action](https://github.com/user-attachments/assets/cf74a7a0-8bb4-42a8-8feb-1e3d250f013e)
+![Showcase GIF - Replace with a good GIF showing the editor in action](https://github.com/user-attachments/assets/c978ff4c-dbd3-48d2-8b21-ded9333c2159)
 
 *(Caption: Visually design shapes, layers, and properties directly within your ImGui application)*
+
 
 ---
 
