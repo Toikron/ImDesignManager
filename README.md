@@ -37,7 +37,7 @@
     *   **Code Generation:** Automatically generate C++ code (using a clean Builder pattern) representing your visual designs, ready to be integrated into your project.
     *   **Single-Header Library:** Easy integration - just drop `design_manager.h` into your project.
     *   **Parenting System:** Group shapes hierarchically for complex component creation and coordinated transformations.
-
+*   *   **Easy to Implement SDL, DirectX. Just change in order GLFWwindow* to SDL_Window* and glfwGetWindowSize to SDL_GetWindowSize . Seamless Integration 🧩
 ## Why Use ImGui Visual Design Manager?
 
 *   **Rapid Prototyping:** Visually iterate on UI designs much faster than coding them manually.
