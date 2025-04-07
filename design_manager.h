@@ -313,18 +313,20 @@ namespace DesignManager
         float rotation, baseRotation = 0.0f;
         ImVec2 minSize = ImVec2(50, 50);
         ImVec2 maxSize = ImVec2(99999, 99999);
-        bool openWindow;
+        //bool openWindow;
         bool isChildWindow = false;           // New field: Is this shape a child window?
         bool childWindowSync = false;
         bool toggleChildWindow = false; // Feature to show child window when button is clicked
         ChildWindowToggleBehavior toggleBehavior = ChildWindowToggleBehavior::WindowOnly;
         int childWindowGroupId = -1; // Group ID for child window, -1: no group
-
-
+    
+    
         int targetShapeID = 0;
         int triggerGroupID = 0;
         
-       
+        // 2. Direct ImGui Content Container (NEW)
+        bool isImGuiContainer = false; // Does this shape contain arbitrary ImGui widgets?
+        std::function<void()> renderImGuiContent = nullptr; // Function to render the ImGui widgets inside
         
         bool allowItemOverlap = false;
         bool forceOverlap = false;
@@ -373,7 +375,7 @@ namespace DesignManager
         GLuint glassBlurFBO[2], glassBlurTex[2];
         int zOrder;
         bool isButton = false;
-
+    
         std::vector<std::string> assignedChildWindows; // Key of the child window that the button will open (if empty, default: s.name is used)
         int selectedChildWindowIndex = 0;
         std::string logicExpression;       // For example, "1 && 2", to specify conditions based on the state of the relevant button IDs.
@@ -447,7 +449,10 @@ namespace DesignManager
             glassAlpha(0.7f),
             glassColor(ImVec4(1, 1, 1, 0.3f)),
             zOrder(0),
-            openWindow(false)
+            //openWindow(false)
+            isChildWindow(false),
+            isImGuiContainer(false), // Initialize new flag
+            renderImGuiContent(nullptr) // Initialize new function pointer
         {
             colorRamp.emplace_back(0.0f, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
             colorRamp.emplace_back(1.0f, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
@@ -699,6 +704,74 @@ namespace DesignManager
 
     inline std::string selectedGuiWindow = "Main";
 
+
+    // --- NEW HELPER FUNCTION ---
+// Helper function to render the ImGui Content if the shape is a container
+    inline void DrawShape_RenderImGuiContent(ImDrawList* dl, ShapeItem& s, ImVec2 wp, float scaleFactor) {
+        if (!s.isImGuiContainer) return; // Only proceed if it's an ImGui container
+
+        // --- Rotation Limitation ---
+        // BeginChild doesn't inherently support rotation. We'll render unrotated.
+        // You could disable rotation in the UI for ImGuiContainers or show a warning.
+        if (std::fabs(s.rotation) > 1e-4f) {
+            // Option 1: Skip rendering content if rotated
+            return;
+            // Option 2: Draw a warning text
+            // ImVec2 textPos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
+            // dl->AddText(textPos, IM_COL32(255, 100, 100, 255), "Rotated ImGui content not supported");
+            // return;
+        }
+
+
+        std::string childId = "ImGuiContainer_" + std::to_string(s.id);
+        ImVec2 childPos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
+        ImVec2 childSize = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);
+
+        // Ensure the child respects the container's rounded corners visually (clipping)
+        // Note: BeginChild provides rectangular clipping. For perfect rounded clipping,
+        // more complex stencil buffer techniques or manual vertex clipping would be needed.
+        // We'll use BeginChild's clipping for simplicity.
+
+        ImGui::PushID(childId.c_str());
+        // Set the position for the upcoming BeginChild call
+        ImGui::SetCursorScreenPos(childPos);
+
+        // Optional: Push style vars like padding or background color if needed
+        // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5, 5));
+        // ImGui::PushStyleColor(ImGuiCol_ChildBg, s.fillColor); // Example: Use shape's fill color? Or make it transparent?
+
+        ImGui::BeginChild(childId.c_str(),
+            childSize,
+            false, // Set to true to draw border *around* the child area
+            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse // Add flags as needed
+        );
+
+        // Execute the user's ImGui rendering commands
+        if (s.renderImGuiContent) {
+            try {
+                s.renderImGuiContent();
+            }
+            catch (const std::exception& e) {
+                // Optional: Draw error message inside the container if the function throws
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error in renderImGuiContent:");
+                ImGui::TextWrapped("%s", e.what());
+            }
+            catch (...) {
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "Unknown error in renderImGuiContent");
+            }
+
+        }
+        else {
+            // Optional: Draw placeholder text if no function is set
+            ImGui::TextDisabled("renderImGuiContent not set");
+        }
+
+        ImGui::EndChild();
+
+        // ImGui::PopStyleColor();
+        // ImGui::PopStyleVar();
+        ImGui::PopID();
+    }
     static void DrawShapeTreeNode(ShapeItem* shape)
     {
         ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
@@ -1791,10 +1864,36 @@ namespace DesignManager
         {
             DrawShape_Fill(dlEffective, s, poly, scaleFactor, drawColor);
         }
+    
+    
+        /******************************************************/
+        /******************************************************/
+        DrawShape_RenderImGuiContent(dl, s, wp, scaleFactor); // <--- NEW CALL
+    
+        if (s.isChildWindow && !s.isImGuiContainer) { // <--- MODIFIED CONDITION
+            DrawShape_RenderChildWindow(s, wp, scaleFactor, poly);
+            // Usually, if a child window is rendered, we might not draw the shape's own border/text?
+            // Depends on desired look. Let's return here for now if it's a child window container.
+            // return; // Or maybe just skip border/text below? Let's skip them.
+        }
+        else if (!s.isImGuiContainer) { // <--- MODIFIED CONDITION: Only draw border/text if NOT an ImGui container (content handles itself) and not a child window
+            DrawShape_DrawBorder(dlEffective, s, scaleFactor, c, wp);
+            // Glass effect might need careful integration with ImGuiContainer
+            if (s.useGlass) {
+                // Apply glass effect - how does this interact with BeginChild content? Needs thought.
+            }
+            DrawShape_DrawText(dlEffective, s, scaleFactor, wp);
+        }
+        /******************************************************/
+        /******************************************************/
+    
+    
+        /*
         if (s.openWindow) {
             DrawShape_RenderChildWindow(s, wp, scaleFactor, poly);
             return;
         }
+        */
         {
             DrawShape_DrawBorder(dlEffective, s, scaleFactor, c, wp);
         }
@@ -2577,328 +2676,222 @@ namespace DesignManager
     // Helper: Function to generate ButtonAnimation code (Updated)
     // -------------------------
 
+    // No comments version
     inline std::string GenerateButtonAnimationCode(const ButtonAnimation& anim)
     {
-        std::string code;
-        code += "ShapeBuilder().createAnimation()\n";
-        code += "    .setName(\"" + anim.name + "\")\n";
-        code += "    .setDuration(" + std::to_string(anim.duration) + "f)\n";
-        code += "    .setSpeed(" + std::to_string(anim.speed) + "f)\n";
-        code += "    .setTargetPosition(ImVec2(" + std::to_string(anim.animationTargetPosition.x) + "f, " +
-            std::to_string(anim.animationTargetPosition.y) + "f))\n";
-        code += "    .setTargetSize(ImVec2(" + std::to_string(anim.animationTargetSize.x) + "f, " +
-            std::to_string(anim.animationTargetSize.y) + "f))\n";
-        code += "    .setTransformRotation(" + std::to_string(anim.transformRotation) + "f)\n";
-        code += "    .setRepeatCount(" + std::to_string(anim.repeatCount) + ")\n";
-        code += "    .setPlaybackOrder(PlaybackOrder::";
-        switch (anim.playbackOrder)
-        {
-        case PlaybackOrder::Sirali:
-            code += "Sirali"; break;
-        case PlaybackOrder::HemenArkasina:
-            code += "HemenArkasina"; break;
-        default:
-            code += "Sirali"; break;
+        std::stringstream ss;
+        ss << "ShapeBuilder().createAnimation()\n";
+        ss << "    .setName(\"" << anim.name << "\")\n";
+        if (anim.duration != 0.5f) ss << "    .setDuration(" << anim.duration << "f)\n";
+        if (anim.speed != 1.0f) ss << "    .setSpeed(" << anim.speed << "f)\n";
+        if (anim.animationTargetPosition != ImVec2(0, 0)) ss << "    .setAnimationTargetPosition(ImVec2(" << anim.animationTargetPosition.x << "f, " << anim.animationTargetPosition.y << "f))\n";
+        if (anim.animationTargetSize != ImVec2(0, 0)) ss << "    .setAnimationTargetSize(ImVec2(" << anim.animationTargetSize.x << "f, " << anim.animationTargetSize.y << "f))\n";
+        if (std::fabs(anim.transformRotation) > 1e-4f) ss << "    .setTransformRotation(" << anim.transformRotation << "f)\n";
+        if (anim.repeatCount != 1) ss << "    .setRepeatCount(" << anim.repeatCount << ")\n";
+        if (anim.playbackOrder != PlaybackOrder::Sirali) {
+            ss << "    .setPlaybackOrder(PlaybackOrder::HemenArkasina)\n";
         }
-        code += ")\n";
-        code += "    .setInterpolationMethod(ButtonAnimation::InterpolationMethod::";
-        switch (anim.interpolationMethod)
-        {
-        case ButtonAnimation::InterpolationMethod::Linear:
-            code += "Linear"; break;
-        case ButtonAnimation::InterpolationMethod::EaseInOut:
-            code += "EaseInOut"; break;
-        default:
-            code += "Linear"; break;
+        if (anim.interpolationMethod != ButtonAnimation::InterpolationMethod::Linear) {
+            ss << "    .setInterpolationMethod(ButtonAnimation::InterpolationMethod::EaseInOut)\n";
         }
-        code += ")\n";
-        code += "    .setTriggerMode(ButtonAnimation::TriggerMode::";
-        switch (anim.triggerMode)
-        {
-        case ButtonAnimation::TriggerMode::OnClick:
-            code += "OnClick"; break;
-        case ButtonAnimation::TriggerMode::OnHover:
-            code += "OnHover"; break;
-        default:
-            code += "OnClick"; break;
+        if (anim.triggerMode != ButtonAnimation::TriggerMode::OnClick) {
+            ss << "    .setTriggerMode(ButtonAnimation::TriggerMode::OnHover)\n";
         }
-        code += ")\n";
-        code += "    .setBehavior(ButtonAnimation::AnimationBehavior::";
-        switch (anim.behavior)
-        {
-        case ButtonAnimation::AnimationBehavior::PlayOnceAndStay:
-            code += "PlayOnceAndStay"; break;
-        case ButtonAnimation::AnimationBehavior::PlayOnceAndReverse:
-            code += "PlayOnceAndReverse"; break;
-        case ButtonAnimation::AnimationBehavior::Toggle:
-            code += "Toggle"; break;
-        case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndReverseOnRelease:
-            code += "PlayWhileHoldingAndReverseOnRelease"; break;
-        case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay:
-            code += "PlayWhileHoldingAndStay"; break;
-        default:
-            code += "PlayOnceAndStay"; break;
+        if (anim.behavior != ButtonAnimation::AnimationBehavior::PlayOnceAndStay) {
+            ss << "    .setBehavior(ButtonAnimation::AnimationBehavior::";
+            switch (anim.behavior) {
+            case ButtonAnimation::AnimationBehavior::PlayOnceAndReverse: ss << "PlayOnceAndReverse"; break;
+            case ButtonAnimation::AnimationBehavior::Toggle: ss << "Toggle"; break;
+            case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndReverseOnRelease: ss << "PlayWhileHoldingAndReverseOnRelease"; break;
+            case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay: ss << "PlayWhileHoldingAndStay"; break;
+            default: break;
+            }
+            ss << ")\n";
         }
-        code += ")\n";
-        code += "    .build()";
-        return code;
+        ss << "    .build()";
+        return ss.str();
     }
-
-
-    // -------------------------
-    // Helper: Function that generates the ShapeKey code
-    // -------------------------
+    
+    // No comments version
     inline std::string GenerateShapeKeyCode(const ShapeKey& key)
     {
-        std::string code;
-        code += "ShapeBuilder::createShapeKey()\n";
-        code += "    .setName(\"" + key.name + "\")\n";
-        code += "    .setType(ShapeKeyType::";
-        switch (key.type)
-        {
-        case ShapeKeyType::SizeX:
-            code += "SizeX"; break;
-        case ShapeKeyType::SizeY:
-            code += "SizeY"; break;
-        case ShapeKeyType::PositionX:
-            code += "PositionX"; break;
-        case ShapeKeyType::PositionY:
-            code += "PositionY"; break;
-        case ShapeKeyType::Rotation:
-            code += "Rotation"; break;
-        default:
-            code += "SizeX"; break;
+        std::stringstream ss;
+        ss << "ShapeBuilder::createShapeKey()\n";
+        ss << "    .setName(\"" << key.name << "\")\n";
+        if (key.type != ShapeKeyType::SizeX) {
+            ss << "    .setType(ShapeKeyType::";
+            switch (key.type) {
+            case ShapeKeyType::SizeY: ss << "SizeY"; break;
+            case ShapeKeyType::PositionX: ss << "PositionX"; break;
+            case ShapeKeyType::PositionY: ss << "PositionY"; break;
+            case ShapeKeyType::Rotation: ss << "Rotation"; break;
+            default: break;
+            }
+            ss << ")\n";
         }
-        code += ")\n";
-        code += "    .setStartWindowSize(ImVec2(" + std::to_string(key.startWindowSize.x) + "f, " +
-            std::to_string(key.startWindowSize.y) + "f))\n";
-        code += "    .setEndWindowSize(ImVec2(" + std::to_string(key.endWindowSize.x) + "f, " +
-            std::to_string(key.endWindowSize.y) + "f))\n";
-        if (key.type == ShapeKeyType::Rotation)
-        {
-            code += "    .setTargetRotation(" + std::to_string(key.targetRotation) + "f)\n";
-            code += "    .setRotationOffset(" + std::to_string(key.rotationOffset) + "f)\n";
+        ss << "    .setStartWindowSize(ImVec2(" << key.startWindowSize.x << "f, " << key.startWindowSize.y << "f))\n";
+        ss << "    .setEndWindowSize(ImVec2(" << key.endWindowSize.x << "f, " << key.endWindowSize.y << "f))\n";
+    
+        if (key.type == ShapeKeyType::Rotation) {
+            if (std::fabs(key.targetRotation) > 1e-4f)
+                ss << "    .setTargetRotation(" << key.targetRotation << "f)\n";
+            if (std::fabs(key.rotationOffset) > 1e-4f)
+                ss << "    .setRotationOffset(" << key.rotationOffset << "f)\n";
         }
-        else
-        {
-            code += "    .setTargetValue(ImVec2(" + std::to_string(key.targetValue.x) + "f, " +
-                std::to_string(key.targetValue.y) + "f))\n";
-            code += "    .setOffset(ImVec2(" + std::to_string(key.offset.x) + "f, " +
-                std::to_string(key.offset.y) + "f))\n";
+        else {
+            if (key.targetValue != ImVec2(0, 0))
+                ss << "    .setTargetValue(ImVec2(" << key.targetValue.x << "f, " << key.targetValue.y << "f))\n";
+            if (key.offset != ImVec2(0, 0))
+                ss << "    .setOffset(ImVec2(" << key.offset.x << "f, " << key.offset.y << "f))\n";
         }
-        code += "    .setValue(" + std::to_string(key.value) + "f)\n";
-        code += "    .build()";
-        return code;
+        ss << "    .build()";
+        return ss.str();
     }
-
-    // -------------------------
-// Updated version of the GenerateSingleShapeCode function
-// -------------------------
+    
+    // No comments version
     inline std::string GenerateSingleShapeCode(const DesignManager::ShapeItem& shape)
     {
         using namespace DesignManager;
         std::string shapeVar = SanitizeVariableName(shape.name);
-        std::string code;
-        code += "// Single Shape: " + shape.name + "\n";
+        std::stringstream code;
         int uniqueID = (shape.id > 0) ? shape.id : GetUniqueShapeID();
-
-        code += "auto " + shapeVar + " = ShapeBuilder()\n";
-        code += "    .setId(" + std::to_string(uniqueID) + ")\n";
-        code += "    .setName(\"" + shape.name + "\")\n";
-        code += "    .setOwnerWindow(\"" + shape.ownerWindow + "\")\n";
-        if (shape.groupId != 0)
-            code += "    .setGroupId(" + std::to_string(shape.groupId) + ")\n";
-        // Base Transform
-        code += "    .setBasePosition(ImVec2(" + std::to_string(shape.basePosition.x) + "f, " +
-            std::to_string(shape.basePosition.y) + "f))\n";
-        code += "    .setBaseSize(ImVec2(" + std::to_string(shape.baseSize.x) + "f, " +
-            std::to_string(shape.baseSize.y) + "f))\n";
-        code += "    .setBaseRotation(" + std::to_string(shape.baseRotation) + "f)\n";
-
-        // If the final transform is different, optional:
-        if (shape.position.x != shape.basePosition.x || shape.position.y != shape.basePosition.y)
-            code += "    .setPosition(ImVec2(" + std::to_string(shape.position.x) + "f, " +
-            std::to_string(shape.position.y) + "f))\n";
-        if (shape.size.x != shape.baseSize.x || shape.size.y != shape.baseSize.y)
-            code += "    .setSize(ImVec2(" + std::to_string(shape.size.x) + "f, " +
-            std::to_string(shape.size.y) + "f))\n";
-
-        // Style and appearance settings:
-        if (shape.cornerRadius != 0.0f)
-            code += "    .setCornerRadius(" + std::to_string(shape.cornerRadius) + "f)\n";
-        if (shape.borderThickness != 0.0f)
-            code += "    .setBorderThickness(" + std::to_string(shape.borderThickness) + "f)\n";
-
-        auto writeColorLine = [&](const std::string& methodName, const ImVec4& color) -> std::string {
-            return "    ." + methodName + "(ImVec4(" +
-                std::to_string(color.x) + "f, " +
-                std::to_string(color.y) + "f, " +
-                std::to_string(color.z) + "f, " +
-                std::to_string(color.w) + "f))\n";
+    
+        auto writeColorLine = [&](const std::string& methodName, const ImVec4& color) {
+            code << "    ." << methodName << "(ImVec4("
+                << color.x << "f, " << color.y << "f, " << color.z << "f, " << color.w << "f))\n";
             };
-        code += writeColorLine("setFillColor", shape.fillColor);
-        code += writeColorLine("setBorderColor", shape.borderColor);
-        code += writeColorLine("setShadowColor", shape.shadowColor);
-
-        if (shape.shadowSpread != ImVec4(0, 0, 0, 0))
-            code += "    .setShadowSpread(ImVec4(" + std::to_string(shape.shadowSpread.x) + "f, " +
-            std::to_string(shape.shadowSpread.y) + "f, " +
-            std::to_string(shape.shadowSpread.z) + "f, " +
-            std::to_string(shape.shadowSpread.w) + "f))\n";
-        if (shape.shadowOffset != ImVec2(0, 0))
-            code += "    .setShadowOffset(ImVec2(" + std::to_string(shape.shadowOffset.x) + "f, " +
-            std::to_string(shape.shadowOffset.y) + "f))\n";
-        if (shape.shadowUseCornerRadius)
-            code += "    .setShadowUseCornerRadius(true)\n";
-        if (shape.rotation != 0.0f)
-            code += "    .setRotation(" + std::to_string(shape.rotation) + "f)\n";
-        if (shape.blurAmount != 0.0f)
-            code += "    .setBlurAmount(" + std::to_string(shape.blurAmount) + "f)\n";
-
-        code += "    .setVisible(" + std::string(shape.visible ? "true" : "false") + ")\n";
-        code += "    .setLocked(" + std::string(shape.locked ? "true" : "false") + ")\n";
-
-        // Gradient settings:
-        if (shape.useGradient)
-            code += "    .setUseGradient(true)\n";
-        if (shape.gradientRotation != 0.0f)
-            code += "    .setGradientRotation(" + std::to_string(shape.gradientRotation) + "f)\n";
-        if (shape.gradientInterpolation != ShapeItem::GradientInterpolation::Linear)
-        {
-            code += "    .setGradientInterpolation(DesignManager::ShapeItem::GradientInterpolation::";
-            switch (shape.gradientInterpolation)
-            {
-            case ShapeItem::GradientInterpolation::Ease:     code += "Ease"; break;
-            case ShapeItem::GradientInterpolation::Constant: code += "Constant"; break;
-            case ShapeItem::GradientInterpolation::Cardinal: code += "Cardinal"; break;
-            case ShapeItem::GradientInterpolation::BSpline:  code += "BSpline"; break;
-            default: break;
+    
+        code << "auto " << shapeVar << " = ShapeBuilder()\n";
+        code << "    .setId(" << uniqueID << ")\n";
+        code << "    .setName(\"" << shape.name << "\")\n";
+        code << "    .setOwnerWindow(\"" << shape.ownerWindow << "\")\n";
+        if (shape.groupId != 0) code << "    .setGroupId(" << shape.groupId << ")\n";
+    
+        code << "    .setBasePosition(ImVec2(" << shape.basePosition.x << "f, " << shape.basePosition.y << "f))\n";
+        code << "    .setBaseSize(ImVec2(" << shape.baseSize.x << "f, " << shape.baseSize.y << "f))\n";
+        if (std::fabs(shape.baseRotation) > 1e-4f) code << "    .setBaseRotation(" << shape.baseRotation << "f)\n";
+    
+        if (shape.position != shape.basePosition) code << "    .setPosition(ImVec2(" << shape.position.x << "f, " << shape.position.y << "f))\n";
+        if (shape.size != shape.baseSize) code << "    .setSize(ImVec2(" << shape.size.x << "f, " << shape.size.y << "f))\n";
+        if (std::fabs(shape.rotation) > 1e-4f) code << "    .setRotation(" << shape.rotation << "f)\n";
+    
+        if (shape.cornerRadius != 0.0f) code << "    .setCornerRadius(" << shape.cornerRadius << "f)\n";
+        if (shape.borderThickness != 0.0f) code << "    .setBorderThickness(" << shape.borderThickness << "f)\n";
+    
+        writeColorLine("setFillColor", shape.fillColor);
+        writeColorLine("setBorderColor", shape.borderColor);
+        writeColorLine("setShadowColor", shape.shadowColor);
+    
+        if (shape.shadowSpread != ImVec4(0, 0, 0, 0)) code << "    .setShadowSpread(ImVec4(" << shape.shadowSpread.x << "f, " << shape.shadowSpread.y << "f, " << shape.shadowSpread.z << "f, " << shape.shadowSpread.w << "f))\n";
+        if (shape.shadowOffset != ImVec2(0, 0)) code << "    .setShadowOffset(ImVec2(" << shape.shadowOffset.x << "f, " << shape.shadowOffset.y << "f))\n";
+        if (!shape.shadowUseCornerRadius) code << "    .setShadowUseCornerRadius(false)\n";
+        if (std::fabs(shape.shadowRotation) > 1e-4f) code << "    .setShadowRotation(" << shape.shadowRotation << "f)\n";
+    
+        if (shape.blurAmount != 0.0f) code << "    .setBlurAmount(" << shape.blurAmount << "f)\n";
+        if (!shape.visible) code << "    .setVisible(false)\n";
+        if (shape.locked) code << "    .setLocked(true)\n";
+    
+        if (shape.useGradient) {
+            code << "    .setUseGradient(true)\n";
+            if (shape.gradientRotation != 0.0f) code << "    .setGradientRotation(" << shape.gradientRotation << "f)\n";
+            if (shape.gradientInterpolation != ShapeItem::GradientInterpolation::Linear) {
+                code << "    .setGradientInterpolation(DesignManager::ShapeItem::GradientInterpolation::";
+                switch (shape.gradientInterpolation) {
+                case ShapeItem::GradientInterpolation::Ease: code << "Ease"; break;
+                case ShapeItem::GradientInterpolation::Constant: code << "Constant"; break;
+                case ShapeItem::GradientInterpolation::Cardinal: code << "Cardinal"; break;
+                case ShapeItem::GradientInterpolation::BSpline: code << "BSpline"; break;
+                default: code << "Linear"; break;
+                }
+                code << ")\n";
             }
-            code += ")\n";
-        }
-        if (!shape.colorRamp.empty())
-        {
-            code += "    .setColorRamp({\n";
-            for (auto& ramp : shape.colorRamp)
-            {
-                code += "        {" + std::to_string(ramp.first) + "f, ImVec4(" +
-                    std::to_string(ramp.second.x) + "f, " +
-                    std::to_string(ramp.second.y) + "f, " +
-                    std::to_string(ramp.second.z) + "f, " +
-                    std::to_string(ramp.second.w) + "f)},\n";
-            }
-            code += "    })\n";
-        }
-        if (shape.useGlass)
-        {
-            code += "    .setUseGlass(true)\n";
-            if (shape.glassBlur != 0.0f)
-                code += "    .setGlassBlur(" + std::to_string(shape.glassBlur) + "f)\n";
-            if (shape.glassAlpha != 0.0f)
-                code += "    .setGlassAlpha(" + std::to_string(shape.glassAlpha) + "f)\n";
-            code += writeColorLine("setGlassColor", shape.glassColor);
-        }
-        if (shape.zOrder != 0)
-            code += "    .setZOrder(" + std::to_string(shape.zOrder) + ")\n";
-
-        // Button properties:
-        if (shape.isButton)
-        {
-            code += "    .setIsButton(true)\n";
-            code += "    .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::";
-            switch (shape.buttonBehavior)
-            {
-            case ShapeItem::ButtonBehavior::SingleClick: code += "SingleClick"; break;
-            case ShapeItem::ButtonBehavior::Toggle:      code += "Toggle"; break;
-            case ShapeItem::ButtonBehavior::Hold:        code += "Hold"; break;
-            }
-            code += ")\n";
-            code += "    .setUseOnClick(" + std::string(shape.useOnClick ? "true" : "false") + ")\n";
-            code += writeColorLine("setHoverColor", shape.hoverColor);
-            code += writeColorLine("setClickedColor", shape.clickedColor);
-        }
-
-        // Text properties:
-        if (shape.hasText)
-        {
-            code += "    .setHasText(true)\n";
-            code += "    .setText(\"" + escapeNewlines(shape.text) + "\")\n";
-            code += writeColorLine("setTextColor", shape.textColor);
-            code += "    .setTextSize(" + std::to_string(shape.textSize) + "f)\n";
-            code += "    .setTextFont(" + std::to_string(shape.textFont) + ")\n";
-            code += "    .setTextPosition(ImVec2(" + std::to_string(shape.textPosition.x) + "f, " +
-                std::to_string(shape.textPosition.y) + "f))\n";
-            code += "    .setTextRotation(" + std::to_string(shape.textRotation) + "f)\n";
-            code += "    .setTextAlignment(" + std::to_string(shape.textAlignment) + ")\n";
-        }
-
-        // Child Window settings:
-        code += "    .setOpenWindow(" + std::string(shape.isChildWindow ? "true" : "false") + ")\n";
-        // Child Window settings:
-        code += "    .setIsChildWindow(" + std::string(shape.isChildWindow ? "true" : "false") + ")\n";
-        if (shape.isChildWindow)
-        {
-            code += "    .setChildWindowSync(" + std::string(shape.childWindowSync ? "true" : "false") + ")\n";
-            code += "    .setToggleChildWindow(" + std::string(shape.toggleChildWindow ? "true" : "false") + ")\n";
-            code += "    .setChildWindowGroupId(" + std::to_string(shape.childWindowGroupId) + ")\n";
-            if (shape.targetShapeID > 0)
-                code += "    .setTargetShapeID(" + std::to_string(shape.targetShapeID) + ")\n";
-        }
-
-        // Newly added properties:
-        if (shape.updateAnimBaseOnResize) // Previous incorrect call was "setUpdateAnimationBaseOnResize"
-            code += "    .setUpdateAnimBaseOnResize(true)\n";
-        if (shape.hasEmbeddedImage)
-            code += "    .setHasEmbeddedImage(true)\n";
-        if (shape.embeddedImageIndex >= 0)
-            code += "    .setEmbeddedImageIndex(" + std::to_string(shape.embeddedImageIndex) + ")\n";
-        // Overlap/overlay options:
-        code += "    .setAllowItemOverlap(" + std::string(shape.allowItemOverlap ? "true" : "false") + ")\n";
-        if (shape.forceOverlap)
-            code += "    .setForceOverlap(true)\n";
-        if (shape.blockUnderlying)
-            code += "    .setBlockUnderlying(true)\n";
-        // If the shape type is not Rectangle:
-        if (shape.type != ShapeType::Rectangle)
-        {
-            code += "    .setType(ShapeType::";
-            switch (shape.type)
-            {
-            case ShapeType::Circle: code += "Circle"; break;
-            default: code += "Rectangle"; break;
-            }
-            code += ")\n";
-        }
-        if (shape.dynamicTextSize)
-            code += "    .setDynamicTextSize(true)\n";
-
-        // OnClick animations (if any)
-        if (!shape.onClickAnimations.empty())
-        {
-            for (const auto& anim : shape.onClickAnimations)
-            {
-                code += "    .addOnClickAnimation(" + GenerateButtonAnimationCode(anim) + ")\n";
+            if (!shape.colorRamp.empty()) {
+                code << "    .setColorRamp({\n";
+                for (const auto& ramp : shape.colorRamp) { code << "        {" << ramp.first << "f, ImVec4(" << ramp.second.x << "f, " << ramp.second.y << "f, " << ramp.second.z << "f, " << ramp.second.w << "f)},\n"; }
+                code << "    })\n";
             }
         }
-        // Shape Keys (if any)
-        if (!shape.shapeKeys.empty())
-        {
-            for (const auto& key : shape.shapeKeys)
-            {
-                code += "    .addShapeKey(" + GenerateShapeKeyCode(key) + ")\n";
+    
+        if (shape.useGlass) {
+            code << "    .setUseGlass(true)\n";
+            if (shape.glassBlur != 0.0f) code << "    .setGlassBlur(" << shape.glassBlur << "f)\n";
+            if (shape.glassAlpha != 0.0f) code << "    .setGlassAlpha(" << shape.glassAlpha << "f)\n";
+            writeColorLine("setGlassColor", shape.glassColor);
+        }
+    
+        if (shape.zOrder != 0) code << "    .setZOrder(" << shape.zOrder << ")\n";
+    
+        if (shape.isChildWindow) {
+            code << "    .setIsChildWindow(true)\n";
+            if (shape.childWindowSync) code << "    .setChildWindowSync(true)\n";
+            if (shape.toggleChildWindow) code << "    .setToggleChildWindow(true)\n";
+            if (shape.childWindowGroupId != -1) code << "    .setChildWindowGroupId(" << shape.childWindowGroupId << ")\n";
+            if (shape.targetShapeID != 0) code << "    .setTargetShapeID(" << shape.targetShapeID << ")\n";
+        }
+        else if (shape.isImGuiContainer) {
+            code << "    .setIsImGuiContainer(true)\n";
+            std::string functionName = "RenderContentFor_" + SanitizeVariableName(shape.name);
+        }
+    
+        if (shape.isButton) {
+            code << "    .setIsButton(true)\n";
+            if (shape.buttonBehavior != ShapeItem::ButtonBehavior::SingleClick) {
+                code << "    .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::";
+                switch (shape.buttonBehavior) {
+                case ShapeItem::ButtonBehavior::Toggle: code << "Toggle"; break;
+                case ShapeItem::ButtonBehavior::Hold:   code << "Hold"; break;
+                default: break;
+                }
+                code << ")\n";
+            }
+            if (shape.useOnClick) code << "    .setUseOnClick(true)\n";
+            writeColorLine("setHoverColor", shape.hoverColor);
+            writeColorLine("setClickedColor", shape.clickedColor);
+        }
+    
+        if (shape.hasText && !shape.isImGuiContainer && !shape.isChildWindow) {
+            code << "    .setHasText(true)\n";
+            if (!shape.text.empty()) code << "    .setText(\"" << escapeNewlines(shape.text) << "\")\n";
+            writeColorLine("setTextColor", shape.textColor);
+            if (shape.textSize != 0.0f) code << "    .setTextSize(" << shape.textSize << "f)\n";
+            if (shape.textFont != 0) code << "    .setTextFont(" << shape.textFont << ")\n";
+            if (shape.textPosition != ImVec2(0, 0)) code << "    .setTextPosition(ImVec2(" << shape.textPosition.x << "f, " << shape.textPosition.y << "f))\n";
+            if (std::fabs(shape.textRotation) > 1e-4f) code << "    .setTextRotation(" << shape.textRotation << "f)\n";
+            if (shape.textAlignment != 0) code << "    .setTextAlignment(" << shape.textAlignment << ")\n";
+            if (shape.dynamicTextSize) code << "    .setDynamicTextSize(true)\n";
+        }
+    
+        if (shape.updateAnimBaseOnResize) code << "    .setUpdateAnimBaseOnResize(true)\n";
+        if (shape.hasEmbeddedImage) {
+            code << "    .setHasEmbeddedImage(true)\n";
+            if (shape.embeddedImageIndex >= 0) code << "    .setEmbeddedImageIndex(" << shape.embeddedImageIndex << ")\n";
+        }
+        if (shape.allowItemOverlap) code << "    .setAllowItemOverlap(true)\n";
+        if (shape.forceOverlap) code << "    .setForceOverlap(true)\n";
+        if (!shape.blockUnderlying) code << "    .setBlockUnderlying(false)\n";
+        if (shape.type != ShapeType::Rectangle) code << "    .setType(ShapeType::" << (shape.type == ShapeType::Circle ? "Circle" : "Rectangle") << ")\n";
+    
+        if (!shape.onClickAnimations.empty()) {
+            for (const auto& anim : shape.onClickAnimations) {
+                code << "    .addOnClickAnimation(" << GenerateButtonAnimationCode(anim) << ")\n";
             }
         }
-
-
-
-        if (shape.isButton && shape.useOnClick)
-        {
-            std::string eventHandlerName = SanitizeVariableName(shape.name) + "_OnClick";
-            code += "    .addEventHandler(\"onClick\", \"" + eventHandlerName + "\", [](ShapeItem& s) { " + eventHandlerName + "(); })\n";
+        if (!shape.shapeKeys.empty()) {
+            for (const auto& key : shape.shapeKeys) {
+                code << "    .addShapeKey(" << GenerateShapeKeyCode(key) << ")\n";
+            }
         }
-        code += "    .build();\n";
-
-        return code;
+        if (!shape.eventHandlers.empty()) {
+            for (const auto& handler : shape.eventHandlers) {
+                std::string handlerFnName = handler.name.empty() ? (SanitizeVariableName(shape.name) + "_" + handler.eventType) : handler.name;
+                code << "    .addEventHandler(\"" << handler.eventType << "\", \"" << handler.name << "\",\n";
+                code << "        [](DesignManager::ShapeItem& s){ extern void " << handlerFnName << "(DesignManager::ShapeItem&); " << handlerFnName << "(s); })\n";
+            }
+        }
+    
+        code << "    .build();\n";
+    
+        return code.str();
     }
     // -------------------------
 // New: Function to generate global Child Window Mappings code
@@ -3993,6 +3986,63 @@ namespace DesignManager
         {
             ImGui::Separator();
             ShapeItem& s = windowData.layers[selectedLayerIndex].shapes[selectedShapeIndex];
+    
+            // --- START OF NEW CONTAINER SETTINGS UI ---
+            if (ImGui::CollapsingHeader("Container Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                // Make options mutually exclusive in the UI
+                bool is_child_win = s.isChildWindow;
+                if (ImGui::Checkbox("Is Registered Child Window Container", &is_child_win)) {
+                    if (is_child_win) {
+                        s.isChildWindow = true;
+                        s.isImGuiContainer = false; // Turn off the other mode
+                    }
+                    else {
+                        s.isChildWindow = false;
+                    }
+                    MarkSceneUpdated();
+                }
+                ImGui::BeginDisabled(s.isImGuiContainer); // Disable if ImGui container is active
+                if (s.isChildWindow) {
+                    ImGui::Indent();
+                    // --- Paste Existing Child Window Settings UI Here ---
+                    if (ImGui::Checkbox("Sync with Shape", &s.childWindowSync)) MarkSceneUpdated();
+                    if (ImGui::Checkbox("Toggle Child Window On Click", &s.toggleChildWindow)) MarkSceneUpdated();
+                    // ... (Add the rest of your specific child window UI: Assigned Windows, Group ID etc.)
+                  // Example placeholder for brevity:
+                    ImGui::Text("Child Window specific options...");
+                    // --- End of Pasted Child Window Settings ---
+                    ImGui::Unindent();
+                }
+                ImGui::EndDisabled();
+    
+    
+                bool is_imgui_cont = s.isImGuiContainer;
+                if (ImGui::Checkbox("Is Direct ImGui Content Container", &is_imgui_cont)) {
+                    if (is_imgui_cont) {
+                        s.isImGuiContainer = true;
+                        s.isChildWindow = false; // Turn off the other mode
+                        //s.openWindow = false;    // Also turn off deprecated flag
+                    }
+                    else {
+                        s.isImGuiContainer = false;
+                    }
+                    MarkSceneUpdated();
+                }
+                ImGui::BeginDisabled(s.isChildWindow); // Disable if Child window container is active
+                if (s.isImGuiContainer) {
+                    ImGui::Indent();
+                    ImGui::TextDisabled("Note: Set 'renderImGuiContent' function programmatically.");
+                    ImGui::TextColored(ImVec4(1, 1, 0, 1), "Rotation may not render content correctly.");
+                    // Option: Disable rotation slider when this is checked?
+                    // ImGui::BeginDisabled(true); ImGui::DragFloat("Rotation", ...); ImGui::EndDisabled();
+                    ImGui::Unindent();
+                }
+                ImGui::EndDisabled();
+    
+            }
+            ImGui::Separator();
+    
             if (ImGui::Button("Delete Shape"))
             {
                 windowData.layers[selectedLayerIndex].shapes.erase(windowData.layers[selectedLayerIndex].shapes.begin() + selectedShapeIndex);
@@ -4077,10 +4127,12 @@ namespace DesignManager
                 }
                 if (s.isChildWindow)
                 {
+                    /*   ///deprecated ///
                     if (ImGui::Checkbox("Sync with Shape", &s.childWindowSync))
                         MarkSceneUpdated();
                     if (ImGui::Checkbox("Toggle Child Window On Click", &s.toggleChildWindow))
                         MarkSceneUpdated();
+    
                     if (ImGui::CollapsingHeader("Assigned Child Windows", ImGuiTreeNodeFlags_DefaultOpen))
                     {
                         int index = 0;
@@ -4134,6 +4186,7 @@ namespace DesignManager
                             }
                         }
                     }
+                    
                     if (s.toggleChildWindow)
                     {
                         const char* toggle_behaviors[] = { "Window Only", "Shape and Window" };
@@ -4144,6 +4197,8 @@ namespace DesignManager
                             MarkSceneUpdated();
                         }
                     }
+                    
+                    */
                     int groupId = s.childWindowGroupId;
                     if (ImGui::InputInt("Child Window Group ID", &groupId))
                     {
@@ -4168,6 +4223,7 @@ namespace DesignManager
                                 currentButtonIndex = 0;
                             else
                                 currentButtonIndex++;
+                            /*
                             if (ImGui::Combo("Toggle Button", &currentButtonIndex, [](void* data, int idx, const char** out_text) -> bool {
                                 auto& names = *static_cast<std::vector<std::string>*>(data);
                                 if (idx >= 0 && idx < static_cast<int>(names.size()))
@@ -4184,12 +4240,14 @@ namespace DesignManager
                                     s.targetShapeID = buttonShapes[currentButtonIndex - 1]->id;
                                 MarkSceneUpdated();
                             }
+                            */
                         }
                         else
                         {
                             ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "No buttons available");
                         }
                     }
+                    /*
                     if (ImGui::Button("Toggle Child Window"))
                     {
                         std::string targetWindowKey;
@@ -4228,6 +4286,7 @@ namespace DesignManager
                         SetWindowOpen(targetWindowKey, newState);
                         MarkSceneUpdated();
                     }
+                    */
                 }
                 if (ImGui::Checkbox("Exclusive Child Window Mode", &DesignManager::exclusiveChildWindowMode))
                     MarkSceneUpdated();
@@ -4309,12 +4368,10 @@ namespace DesignManager
                     }
                 }
             }
+            ImGui::BeginDisabled(s.isImGuiContainer); // Disable rotation editing
             if (ImGui::CollapsingHeader("Original (Base) Transform", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (ImGui::DragFloat2("Base Position", (float*)&s.basePosition, 1.0f))
-                    MarkSceneUpdated();
-                if (ImGui::DragFloat2("Base Size", (float*)&s.baseSize, 1.0f))
-                    MarkSceneUpdated();
+                // ... (Base Position, Base Size) ...
                 float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
                 if (ImGui::DragFloat("Base Rotation (deg)", &baseRotDeg, 1.0f, 0.0f, 360.0f))
                 {
@@ -4322,8 +4379,14 @@ namespace DesignManager
                     MarkSceneUpdated();
                 }
             }
+            ImGui::EndDisabled();
+            if (s.isImGuiContainer && ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Rotation disabled for ImGui Content Containers");
+            }
+    
             if (ImGui::Checkbox("Has Text", &s.hasText))
                 MarkSceneUpdated();
+            ImGui::BeginDisabled(s.isImGuiContainer || s.isChildWindow); // Disable text editing if it's any container
             if (s.hasText)
             {
                 static char textBuffer[1024];
@@ -4360,6 +4423,10 @@ namespace DesignManager
                     s.textAlignment = textAlign;
                     MarkSceneUpdated();
                 }
+            }
+            ImGui::EndDisabled();
+            if ((s.isImGuiContainer || s.isChildWindow) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                ImGui::SetTooltip("Shape text disabled for containers");
             }
             if (ImGui::DragFloat("Corner Radius", &s.cornerRadius, 0.5f, 0.0f, 200.0f))
                 MarkSceneUpdated();
@@ -4448,6 +4515,7 @@ namespace DesignManager
             ShowUI_EventHandlers(s);
         }
     }
+
 
     inline void ShowUI_LayerShapeManager_MultiShapeEdit()
     {
@@ -4678,24 +4746,27 @@ namespace DesignManager
     }
     // 3. Init function:
     inline void Init(int width, int height, GLFWwindow* window) {
-        // Initialize global variables appropriately:
-        selectedLayerIndex = 0;
+    // Initialize global variables appropriately:
+        selectedLayerIndex = 0; // Start with potentially valid index
         selectedShapeIndex = -1;
-
+    
         if (black_texture_id) {
             glDeleteTextures(1, (GLuint*)&black_texture_id);
-            black_texture_id = 0; // Use 0 instead of nullptr
+            black_texture_id = 0; // Use 0 for OpenGL handle
         }
-        ClearGradientTextureCache();
-
-        // Layers are no longer global; we now look at the WindowData of a specific window.
-        // For example, we control it via DesignManager::selectedGuiWindow:
-        auto it = g_windowsMap.find(DesignManager::selectedGuiWindow);
-        if (it != g_windowsMap.end() && !it->second.layers.empty())
-            selectedLayerIndex = 0;
-        else
-            selectedLayerIndex = -1;
-        selectedShapeIndex = -1;
+        ClearGradientTextureCache(); // Assuming this function exists
+    
+        // Add "Main" window if it doesn't exist - crucial for the editor
+        if (g_windowsMap.find("Main") == g_windowsMap.end()) {
+            g_windowsMap["Main"] = {}; // Create default WindowData
+            // Optionally add a default layer if needed immediately by editor logic
+            // g_windowsMap["Main"].layers.emplace_back("Default Layer");
+        }
+    
+        // Ensure selectedGuiWindow is valid, default to "Main" if not
+        if (DesignManager::selectedGuiWindow.empty() || g_windowsMap.find(DesignManager::selectedGuiWindow) == g_windowsMap.end()) {
+            DesignManager::selectedGuiWindow = "Main";
+        }
 
         ImGuiIO& io = ImGui::GetIO();
         io.Fonts->AddFontDefault();
@@ -4703,6 +4774,35 @@ namespace DesignManager
         // Register windows:
         RegisterWindow("ChildWindow_1", RenderChildWindowForShape1);
         RegisterWindow("ChildWindow_2", RenderChildWindowForShape2);
+        // Call the function that contains the generated code to populate shapes/layers
+        // This should happen *after* windows are registered so OwnerWindow is valid.
+        //GeneratedCode(); // Assuming this function now correctly uses the updated ShapeBuilder
+
+        // Now that windows and potentially layers/shapes are loaded, validate selected indices
+        auto it = g_windowsMap.find(DesignManager::selectedGuiWindow);
+        if (it != g_windowsMap.end()) { // Check if selected window exists
+            if (it->second.layers.empty()) {
+                // If the selected window has no layers after loading, add one (optional)
+                // it->second.layers.emplace_back("Layer 1");
+                selectedLayerIndex = -1; // Or set to -1 if no layers
+            }
+            else {
+                // Ensure selectedLayerIndex is within bounds
+                selectedLayerIndex = std::max(0, std::min(selectedLayerIndex, (int)it->second.layers.size() - 1));
+            }
+        }
+        else {
+            // This case should ideally not happen due to defaulting to "Main", but handle it
+            selectedLayerIndex = -1;
+        }
+        selectedShapeIndex = -1; // Always reset shape index on init
+
+        // Other initializations (e.g., window size tracking)
+        // glfwGetWindowSize(window, &oldWindowWidth, &oldWindowHeight);
+        // initialWindowSize = ImVec2(oldWindowWidth, oldWindowHeight);
+        // UpdateGlobalScaleFactor(oldWindowWidth, oldWindowHeight); // Assuming this exists
+
+        MarkSceneUpdated(); // Mark for redraw after init
     }
 
 
@@ -4776,22 +4876,22 @@ namespace DesignManager
     // Extended ShapeBuilder
     class ShapeBuilder {
     public:
-        ShapeItem shape;
-
+        ShapeItem shape; // Assumes ShapeItem definition is visible (and openWindow is removed there too)
+    
         // Basic properties
         DEFINE_SETTER(Id, id)
             DEFINE_SETTER(Name, name)
             DEFINE_SETTER(OwnerWindow, ownerWindow)
-            DEFINE_SETTER(GroupId, groupId) // <-- New: groupId setter is added.
+            DEFINE_SETTER(GroupId, groupId) // For button groups etc.
             DEFINE_SETTER(Position, position)
             DEFINE_SETTER(Size, size)
             DEFINE_SETTER(Rotation, rotation)
-
+    
             // Base transform properties
             DEFINE_SETTER(BasePosition, basePosition)
             DEFINE_SETTER(BaseSize, baseSize)
             DEFINE_SETTER(BaseRotation, baseRotation)
-
+    
             // Appearance and style settings
             DEFINE_SETTER(CornerRadius, cornerRadius)
             DEFINE_SETTER(BorderThickness, borderThickness)
@@ -4809,12 +4909,13 @@ namespace DesignManager
             shape.colorRamp.emplace_back(pos, color);
             return *this;
         }
-
+    
         // Glass effect
-        DEFINE_SETTER(GlassBlur, glassBlur)
+        DEFINE_SETTER(UseGlass, useGlass)
+            DEFINE_SETTER(GlassBlur, glassBlur)
             DEFINE_SETTER(GlassAlpha, glassAlpha)
             DEFINE_SETTER(GlassColor, glassColor)
-
+    
             // Button properties
             DEFINE_SETTER(IsButton, isButton)
             DEFINE_SETTER(ButtonBehavior, buttonBehavior)
@@ -4826,7 +4927,7 @@ namespace DesignManager
             shape.onClickAnimations.push_back(anim);
             return *this;
         }
-
+    
         // Text properties
         DEFINE_SETTER(HasText, hasText)
             DEFINE_SETTER(Text, text)
@@ -4836,62 +4937,85 @@ namespace DesignManager
             DEFINE_SETTER(TextPosition, textPosition)
             DEFINE_SETTER(TextRotation, textRotation)
             DEFINE_SETTER(TextAlignment, textAlignment)
-
+            DEFINE_SETTER(DynamicTextSize, dynamicTextSize)
+    
             // Z-order and gradient settings
             DEFINE_SETTER(ZOrder, zOrder)
             DEFINE_SETTER(UseGradient, useGradient)
             DEFINE_SETTER(GradientRotation, gradientRotation)
             DEFINE_SETTER(GradientInterpolation, gradientInterpolation)
-
+    
             // To add Shape Keys
             ShapeBuilder& addShapeKey(const ShapeKey& key) {
             shape.shapeKeys.push_back(key);
             return *this;
         }
-
-        // Child Window settings
-        DEFINE_SETTER(OpenWindow, openWindow)
-            DEFINE_SETTER(IsChildWindow, isChildWindow)
+    
+        // Child Window (Registered Window Container) settings
+        DEFINE_SETTER(IsChildWindow, isChildWindow)
             DEFINE_SETTER(ChildWindowSync, childWindowSync)
             DEFINE_SETTER(ChildWindowGroupId, childWindowGroupId)
             DEFINE_SETTER(ToggleChildWindow, toggleChildWindow)
-            DEFINE_SETTER(TargetShapeID, targetShapeID)
-
-            // Additional properties:
-            // Update animation base when window is resized
-            DEFINE_SETTER(UpdateAnimBaseOnResize, updateAnimBaseOnResize)
-            // Embedded image properties
+            DEFINE_SETTER(TargetShapeID, targetShapeID) // Used by buttons or for sync
+    
+            // Direct ImGui Content Container settings (NEW)
+            DEFINE_SETTER(IsImGuiContainer, isImGuiContainer)
+            // Method to set the render callback function (NEW)
+            ShapeBuilder& setRenderImGuiContent(const std::function<void()>& func) {
+            shape.renderImGuiContent = func;
+            return *this;
+        }
+    
+        // Additional properties:
+        DEFINE_SETTER(UpdateAnimBaseOnResize, updateAnimBaseOnResize)
             DEFINE_SETTER(HasEmbeddedImage, hasEmbeddedImage)
             DEFINE_SETTER(EmbeddedImageIndex, embeddedImageIndex)
-            // Overlap / overlay settings
             DEFINE_SETTER(AllowItemOverlap, allowItemOverlap)
             DEFINE_SETTER(ForceOverlap, forceOverlap)
             DEFINE_SETTER(BlockUnderlying, blockUnderlying)
-            // Additional shadow settings
             DEFINE_SETTER(ShadowRotation, shadowRotation)
             DEFINE_SETTER(BlurAmount, blurAmount)
-            // Shape type
             DEFINE_SETTER(Type, type)
-            // Dynamic text size
-            DEFINE_SETTER(DynamicTextSize, dynamicTextSize)
-
+    
+    
             // Helper: Return an AnimationBuilder for chained usage
+            // Ensure AnimationBuilder is defined or forward-declared
             AnimationBuilder createAnimation() {
             return AnimationBuilder();
         }
         // Helper: Return a ShapeKeyBuilder
+        // Ensure ShapeKeyBuilder is defined or forward-declared
         static ShapeKeyBuilder createShapeKey() {
             return ShapeKeyBuilder();
         }
-
+    
         // Add event handler
         ShapeBuilder& addEventHandler(const std::string& eventType, const std::string& name, const std::function<void(ShapeItem&)>& handler) {
-            shape.eventHandlers.push_back({eventType, name, handler});
+            shape.eventHandlers.push_back({ eventType, name, handler });
             return *this;
         }
-
+    
         // Returns the ShapeItem when all settings are complete.
         ShapeItem build() {
+            // Ensure container modes are mutually exclusive when building
+            if (shape.isImGuiContainer) {
+                shape.isChildWindow = false; // Ensure other mode is off
+                // Optionally disable shape's own text if it's a container
+                // shape.hasText = false;
+            }
+            else if (shape.isChildWindow) {
+                shape.isImGuiContainer = false; // Ensure other mode is off
+                // Optionally disable shape's own text if it's a container
+                // shape.hasText = false;
+            }
+            else {
+                // If neither container type, ensure flags are off
+                shape.isImGuiContainer = false;
+                shape.isChildWindow = false;
+            }
+    
+            // Optionally: Clamp values, set defaults if unset, perform validation
+    
             return shape;
         }
     };
