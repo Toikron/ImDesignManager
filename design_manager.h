@@ -1962,302 +1962,314 @@ namespace DesignManager
 //
 //
     inline void UpdateShapeTransforms_Unified(GLFWwindow* window, float deltaTime)
-    {
-        // Loop through each window: g_windowsMap is now <std::string, WindowData>
-        for (auto& [winName, windowData] : g_windowsMap)
-        {
-            ImGuiWindow* imguiWindow = ImGui::FindWindowByName(winName.c_str());
-            ImVec2 currentWindowSize = (imguiWindow != nullptr) ? imguiWindow->Size : GetWindowSize(window);
-
-            // Layers belonging to the window: windowData.layers
-            for (auto& layer : windowData.layers)
-            {
-                // Loop for each shape in the layer
-                for (auto& shape : layer.shapes)
-                {
-                    // Calculate base values:
-                    ImVec2 effectiveBasePos = shape.basePosition + shape.baseKeyOffset;
-                    ImVec2 effectiveBaseSize = shape.baseSize + shape.baseKeySizeOffset;
-                    float effectiveBaseRot = shape.baseRotation + shape.baseKeyRotationOffset;
-
-                    // Variables to accumulate the values to be blended:
-                    float blendedPosX = 0.0f, blendedPosY = 0.0f, blendedSizeX = 0.0f, blendedSizeY = 0.0f, blendedRot = 0.0f;
-                    int countPosX = 0, countPosY = 0, countSizeX = 0, countSizeY = 0, countRot = 0;
-
-                    // Loop through shape keys to perform calculations:
-                    for (auto& key : shape.shapeKeys)
-                    {
-                        float currentDim = 0.0f, startDim = 0.0f, endDim = 0.0f;
-                        float baseVal = 0.0f, targetVal = 0.0f;
-
-                        if (key.type == ShapeKeyType::PositionX)
-                        {
-                            currentDim = currentWindowSize.x;
-                            startDim = key.startWindowSize.x;
-                            endDim = key.endWindowSize.x;
-                            baseVal = effectiveBasePos.x;
-                            targetVal = key.targetValue.x;
-                        }
-                        else if (key.type == ShapeKeyType::PositionY)
-                        {
-                            currentDim = currentWindowSize.y;
-                            startDim = key.startWindowSize.y;
-                            endDim = key.endWindowSize.y;
-                            baseVal = effectiveBasePos.y;
-                            targetVal = key.targetValue.y;
-                        }
-                        else if (key.type == ShapeKeyType::SizeX)
-                        {
-                            currentDim = currentWindowSize.x;
-                            startDim = key.startWindowSize.x;
-                            endDim = key.endWindowSize.x;
-                            baseVal = effectiveBaseSize.x;
-                            targetVal = key.targetValue.x;
-                        }
-                        else if (key.type == ShapeKeyType::SizeY)
-                        {
-                            currentDim = currentWindowSize.y;
-                            startDim = key.startWindowSize.y;
-                            endDim = key.endWindowSize.y;
-                            baseVal = effectiveBaseSize.y;
-                            targetVal = key.targetValue.y;
-                        }
-                        else if (key.type == ShapeKeyType::Rotation)
-                        {
-                            currentDim = currentWindowSize.x; // In this case, we use the window width.
-                            startDim = key.startWindowSize.x;
-                            endDim = key.endWindowSize.x;
-                            baseVal = effectiveBaseRot;
-                            targetVal = key.targetRotation;
-                        }
-
-                        // t value: normalized progress based on the window size range
-                        float t = (endDim != startDim) ? std::clamp((currentDim - startDim) / (endDim - startDim), 0.0f, 1.0f)
-                            : ((currentDim < startDim) ? 0.0f : 1.0f);
-                        key.value = t * 100.0f;
-
-                        // Lerp function: performs interpolation between baseVal and targetVal by t.
-                        float computedVal = Lerp(baseVal, targetVal, t);
-                        if (key.type == ShapeKeyType::PositionX || key.type == ShapeKeyType::SizeX)
-                            computedVal += key.offset.x;
-                        else if (key.type == ShapeKeyType::PositionY || key.type == ShapeKeyType::SizeY)
-                            computedVal += key.offset.y;
-                        else if (key.type == ShapeKeyType::Rotation)
-                            computedVal += key.rotationOffset;
-
-                        // Add the computed value
-                        if (key.type == ShapeKeyType::PositionX) { blendedPosX += computedVal; countPosX++; }
-                        else if (key.type == ShapeKeyType::PositionY) { blendedPosY += computedVal; countPosY++; }
-                        else if (key.type == ShapeKeyType::SizeX) { blendedSizeX += computedVal; countSizeX++; }
-                        else if (key.type == ShapeKeyType::SizeY) { blendedSizeY += computedVal; countSizeY++; }
-                        else if (key.type == ShapeKeyType::Rotation) { blendedRot += computedVal;  countRot++; }
-                    }
-
-                    // Shape key results based on the calculated averages:
-                    ImVec2 shapeKeyResultPosition = (countPosX > 0 || countPosY > 0)
-                        ? ImVec2((countPosX > 0 ? blendedPosX / countPosX : effectiveBasePos.x),
-                            (countPosY > 0 ? blendedPosY / countPosY : effectiveBasePos.y))
-                        : effectiveBasePos;
-
-                    ImVec2 shapeKeyResultSize = (countSizeX > 0 || countSizeY > 0)
-                        ? ImVec2((countSizeX > 0 ? blendedSizeX / countSizeX : effectiveBaseSize.x),
-                            (countSizeY > 0 ? blendedSizeY / countSizeY : effectiveBaseSize.y))
-                        : effectiveBaseSize;
-
-                    float shapeKeyResultRotation = (countRot > 0) ? (blendedRot / countRot) : effectiveBaseRot;
-
-                    // Animation bases: if updating, we use the shape key results.
-                    ImVec2 animationBasePos = shape.updateAnimBaseOnResize ? shapeKeyResultPosition : effectiveBasePos;
-                    ImVec2 animationBaseSize = shape.updateAnimBaseOnResize ? shapeKeyResultSize : effectiveBaseSize;
-                    float animationBaseRot = shape.updateAnimBaseOnResize ? shapeKeyResultRotation : effectiveBaseRot;
-
-                    // If there is a current animation:
-                    if (shape.currentAnimation && shape.currentAnimation->isPlaying)
-                    {
-                        auto* anim = shape.currentAnimation;
-                        switch (anim->behavior)
-                        {
-                        case ButtonAnimation::AnimationBehavior::PlayOnceAndStay:
-                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
-                            if (anim->progress >= 1.0f)
-                            {
-                                if (!anim->hasStartedRepeatCount)
-                                {
-                                    anim->hasStartedRepeatCount = true;
-                                    anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount;
-                                }
-                                if (anim->remainingRepeats < 0)
-                                    anim->progress = 0.0f;
-                                else
-                                {
-                                    anim->remainingRepeats--;
-                                    if (anim->remainingRepeats > 0)
-                                        anim->progress = 0.0f;
-                                    else
-                                    {
-                                        anim->isPlaying = false;
-                                        shape.currentAnimation = nullptr;
-                                        anim->hasStartedRepeatCount = false;
-                                    }
-                                }
-                                anim->persistentPositionOffset = (anim->animationTargetPosition - animationBasePos);
-                                anim->persistentSizeOffset = (anim->animationTargetSize - animationBaseSize);
-                                anim->persistentRotationOffset = anim->transformRotation - animationBaseRot;
-                            }
-                            break;
-                        case ButtonAnimation::AnimationBehavior::PlayOnceAndReverse:
-                            anim->progress += deltaTime * anim->speed;
-                            if (anim->progress >= 1.0f)
-                            {
-                                anim->progress = 1.0f;
-                                anim->speed = -std::fabs(anim->speed);
-                            }
-                            if (anim->progress <= 0.0f)
-                            {
-                                anim->progress = 0.0f;
-                                if (!anim->hasStartedRepeatCount)
-                                {
-                                    anim->hasStartedRepeatCount = true;
-                                    anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount;
-                                }
-                                if (anim->remainingRepeats < 0)
-                                    anim->speed = std::fabs(anim->speed);
-                                else
-                                {
-                                    anim->remainingRepeats--;
-                                    if (anim->remainingRepeats > 0)
-                                        anim->speed = std::fabs(anim->speed);
-                                    else
-                                    {
-                                        anim->speed = std::fabs(anim->speed);
-                                        anim->isPlaying = false;
-                                        shape.currentAnimation = nullptr;
-                                        anim->hasStartedRepeatCount = false;
-                                    }
-                                }
-                            }
-                            break;
-                        case ButtonAnimation::AnimationBehavior::Toggle:
-                            if (!anim->toggleState)
-                            {
-                                anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
-                                if (anim->progress >= 1.0f)
-                                {
-                                    anim->toggleState = true;
-                                    anim->isPlaying = false;
-                                    shape.currentAnimation = nullptr;
-                                    anim->persistentPositionOffset = (anim->animationTargetPosition - animationBasePos);
-                                    anim->persistentSizeOffset = (anim->animationTargetSize - animationBaseSize);
-                                    anim->persistentRotationOffset = anim->transformRotation - animationBaseRot;
-                                }
-                            }
-                            else
-                            {
-                                anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
-                                if (anim->progress <= 0.0f)
-                                {
-                                    anim->toggleState = false;
-                                    anim->isPlaying = false;
-                                    shape.currentAnimation = nullptr;
-                                    anim->persistentPositionOffset = ImVec2(0, 0);
-                                    anim->persistentSizeOffset = ImVec2(0, 0);
-                                    anim->persistentRotationOffset = 0.0f;
-                                }
-                            }
-                            break;
-                        case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndReverseOnRelease:
-                            if (shape.isHeld)
-                                anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
-                            else
-                            {
-                                anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
-                                if (anim->progress <= 0.0f)
-                                {
-                                    anim->isPlaying = false;
-                                    shape.currentAnimation = nullptr;
-                                }
-                            }
-                            break;
-                        case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay:
-                            if (shape.isHeld)
-                            {
-                                anim->progress += deltaTime * std::fabs(anim->speed) * anim->playbackDirection;
-                                if (anim->progress >= 1.0f)
-                                {
-                                    anim->progress = 1.0f;
-                                    anim->playbackDirection = -1.0f;
-                                }
-                                else if (anim->progress <= 0.0f)
-                                {
-                                    anim->progress = 0.0f;
-                                    anim->playbackDirection = 1.0f;
-                                }
-                            }
-                            else
-                            {
-                                anim->isPlaying = false;
-                                shape.currentAnimation = nullptr;
-                                float t = anim->progress;
-                                if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut)
-                                    t = t * t * (3.0f - 2.0f * t);
-                                anim->persistentPositionOffset = ImVec2(
-                                    Lerp(0.0f, anim->animationTargetPosition.x - animationBasePos.x, t),
-                                    Lerp(0.0f, anim->animationTargetPosition.y - animationBasePos.y, t)
-                                );
-                                anim->persistentSizeOffset = ImVec2(
-                                    Lerp(0.0f, anim->animationTargetSize.x - animationBaseSize.x, t),
-                                    Lerp(0.0f, anim->animationTargetSize.y - animationBaseSize.y, t)
-                                );
-                                anim->persistentRotationOffset = Lerp(0.0f, anim->transformRotation - animationBaseRot, t);
-                            }
-                            break;
-                        }
-
-                        // Calculate animation offsets by applying interpolation.
-                        float tInterp = anim->progress;
-                        if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut)
-                            tInterp = tInterp * tInterp * (3.0f - 2.0f * tInterp);
-                        ImVec2 animPosOffset = ImVec2(
-                            Lerp(0.0f, anim->animationTargetPosition.x - animationBasePos.x, tInterp),
-                            Lerp(0.0f, anim->animationTargetPosition.y - animationBasePos.y, tInterp)
-                        );
-                        ImVec2 animSizeOffset = ImVec2(
-                            Lerp(0.0f, anim->animationTargetSize.x - animationBaseSize.x, tInterp),
-                            Lerp(0.0f, anim->animationTargetSize.y - animationBaseSize.y, tInterp)
-                        );
-                        float animRotOffset = Lerp(0.0f, anim->transformRotation - animationBaseRot, tInterp);
-
-                        // Final shape transform values:
-                        shape.position = shapeKeyResultPosition + animPosOffset;
-                        shape.size = shapeKeyResultSize + animSizeOffset;
-                        shape.rotation = shapeKeyResultRotation + animRotOffset;
-                    }
-                    else
-                    {
-                        // If animation is not playing, apply offsets from onClick animations cumulatively.
-                        ImVec2 cumulativePos = shapeKeyResultPosition;
-                        ImVec2 cumulativeSize = shapeKeyResultSize;
-                        float cumulativeRot = shapeKeyResultRotation;
-                        for (auto& a : shape.onClickAnimations)
-                        {
-                            bool toggleOn = (a.behavior == ButtonAnimation::AnimationBehavior::Toggle && a.toggleState);
-                            bool playedOnce = (a.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndStay && a.progress >= 1.0f);
-                            bool heldStay = (a.behavior == ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay && !a.isPlaying && a.progress > 0.0f);
-                            if (toggleOn || playedOnce || heldStay)
-                            {
-                                cumulativePos += a.persistentPositionOffset;
-                                cumulativeSize += a.persistentSizeOffset;
-                                cumulativeRot += a.persistentRotationOffset;
-                            }
-                        }
-                        shape.position = cumulativePos;
-                        shape.size = cumulativeSize;
-                        shape.rotation = cumulativeRot;
-                    }
-                } // end for each shape
-            } // end for each layer
-        } // end for each window
-    }
+	{
+	    // Loop through each window: g_windowsMap is now <std::string, WindowData>
+	    for (auto& [winName, windowData] : g_windowsMap)
+	    {
+	        // Find the ImGui window to get its current size (needed for Shape Keys)
+	        ImGuiWindow* imguiWindow = ImGui::FindWindowByName(winName.c_str());
+	        // Use window size from GLFW if the ImGui window isn't found or if it's the main window.
+	        ImVec2 currentWindowSize = (imguiWindow != nullptr && imguiWindow->Size.x > 0 && imguiWindow->Size.y > 0) ? imguiWindow->Size : GetWindowSize(window);
+	
+	        // Layers belonging to the window: windowData.layers
+	        for (auto& layer : windowData.layers)
+	        {
+	            // Loop for each shape in the layer
+	            for (auto& shape : layer.shapes)
+	            {
+	                // --- Step 1: Determine Base Values ---
+	                // Calculate the effective base transform by adding any base offsets from shape keys
+	                ImVec2 effectiveBasePos = shape.basePosition + shape.baseKeyOffset;
+	                ImVec2 effectiveBaseSize = shape.baseSize + shape.baseKeySizeOffset;
+	                float effectiveBaseRot = shape.baseRotation + shape.baseKeyRotationOffset;
+	
+	                // --- Step 2: Calculate Shape Key Influence (if any) ---
+	                // Initialize results with the effective base values. These will be overwritten only if shape keys exist and are processed.
+	                ImVec2 shapeKeyResultPosition = effectiveBasePos;
+	                ImVec2 shapeKeyResultSize = effectiveBaseSize;
+	                float shapeKeyResultRotation = effectiveBaseRot;
+	
+	                // Only process shape keys if the shape actually has them defined.
+	                if (!shape.shapeKeys.empty())
+	                {
+	                    // Variables to accumulate the blended values from multiple keys
+	                    float blendedPosX = 0.0f, blendedPosY = 0.0f, blendedSizeX = 0.0f, blendedSizeY = 0.0f, blendedRot = 0.0f;
+	                    int countPosX = 0, countPosY = 0, countSizeX = 0, countSizeY = 0, countRot = 0;
+	
+	                    // Loop through each defined shape key
+	                    for (auto& key : shape.shapeKeys)
+	                    {
+	                        float currentDim = 0.0f, startDim = 0.0f, endDim = 0.0f;
+	                        float baseVal = 0.0f, targetVal = 0.0f;
+	
+	                        // Determine which window dimension and base/target values to use based on key type
+	                        switch (key.type)
+	                        {
+	                        case ShapeKeyType::PositionX:
+	                            currentDim = currentWindowSize.x; startDim = key.startWindowSize.x; endDim = key.endWindowSize.x;
+	                            baseVal = effectiveBasePos.x; targetVal = key.targetValue.x;
+	                            break;
+	                        case ShapeKeyType::PositionY:
+	                            currentDim = currentWindowSize.y; startDim = key.startWindowSize.y; endDim = key.endWindowSize.y;
+	                            baseVal = effectiveBasePos.y; targetVal = key.targetValue.y;
+	                            break;
+	                        case ShapeKeyType::SizeX:
+	                            currentDim = currentWindowSize.x; startDim = key.startWindowSize.x; endDim = key.endWindowSize.x;
+	                            baseVal = effectiveBaseSize.x; targetVal = key.targetValue.x;
+	                            break;
+	                        case ShapeKeyType::SizeY:
+	                            currentDim = currentWindowSize.y; startDim = key.startWindowSize.y; endDim = key.endWindowSize.y;
+	                            baseVal = effectiveBaseSize.y; targetVal = key.targetValue.y;
+	                            break;
+	                        case ShapeKeyType::Rotation:
+	                            currentDim = currentWindowSize.x; // Or height, depending on design choice
+	                            startDim = key.startWindowSize.x; endDim = key.endWindowSize.x;
+	                            baseVal = effectiveBaseRot; targetVal = key.targetRotation;
+	                            break;
+	                        }
+	
+	                        // Calculate interpolation factor 't' based on current window size relative to key's range
+	                        float t = (endDim != startDim) ? std::clamp((currentDim - startDim) / (endDim - startDim), 0.0f, 1.0f)
+	                            : ((currentDim < startDim) ? 0.0f : 1.0f);
+	                        key.value = t * 100.0f; // Update key's value for UI display
+	
+	                        // Calculate the interpolated value between base and target
+	                        float computedVal = Lerp(baseVal, targetVal, t);
+	
+	                        // Apply the key's specific offset
+	                        if (key.type == ShapeKeyType::Rotation)
+	                            computedVal += key.rotationOffset;
+	                        else // Position or Size keys
+	                            computedVal += (key.type == ShapeKeyType::PositionX || key.type == ShapeKeyType::SizeX) ? key.offset.x : key.offset.y;
+	
+	                        // Accumulate the computed value for averaging later
+	                        switch (key.type)
+	                        {
+	                        case ShapeKeyType::PositionX: blendedPosX += computedVal; countPosX++; break;
+	                        case ShapeKeyType::PositionY: blendedPosY += computedVal; countPosY++; break;
+	                        case ShapeKeyType::SizeX:     blendedSizeX += computedVal; countSizeX++; break;
+	                        case ShapeKeyType::SizeY:     blendedSizeY += computedVal; countSizeY++; break;
+	                        case ShapeKeyType::Rotation:  blendedRot += computedVal; countRot++; break;
+	                        }
+	                    } // End loop through shape keys
+	
+	                    // Calculate the final shape key result by averaging blended values.
+	                    // If a component (e.g., PosX) wasn't affected by any key, its initial effectiveBase value remains.
+	                    shapeKeyResultPosition = ImVec2(
+	                        (countPosX > 0 ? blendedPosX / countPosX : effectiveBasePos.x),
+	                        (countPosY > 0 ? blendedPosY / countPosY : effectiveBasePos.y)
+	                    );
+	                    shapeKeyResultSize = ImVec2(
+	                        (countSizeX > 0 ? blendedSizeX / countSizeX : effectiveBaseSize.x),
+	                        (countSizeY > 0 ? blendedSizeY / countSizeY : effectiveBaseSize.y)
+	                    );
+	                    shapeKeyResultRotation = (countRot > 0 ? blendedRot / countRot : effectiveBaseRot);
+	
+	                } // End if(!shape.shapeKeys.empty())
+	
+	                // --- Step 3: Determine Animation Base ---
+	                // The starting point for animations depends on whether they should adapt to shape key changes.
+	                ImVec2 animationBasePos = shape.updateAnimBaseOnResize ? shapeKeyResultPosition : effectiveBasePos;
+	                ImVec2 animationBaseSize = shape.updateAnimBaseOnResize ? shapeKeyResultSize : effectiveBaseSize;
+	                float animationBaseRot = shape.updateAnimBaseOnResize ? shapeKeyResultRotation : effectiveBaseRot;
+	
+	                // --- Step 4: Apply Animation (if active) ---
+	                if (shape.currentAnimation && shape.currentAnimation->isPlaying)
+	                {
+	                    ButtonAnimation* anim = shape.currentAnimation;
+	
+	                    // --- Update Animation Progress ---
+	                    // (This logic remains the same as the original code you provided, handling repeats, behaviors etc.)
+	                    switch (anim->behavior)
+	                    {
+	                    case ButtonAnimation::AnimationBehavior::PlayOnceAndStay:
+	                        anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+	                        if (anim->progress >= 1.0f)
+	                        {
+	                            if (!anim->hasStartedRepeatCount)
+	                            {
+	                                anim->hasStartedRepeatCount = true;
+	                                anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount - 1; // -1 infinite, 0 no repeat, >0 count
+	                            }
+	
+	                            if (anim->remainingRepeats < 0) // Infinite repeat
+	                            {
+	                                anim->progress = 0.0f;
+	                            }
+	                            else if (anim->remainingRepeats > 0) // Finite repeats left
+	                            {
+	                                anim->remainingRepeats--;
+	                                anim->progress = 0.0f;
+	                            }
+	                            else // No repeats left or was initially 1
+	                            {
+	                                anim->isPlaying = false;
+	                                anim->persistentPositionOffset = (anim->animationTargetPosition - animationBasePos);
+	                                anim->persistentSizeOffset = (anim->animationTargetSize - animationBaseSize);
+	                                anim->persistentRotationOffset = anim->transformRotation - animationBaseRot;
+	                                shape.currentAnimation = nullptr;
+	                                anim->hasStartedRepeatCount = false; // Reset for next trigger
+	                            }
+	                        }
+	                        break;
+	                    case ButtonAnimation::AnimationBehavior::PlayOnceAndReverse:
+	                        anim->progress += deltaTime * anim->speed; // Speed determines direction
+	                        anim->progress = std::clamp(anim->progress, 0.0f, 1.0f); // Keep within bounds
+	
+	                        if (anim->speed > 0.0f && anim->progress >= 1.0f) // Reached end playing forward
+	                        {
+	                            anim->speed *= -1.0f; // Reverse direction
+	                        }
+	                        else if (anim->speed < 0.0f && anim->progress <= 0.0f) // Reached start playing backward
+	                        {
+	                            if (!anim->hasStartedRepeatCount)
+	                            {
+	                                anim->hasStartedRepeatCount = true;
+	                                anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount - 1;
+	                            }
+	
+	                            if (anim->remainingRepeats < 0) // Infinite
+	                            {
+	                                anim->speed *= -1.0f; // Start forward again
+	                            }
+	                            else if (anim->remainingRepeats > 0) // Finite
+	                            {
+	                                anim->remainingRepeats--;
+	                                anim->speed *= -1.0f; // Start forward again
+	                            }
+	                            else // Done
+	                            {
+	                                anim->speed = std::fabs(anim->speed); // Ensure speed is positive for next time
+	                                anim->isPlaying = false;
+	                                anim->persistentPositionOffset = ImVec2(0, 0); // No persistent offset
+	                                anim->persistentSizeOffset = ImVec2(0, 0);
+	                                anim->persistentRotationOffset = 0.0f;
+	                                shape.currentAnimation = nullptr;
+	                                anim->hasStartedRepeatCount = false;
+	                            }
+	                        }
+	                        break;
+	                    case ButtonAnimation::AnimationBehavior::Toggle:
+	                        if (!anim->toggleState) // Playing forward to ON state
+	                        {
+	                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+	                            if (anim->progress >= 1.0f) // Reached ON
+	                            {
+	                                anim->toggleState = true;
+	                                anim->isPlaying = false;
+	                                anim->persistentPositionOffset = (anim->animationTargetPosition - animationBasePos);
+	                                anim->persistentSizeOffset = (anim->animationTargetSize - animationBaseSize);
+	                                anim->persistentRotationOffset = anim->transformRotation - animationBaseRot;
+	                                shape.currentAnimation = nullptr;
+	                            }
+	                        }
+	                        else // Playing backward to OFF state
+	                        {
+	                            anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
+	                            if (anim->progress <= 0.0f) // Reached OFF
+	                            {
+	                                anim->toggleState = false;
+	                                anim->isPlaying = false;
+	                                anim->persistentPositionOffset = ImVec2(0, 0); // Clear offset
+	                                anim->persistentSizeOffset = ImVec2(0, 0);
+	                                anim->persistentRotationOffset = 0.0f;
+	                                shape.currentAnimation = nullptr;
+	                            }
+	                        }
+	                        break;
+	                    case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndReverseOnRelease:
+	                        if (shape.isHeld)
+	                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+	                        else
+	                        {
+	                            anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
+	                            if (anim->progress <= 0.0f)
+	                            {
+	                                anim->isPlaying = false;
+	                                shape.currentAnimation = nullptr;
+	                            }
+	                        }
+	                        break;
+	                    case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay:
+	                        if (shape.isHeld)
+	                        {
+	                            // Progress forward while held, stop at 1.0
+	                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+	                        }
+	                        else // Released
+	                        {
+	                            anim->isPlaying = false;
+	                            // Calculate persistent offset based on progress when released
+	                            float t = anim->progress;
+	                            if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut)
+	                                t = t * t * (3.0f - 2.0f * t);
+	                            anim->persistentPositionOffset = ImVec2(
+	                                Lerp(0.0f, anim->animationTargetPosition.x - animationBasePos.x, t),
+	                                Lerp(0.0f, anim->animationTargetPosition.y - animationBasePos.y, t)
+	                            );
+	                            anim->persistentSizeOffset = ImVec2(
+	                                Lerp(0.0f, anim->animationTargetSize.x - animationBaseSize.x, t),
+	                                Lerp(0.0f, anim->animationTargetSize.y - animationBaseSize.y, t)
+	                            );
+	                            anim->persistentRotationOffset = Lerp(0.0f, anim->transformRotation - animationBaseRot, t);
+	                            shape.currentAnimation = nullptr; // Stop referencing
+	                        }
+	                        break;
+	                    }
+	
+	
+	                    // --- Calculate Current Frame's Animation Offset ---
+	                    float tInterp = anim->progress;
+	                    if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut)
+	                        tInterp = tInterp * tInterp * (3.0f - 2.0f * tInterp);
+	
+	                    ImVec2 animPosOffset = Lerp(ImVec2(0, 0), anim->animationTargetPosition - animationBasePos, tInterp);
+	                    ImVec2 animSizeOffset = Lerp(ImVec2(0, 0), anim->animationTargetSize - animationBaseSize, tInterp);
+	                    float animRotOffset = Lerp(0.0f, anim->transformRotation - animationBaseRot, tInterp);
+	
+	                    // --- Apply Final Transform (ShapeKey + Animation) ---
+	                    shape.position = shapeKeyResultPosition + animPosOffset;
+	                    shape.size = shapeKeyResultSize + animSizeOffset;
+	                    shape.rotation = shapeKeyResultRotation + animRotOffset;
+	                }
+	                else // --- Step 4b: Apply Persistent Offsets (if no active animation) ---
+	                {
+	                    // Start with the result from shape keys (or base if no keys)
+	                    ImVec2 cumulativePos = shapeKeyResultPosition;
+	                    ImVec2 cumulativeSize = shapeKeyResultSize;
+	                    float cumulativeRot = shapeKeyResultRotation;
+	
+	                    // Add persistent offsets from any completed/toggled animations
+	                    for (auto& a : shape.onClickAnimations)
+	                    {
+	                        // Check which behaviors leave a persistent state
+	                        bool toggleOn = (a.behavior == ButtonAnimation::AnimationBehavior::Toggle && a.toggleState);
+	                        // PlayOnceAndStay leaves offset if it finished fully (progress >= 1.0) and isn't currently playing (e.g., completed repeats or single run)
+	                        bool playedOnceAndStayed = (a.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndStay && !a.isPlaying && a.progress >= 1.0f);
+	                        // PlayWhileHoldingAndStay leaves offset if released
+	                        bool heldStay = (a.behavior == ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay && !a.isPlaying && a.progress > 0.0f);
+	
+	                        if (toggleOn || playedOnceAndStayed || heldStay)
+	                        {
+	                            cumulativePos += a.persistentPositionOffset;
+	                            cumulativeSize += a.persistentSizeOffset;
+	                            cumulativeRot += a.persistentRotationOffset;
+	                        }
+	                    }
+	                    // --- Apply Final Transform (ShapeKey + Persistent Offsets) ---
+	                    shape.position = cumulativePos;
+	                    shape.size = cumulativeSize;
+	                    shape.rotation = cumulativeRot;
+	                }
+	
+	                // Clamp size to avoid issues
+	                shape.size.x = std::max(0.0f, shape.size.x);
+	                shape.size.y = std::max(0.0f, shape.size.y);
+	
+	            } // end for each shape
+	        } // end for each layer
+	    } // end for each window
+	}
 
 
 
