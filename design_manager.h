@@ -54,7 +54,6 @@ static const int g_embeddedImageFuncsCount = sizeof(g_embeddedImageFuncs) / size
 ////////////////////////////////////////////////////FOR IMAGE IMPORTS//////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 static int oldWindowWidth = 0;
 static int oldWindowHeight = 0;
 static bool shouldCaptureScene = false;
@@ -85,6 +84,15 @@ inline ImVec2& operator+=(ImVec2& a, const ImVec2& b)
 }
 inline ImVec2 operator+(const ImVec2& a, const ImVec2& b) { return ImVec2(a.x + b.x, a.y + b.y); }
 inline ImVec2 operator-(const ImVec2& a, const ImVec2& b) { return ImVec2(a.x - b.x, a.y - b.y); }
+inline ImVec2 operator*(const ImVec2& v, float f)
+{
+    return ImVec2(v.x * f, v.y * f);
+}
+
+inline ImVec2 operator*(float f, const ImVec2& v)
+{
+    return ImVec2(v.x * f, v.y * f);
+}
 inline ImVec2 AddV(const ImVec2& a, const ImVec2& b) { return ImVec2(a.x + b.x, a.y + b.y); }
 inline ImVec2 SubV(const ImVec2& a, const ImVec2& b) { return ImVec2(a.x - b.x, a.y - b.y); }
 inline ImVec2 MulF(const ImVec2& a, float f) { return ImVec2(a.x * f, a.y * f); }
@@ -177,6 +185,9 @@ const float DEG2RAD = 3.14159265359f / 180.0f;
 
 namespace DesignManager
 {
+
+
+
     enum class ShapeKeyType
     {
         SizeX,
@@ -279,7 +290,7 @@ namespace DesignManager
     };
     struct ChainAnimationStep {
         ButtonAnimation animation;
-        // This callback will be executed when the step is completed (e.g., you can add additional actions)
+
         std::function<void()> onStepComplete;
     };
 
@@ -287,8 +298,8 @@ namespace DesignManager
         std::vector<ChainAnimationStep> steps;
         int currentStep = 0;
         bool isPlaying = false;
-        bool reverseMode = false;  // false: forward, true: backward
-        bool toggled = false;      // false: original position, true: target position according to animation
+        bool reverseMode = false;
+        bool toggled = false;
     };
     inline ImVec2 GetWindowSize(GLFWwindow* window)
     {
@@ -299,9 +310,52 @@ namespace DesignManager
 
     enum class ShapeType { Rectangle, Circle };
     enum class ChildWindowToggleBehavior {
-        WindowOnly,    // Only toggles the child window visibility
-        ShapeAndWindow // Toggles both shape and child window visibility
+        WindowOnly,
+        ShapeAndWindow
     };
+
+
+
+
+    struct ShapeItem;
+    class LayoutManager;
+
+
+    enum class HAlignment { Fill, Left, Center, Right };
+    enum class VAlignment { Fill, Top, Center, Bottom };
+
+
+    class LayoutManager {
+    public:
+        float spacing = 5.0f;
+        float paddingTop = 0.0f;
+        float paddingBottom = 0.0f;
+        float paddingLeft = 0.0f;
+        float paddingRight = 0.0f;
+
+        virtual ~LayoutManager() = default;
+
+
+        virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) = 0;
+        virtual const char* getTypeName() const = 0;
+    };
+
+
+    class VerticalLayout : public LayoutManager {
+    public:
+        virtual ~VerticalLayout() override = default;
+        virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) override;
+        virtual const char* getTypeName() const override;
+    };
+
+    class HorizontalLayout : public LayoutManager {
+    public:
+        virtual ~HorizontalLayout() override = default;
+        virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) override;
+        virtual const char* getTypeName() const override;
+    };
+
+
     struct ShapeItem
     {
         int id;
@@ -311,23 +365,24 @@ namespace DesignManager
         ImVec2 basePosition = position;
         ImVec2 baseSize = size;
         float rotation, baseRotation = 0.0f;
-        ImVec2 minSize = ImVec2(50, 50);
+
+        ImVec2 minSize = ImVec2(0, 0);
         ImVec2 maxSize = ImVec2(99999, 99999);
-        //bool openWindow;
-        bool isChildWindow = false;           // New field: Is this shape a child window?
+
+        bool isChildWindow = false;
         bool childWindowSync = false;
-        bool toggleChildWindow = false; // Feature to show child window when button is clicked
+        bool toggleChildWindow = false;
         ChildWindowToggleBehavior toggleBehavior = ChildWindowToggleBehavior::WindowOnly;
-        int childWindowGroupId = -1; // Group ID for child window, -1: no group
-    
-    
+        int childWindowGroupId = -1;
+
+
         int targetShapeID = 0;
         int triggerGroupID = 0;
-        
-        // 2. Direct ImGui Content Container (NEW)
-        bool isImGuiContainer = false; // Does this shape contain arbitrary ImGui widgets?
-        std::function<void()> renderImGuiContent = nullptr; // Function to render the ImGui widgets inside
-        
+
+
+        bool isImGuiContainer = false;
+        std::function<void()> renderImGuiContent = nullptr;
+
         bool allowItemOverlap = false;
         bool forceOverlap = false;
         bool blockUnderlying = true;
@@ -347,7 +402,7 @@ namespace DesignManager
         std::vector<ShapeKeyAnimation> shapeKeyAnimations;
         float shapeKeyValue = 0.0f;
         std::vector<ButtonAnimation> onClickAnimations;
-        ChainAnimation chainAnimation; // Chain animation system added!
+        ChainAnimation chainAnimation;
         bool isPressed = false;
         int groupId = 0;
         ButtonAnimation* currentAnimation = nullptr;
@@ -375,11 +430,11 @@ namespace DesignManager
         GLuint glassBlurFBO[2], glassBlurTex[2];
         int zOrder;
         bool isButton = false;
-    
-        std::vector<std::string> assignedChildWindows; // Key of the child window that the button will open (if empty, default: s.name is used)
+
+        std::vector<std::string> assignedChildWindows;
         int selectedChildWindowIndex = 0;
-        std::string logicExpression;       // For example, "1 && 2", to specify conditions based on the state of the relevant button IDs.
-        std::string logicAction;           // For example, "open:ChildWindow_1" or "close:ChildWindow_2", to specify the action to be taken when the condition is met.
+        std::string logicExpression;
+        std::string logicAction;
         int clickCounter = 0;
         enum ButtonBehavior { SingleClick, Toggle, Hold } buttonBehavior = SingleClick;
         bool triggerEvent = false;
@@ -416,17 +471,44 @@ namespace DesignManager
         ImTextureID embeddedImageTexture = 0;
         bool imageDirty = false;
         struct EventHandler {
-            std::string eventType;  // "onClick", "onHover", "onRelease", etc.
-            std::string name;       // Name of the handler for UI display
-            std::function<void(ShapeItem&)> handler;  // The actual callback function
+            std::string eventType;
+            std::string name;
+            std::function<void(ShapeItem&)> handler;
         };
         std::vector<EventHandler> eventHandlers;
+
+
+        enum class AnchorMode {
+            None,
+            TopLeft, Top, TopRight,
+            Left, Center, Right,
+            BottomLeft, Bottom, BottomRight
+        };
+        AnchorMode anchorMode = AnchorMode::None;
+        ImVec2 anchorMargin = ImVec2(0, 0);
+
+        bool usePercentagePos = false;
+        ImVec2 percentagePos = ImVec2(0, 0);
+
+        bool usePercentageSize = false;
+        ImVec2 percentageSize = ImVec2(10, 10);
+
+        bool isLayoutContainer = false;
+        LayoutManager* layoutManager = nullptr;
+        float stretchFactor = 0.0f;
+        HAlignment horizontalAlignment = HAlignment::Fill;
+        VAlignment verticalAlignment = VAlignment::Fill;
+
+
+
         ShapeItem()
             : id(nextShapeID++),
             type(ShapeType::Rectangle),
             name("Shape"),
             position(ImVec2(100, 100)),
             size(ImVec2(200, 100)),
+            minSize(ImVec2(0, 0)),
+            maxSize(ImVec2(99999, 99999)),
             cornerRadius(10),
             borderThickness(2),
             fillColor(ImVec4(0.932f, 0.932f, 0.932f, 1)),
@@ -449,15 +531,216 @@ namespace DesignManager
             glassAlpha(0.7f),
             glassColor(ImVec4(1, 1, 1, 0.3f)),
             zOrder(0),
-            //openWindow(false)
+
             isChildWindow(false),
-            isImGuiContainer(false), // Initialize new flag
-            renderImGuiContent(nullptr) // Initialize new function pointer
+            isImGuiContainer(false),
+            renderImGuiContent(nullptr),
+
+            anchorMode(AnchorMode::None),
+            anchorMargin(ImVec2(0, 0)),
+            usePercentagePos(false),
+            percentagePos(ImVec2(0, 0)),
+            usePercentageSize(false),
+            percentageSize(ImVec2(10, 10)),
+
+            isLayoutContainer(false),
+            layoutManager(nullptr),
+            stretchFactor(0.0f),
+            horizontalAlignment(HAlignment::Fill),
+            verticalAlignment(VAlignment::Fill)
+
         {
             colorRamp.emplace_back(0.0f, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
             colorRamp.emplace_back(1.0f, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+            basePosition = position;
+            baseSize = size;
+            baseRotation = rotation;
         }
+
+
+
+        ~ShapeItem() {
+            delete layoutManager;
+        }
+
     };
+    inline const char* VerticalLayout::getTypeName() const { return "Vertical"; }
+    inline void VerticalLayout::doLayout(ShapeItem& container, const ImVec2& availableSize)
+    {
+        float availableInnerWidth = std::max(0.0f, availableSize.x - paddingLeft - paddingRight);
+        float availableInnerHeight = std::max(0.0f, availableSize.y - paddingTop - paddingBottom);
+
+        float totalStretch = 0.0f;
+        float totalFixedY = 0.0f;
+        int visibleChildrenCount = 0;
+
+        if (container.children.empty()) {
+            return;
+        }
+
+        for (ShapeItem* child : container.children) {
+            if (!child) {
+                std::cerr << "  WARNING: Null child pointer found in container ID: " << container.id << std::endl;
+                continue;
+            }
+            if (!child->visible) continue;
+            visibleChildrenCount++;
+
+            if (child->verticalAlignment != VAlignment::Fill && child->stretchFactor <= 0.0f) {
+                totalFixedY += child->size.y;
+            }
+            else {
+                totalStretch += std::max(0.0f, child->stretchFactor);
+            }
+        }
+
+        float totalSpacing = (visibleChildrenCount > 1) ? (spacing * (visibleChildrenCount - 1)) : 0.0f;
+        totalFixedY += totalSpacing;
+        float availableStretchY = std::max(0.0f, availableInnerHeight - totalFixedY);
+
+        float currentY = paddingTop;
+        for (ShapeItem* child : container.children) {
+            if (!child || !child->visible) continue;
+
+            float childHeight = child->size.y;
+            if (child->verticalAlignment == VAlignment::Fill || child->stretchFactor > 0.0f) {
+                if (totalStretch > 1e-6f && child->stretchFactor > 0.0f) {
+                    childHeight = (child->stretchFactor / totalStretch) * availableStretchY;
+                }
+                else if (child->verticalAlignment == VAlignment::Fill && totalStretch <= 1e-6f) {
+
+
+
+
+
+
+
+                    childHeight = availableStretchY / std::max(1, (int)std::count_if(container.children.begin(), container.children.end(),
+                        [](ShapeItem* c) { return c && c->visible && (c->verticalAlignment == VAlignment::Fill || c->stretchFactor > 0.0f); }));
+
+                }
+            }
+
+            childHeight = std::max(child->minSize.y, std::min(childHeight, child->maxSize.y));
+            childHeight = std::max(0.0f, childHeight);
+
+            float childWidth = child->size.x;
+            if (child->horizontalAlignment == HAlignment::Fill) {
+                childWidth = availableInnerWidth;
+            }
+
+            childWidth = std::max(child->minSize.x, std::min(childWidth, child->maxSize.x));
+            childWidth = std::max(0.0f, childWidth);
+
+
+            float childPosX = paddingLeft;
+            if (child->horizontalAlignment == HAlignment::Center) {
+                childPosX = paddingLeft + (availableInnerWidth - childWidth) * 0.5f;
+            }
+            else if (child->horizontalAlignment == HAlignment::Right) {
+                childPosX = paddingLeft + availableInnerWidth - childWidth;
+            }
+
+            float childPosY = currentY;
+
+
+            child->originalPosition = ImVec2(childPosX, childPosY);
+
+            child->size = ImVec2(childWidth, childHeight);
+
+
+
+            currentY += childHeight + spacing;
+        }
+    }
+
+    inline const char* HorizontalLayout::getTypeName() const { return "Horizontal"; }
+    inline void HorizontalLayout::doLayout(ShapeItem& container, const ImVec2& availableSize)
+    {
+        float availableInnerWidth = std::max(0.0f, availableSize.x - paddingLeft - paddingRight);
+        float availableInnerHeight = std::max(0.0f, availableSize.y - paddingTop - paddingBottom);
+
+        float totalStretch = 0.0f;
+        float totalFixedX = 0.0f;
+        int visibleChildrenCount = 0;
+
+        if (container.children.empty()) {
+            return;
+        }
+
+        for (ShapeItem* child : container.children) {
+            if (!child) {
+                std::cerr << "  WARNING: Null child pointer found in container ID: " << container.id << std::endl;
+                continue;
+            }
+            if (!child->visible) continue;
+            visibleChildrenCount++;
+            if (child->horizontalAlignment != HAlignment::Fill && child->stretchFactor <= 0.0f) {
+                totalFixedX += child->size.x;
+            }
+            else {
+                totalStretch += std::max(0.0f, child->stretchFactor);
+            }
+        }
+
+        float totalSpacing = (visibleChildrenCount > 1) ? (spacing * (visibleChildrenCount - 1)) : 0.0f;
+        totalFixedX += totalSpacing;
+        float availableStretchX = std::max(0.0f, availableInnerWidth - totalFixedX);
+
+        float currentX = paddingLeft;
+        for (ShapeItem* child : container.children) {
+            if (!child || !child->visible) continue;
+
+            float childWidth = child->size.x;
+            if (child->horizontalAlignment == HAlignment::Fill || child->stretchFactor > 0.0f) {
+                if (totalStretch > 1e-6f && child->stretchFactor > 0.0f) {
+                    childWidth = (child->stretchFactor / totalStretch) * availableStretchX;
+                }
+                else if (child->horizontalAlignment == HAlignment::Fill && totalStretch <= 1e-6f) {
+
+                    childWidth = availableStretchX / std::max(1, (int)std::count_if(container.children.begin(), container.children.end(),
+                        [](ShapeItem* c) { return c && c->visible && (c->horizontalAlignment == HAlignment::Fill || c->stretchFactor > 0.0f); }));
+                }
+            }
+
+            childWidth = std::max(child->minSize.x, std::min(childWidth, child->maxSize.x));
+            childWidth = std::max(0.0f, childWidth);
+
+            float childHeight = child->size.y;
+            if (child->verticalAlignment == VAlignment::Fill) {
+                childHeight = availableInnerHeight;
+            }
+
+            childHeight = std::max(child->minSize.y, std::min(childHeight, child->maxSize.y));
+            childHeight = std::max(0.0f, childHeight);
+
+            float childPosY = paddingTop;
+            if (child->verticalAlignment == VAlignment::Center) {
+                childPosY = paddingTop + (availableInnerHeight - childHeight) * 0.5f;
+            }
+            else if (child->verticalAlignment == VAlignment::Bottom) {
+                childPosY = paddingTop + availableInnerHeight - childHeight;
+            }
+
+            float childPosX = currentX;
+
+
+            child->originalPosition = ImVec2(childPosX, childPosY);
+
+            child->size = ImVec2(childWidth, childHeight);
+
+
+
+            currentX += childWidth + spacing;
+        }
+    }
+
+
+
+
+
+
+
 
     inline std::vector<ShapeItem*> selectedShapes;
     inline std::string GenerateSingleShapeCode(const ShapeItem& shape);
@@ -496,10 +779,10 @@ namespace DesignManager
     inline std::unordered_map<int, std::string> g_childToChildButtonMapping;
     inline std::unordered_map<int, std::string> g_globalButtonChildWindowMapping;
     struct CombinedMapping {
-        int shapeId;                      // Hedef shape'in ID'si
-        std::string logicOp;              // "AND", "OR", "XOR", "NAND", "IF_THEN", "IFF" vb.
-        std::vector<int> buttonIds;       // Mapping'e dahil buton ID'leri
-        std::vector<std::string> childWindowKeys; // Atanacak pencere isimleri (g_windowsMap'teki)
+        int shapeId;
+        std::string logicOp;
+        std::vector<int> buttonIds;
+        std::vector<std::string> childWindowKeys;
     };
     inline std::vector<CombinedMapping> g_combinedChildWindowMappings;
     inline std::vector<ChildToChildMapping> g_childToChildMappings;
@@ -516,6 +799,21 @@ namespace DesignManager
 
     static bool CompareShapesByZOrder(const ShapeItem& a, const ShapeItem& b) { return a.zOrder < b.zOrder; }
     static bool CompareLayersByZOrder(const Layer& a, const Layer& b) { return a.zOrder < b.zOrder; }
+
+    struct ComponentShapeTemplate {
+        ShapeItem item;
+        int originalId = -1;
+        int originalParentId = -1;
+    };
+
+
+    struct ComponentDefinition {
+        std::string name;
+        std::vector<ComponentShapeTemplate> shapeTemplates;
+    };
+
+
+    inline std::map<std::string, ComponentDefinition> g_componentDefinitions;
 
     struct WindowData
     {
@@ -551,6 +849,7 @@ namespace DesignManager
         }
         return buttonShapes;
     }
+
     inline void RegisterWindow(std::string name, std::function<void()> renderFunc)
     {
         if (name.empty())
@@ -568,8 +867,8 @@ namespace DesignManager
         if (it == g_windowsMap.end())
             return;
 
-        // Eğer bu pencere için herhangi bir mapping’de buttonId -1 ("None") seçeneği varsa,
-        // pencerenin her zaman açık kalmasını sağla.
+
+
         bool forceAlwaysOpen = false;
         for (const auto& mapping : g_combinedChildWindowMappings) {
             for (size_t i = 0; i < mapping.childWindowKeys.size(); ++i) {
@@ -585,7 +884,7 @@ namespace DesignManager
         if (forceAlwaysOpen)
             open = true;
 
-        // Child olmayan pencereler için grup davranışı: açılırken aynı gruptaki diğer pencereleri kapat.
+
         if (!it->second.isChildWindow && open && it->second.groupId > 0)
         {
             int groupId = it->second.groupId;
@@ -598,10 +897,10 @@ namespace DesignManager
             }
         }
 
-        // Pencerenin açık/kapalı durumunu ayarla.
+
         it->second.isOpen = open;
 
-        // Eğer pencere child window ise, ilişkilendirilmiş ShapeItem'ın bayrağını güncelle.
+
         if (it->second.isChildWindow)
         {
             for (auto shape : GetAllShapes())
@@ -654,72 +953,126 @@ namespace DesignManager
         child->parent = nullptr;
     }
 
+    inline bool IsAncestor(const ShapeItem* potentialAncestor, const ShapeItem* shape) {
+        if (!potentialAncestor || !shape || !shape->parent) {
+            return false;
+        }
+        const ShapeItem* current = shape->parent;
+        while (current != nullptr) {
+            if (current == potentialAncestor) {
+                return true;
+            }
+            current = current->parent;
+        }
+        return false;
+    }
     static void SetParent(ShapeItem* child, ShapeItem* parent)
     {
         if (child == nullptr || parent == nullptr || child == parent) return;
-        if (child->parent != nullptr) { RemoveParent(child); }
+        if (IsAncestor(child, parent)) {
+            std::cerr << "Error: Cannot set parent, would create a cycle." << std::endl;
+            return;
+        }
+
+
+
+        if (child->parent != nullptr) {
+
+
+
+
+
+            RemoveParent(child);
+        }
+
+
+        ImVec2 parentPos = parent->position;
+        float parentRot = parent->rotation;
+        ImVec2 childPos = child->position;
+        float childRot = child->rotation;
+
+
+        ImVec2 worldOffset = childPos - parentPos;
+
+
+        ImVec2 localOffset = RotateP(worldOffset, ImVec2(0.0f, 0.0f), -parentRot);
+
+
+        child->originalPosition = localOffset;
+
+
+        child->baseRotation = childRot - parentRot;
+
+
         child->parent = parent;
         parent->children.push_back(child);
-        ImVec2 childWorldPos = child->position;
-        ShapeItem* p = child->parent;
-        while (p != nullptr)
-        {
-            childWorldPos = childWorldPos + p->position;
-            p = p->parent;
-        }
-        ImVec2 parentWorldPos = parent->position;
-        p = parent->parent;
-        while (p != nullptr)
-        {
-            parentWorldPos = parentWorldPos + p->position;
-            p = p->parent;
-        }
-        child->originalPosition = childWorldPos - parentWorldPos;
-        child->originalRotation = child->rotation;
-        child->originalSize = child->size;
+
+
+
     }
 
-    static void UpdateTransformations(ShapeItem* item)
-    {
-        if (item == nullptr) return;
-        if (item->parent != nullptr)
-        {
-            item->position = item->parent->position + item->originalPosition;
-            item->rotation = item->parent->rotation + item->originalRotation;
-        }
-        for (ShapeItem* child : item->children)
-        {
-            UpdateTransformations(child);
-        }
-    }
+
 
     static void RemoveParentKeepTransform(ShapeItem* child)
     {
-        if (child->parent == nullptr) return;
-        auto& children = child->parent->children;
+        if (child == nullptr || child->parent == nullptr) return;
+
+        ShapeItem* parent = child->parent;
+
+
+
+        ImVec2 parentCurrentPos = parent->position;
+        float parentCurrentRot = parent->rotation;
+
+
+        ImVec2 localOffset = child->originalPosition;
+
+
+        ImVec2 rotatedLocalOffset = RotateP(localOffset, ImVec2(0.0f, 0.0f), parentCurrentRot);
+
+
+        ImVec2 worldPosition = parentCurrentPos + rotatedLocalOffset;
+
+
+        float worldRotation = parentCurrentRot + child->baseRotation;
+
+
+
+        auto& children = parent->children;
         children.erase(std::remove(children.begin(), children.end(), child), children.end());
-        UpdateTransformations(child);
         child->parent = nullptr;
+
+
+        child->position = worldPosition;
+        child->rotation = worldRotation;
+        child->basePosition = worldPosition;
+        child->baseRotation = worldRotation;
+
+
+        child->originalPosition = ImVec2(0, 0);
     }
 
     inline std::string selectedGuiWindow = "Main";
 
 
-    // --- NEW HELPER FUNCTION ---
-// Helper function to render the ImGui Content if the shape is a container
-    inline void DrawShape_RenderImGuiContent(ImDrawList* dl, ShapeItem& s, ImVec2 wp, float scaleFactor) {
-        if (!s.isImGuiContainer) return; // Only proceed if it's an ImGui container
 
-        // --- Rotation Limitation ---
-        // BeginChild doesn't inherently support rotation. We'll render unrotated.
-        // You could disable rotation in the UI for ImGuiContainers or show a warning.
+
+
+
+
+    inline void DrawShape_RenderImGuiContent(ImDrawList* dl, ShapeItem& s, ImVec2 wp, float scaleFactor) {
+        if (!s.isImGuiContainer) return;
+
+
+
+
         if (std::fabs(s.rotation) > 1e-4f) {
-            // Option 1: Skip rendering content if rotated
+
             return;
-            // Option 2: Draw a warning text
-            // ImVec2 textPos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
-            // dl->AddText(textPos, IM_COL32(255, 100, 100, 255), "Rotated ImGui content not supported");
-            // return;
+
+
+
+
         }
 
 
@@ -727,32 +1080,32 @@ namespace DesignManager
         ImVec2 childPos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
         ImVec2 childSize = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);
 
-        // Ensure the child respects the container's rounded corners visually (clipping)
-        // Note: BeginChild provides rectangular clipping. For perfect rounded clipping,
-        // more complex stencil buffer techniques or manual vertex clipping would be needed.
-        // We'll use BeginChild's clipping for simplicity.
+
+
+
+
 
         ImGui::PushID(childId.c_str());
-        // Set the position for the upcoming BeginChild call
+
         ImGui::SetCursorScreenPos(childPos);
 
-        // Optional: Push style vars like padding or background color if needed
-        // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5, 5));
-        // ImGui::PushStyleColor(ImGuiCol_ChildBg, s.fillColor); // Example: Use shape's fill color? Or make it transparent?
+
+
+
 
         ImGui::BeginChild(childId.c_str(),
             childSize,
-            false, // Set to true to draw border *around* the child area
-            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse // Add flags as needed
+            false,
+            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
         );
 
-        // Execute the user's ImGui rendering commands
+
         if (s.renderImGuiContent) {
             try {
                 s.renderImGuiContent();
             }
             catch (const std::exception& e) {
-                // Optional: Draw error message inside the container if the function throws
+
                 ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error in renderImGuiContent:");
                 ImGui::TextWrapped("%s", e.what());
             }
@@ -762,66 +1115,23 @@ namespace DesignManager
 
         }
         else {
-            // Optional: Draw placeholder text if no function is set
+
             ImGui::TextDisabled("renderImGuiContent not set");
         }
 
         ImGui::EndChild();
 
-        // ImGui::PopStyleColor();
-        // ImGui::PopStyleVar();
+
+
         ImGui::PopID();
     }
-    static void DrawShapeTreeNode(ShapeItem* shape)
-    {
-        ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-        if (std::find(selectedShapes.begin(), selectedShapes.end(), shape) != selectedShapes.end())
-            node_flags |= ImGuiTreeNodeFlags_Selected;
-        std::string id_str = shape->name + "##" + selectedGuiWindow + "_" + std::to_string(shape->id);
-        bool node_open = ImGui::TreeNodeEx(id_str.c_str(), node_flags);
-        bool item_clicked = ImGui::IsItemClicked();
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SHAPE_ITEM"))
-            {
-                IM_ASSERT(payload->DataSize == sizeof(ShapeItem*));
-                ShapeItem* dragged_shape = *(ShapeItem**)payload->Data;
-                SetParent(dragged_shape, shape);
-            }
-            ImGui::EndDragDropTarget();
-        }
-        if (ImGui::BeginDragDropSource())
-        {
-            ImGui::SetDragDropPayload("SHAPE_ITEM", &shape, sizeof(ShapeItem*));
-            if (shape->parent == nullptr)
-                ImGui::Text("Sürükle: %s (Kök Düğüm)", shape->name.c_str());
-            else
-                ImGui::Text("Sürükle: %s (Alt Düğüm)", shape->name.c_str());
-            ImGui::EndDragDropSource();
-        }
-        if (node_open)
-        {
-            for (ShapeItem* child : shape->children)
-                DrawShapeTreeNode(child);
-            ImGui::TreePop();
-        }
-        if (item_clicked)
-        {
-            if (ImGui::GetIO().KeyCtrl)
-            {
-                auto it = std::find(selectedShapes.begin(), selectedShapes.end(), shape);
-                if (it == selectedShapes.end())
-                    selectedShapes.push_back(shape);
-                else
-                    selectedShapes.erase(std::remove(selectedShapes.begin(), selectedShapes.end(), shape), selectedShapes.end());
-            }
-            else
-            {
-                selectedShapes.clear();
-                selectedShapes.push_back(shape);
-            }
-        }
-    }
+
+
+
+
+
+
+
 
     static void BuildRectPoly(std::vector<ImVec2>& poly, ImVec2 pos, ImVec2 size, float r, ImVec2 c, float rot)
     {
@@ -1129,6 +1439,7 @@ namespace DesignManager
             ImGui::End();
         }
     }
+    inline void DrawShapeTreeNode(ShapeItem* shape, Layer& layer, int layerIndex, int shapeIndexInLayer, int& selectedLayerIndex, std::vector<ShapeItem*>& selectedShapes, ShapeItem*& lastClickedShape, int& lastClickedLayerIndex, int& layerToSort, bool& needsLayerSort);
 
 
     static void AddTextRotated(
@@ -1248,20 +1559,20 @@ namespace DesignManager
     }
 
     inline void DrawShape_LoadEmbeddedImageIfNeeded(ShapeItem& item) {
-        // Gömülü resim yoksa veya zaten texture oluşturulmuşsa devam etme
+
         if (!item.hasEmbeddedImage) return;
         if (item.embeddedImageTexture != 0) return;
 
-        // Veri boşsa ve geçerli bir index varsa, otomatik olarak yükle
+
         if (item.embeddedImageData.empty() && item.embeddedImageIndex >= 0 && item.embeddedImageIndex < g_embeddedImageFuncsCount) {
-            // İlgili fonksiyonu diziden al ve çağır
+
             item.embeddedImageData = g_embeddedImageFuncs[item.embeddedImageIndex]();
         }
 
-        // Veri hâlâ boşsa devam etme
+
         if (item.embeddedImageData.empty()) return;
 
-        // Resmi belleğe yükle ve texture oluştur
+
         int w = 0, h = 0, ch = 0;
         unsigned char* decoded = stbi_load_from_memory(
             item.embeddedImageData.data(),
@@ -1282,7 +1593,7 @@ namespace DesignManager
         glBindTexture(GL_TEXTURE_2D, 0);
         stbi_image_free(decoded);
 
-        // Texture bilgilerini güncelle
+
         item.embeddedImageWidth = w;
         item.embeddedImageHeight = h;
         item.embeddedImageChannels = 4;
@@ -1319,114 +1630,153 @@ namespace DesignManager
             }
         }
     }
+
     inline void DrawShape_ProcessButtonLogic(ImDrawList* dlEffective, ShapeItem& s, float scaleFactor, ImVec2 wp, ImVec4& drawColor) {
+
         ImVec2 button_abs_pos = ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor);
         ImVec2 button_size = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);
         std::string button_id = "##button_" + std::to_string(s.id);
+
         if (s.forceOverlap)
             ImGui::SetNextItemAllowOverlap();
         ImGui::SetCursorScreenPos(button_abs_pos);
+
         ImGui::InvisibleButton(button_id.c_str(), button_size);
-        ImGui::SetCursorPos(ImVec2(0, 10));
+
+
+
+
         bool is_hovered = ImGui::IsItemHovered();
         bool is_active = ImGui::IsItemActive();
-        if (!s.allowItemOverlap) {
-            ImGuiID myID = ImGui::GetID(button_id.c_str());
-            if (ImGui::GetHoveredID() != myID) {
+
+
+
+
+        if (!s.allowItemOverlap && ImGui::GetHoveredID() != 0 && ImGui::GetHoveredID() != ImGui::GetID(button_id.c_str())) {
+
+            is_hovered = false;
+            is_active = false;
+        }
+
+        else if (s.allowItemOverlap) {
+            ImVec2 mousePos = ImGui::GetIO().MousePos;
+            ImRect buttonRect(button_abs_pos, button_abs_pos + button_size);
+            if (buttonRect.Contains(mousePos)) {
+
+                is_hovered = true;
+
+                is_active = ImGui::IsMouseDown(0) && is_hovered;
+            }
+            else {
+
                 is_hovered = false;
                 is_active = false;
             }
         }
-        if (s.allowItemOverlap) {
-            ImVec2 mousePos = ImGui::GetIO().MousePos;
-            ImRect buttonRect(button_abs_pos, ImVec2(button_abs_pos.x + button_size.x, button_abs_pos.y + button_size.y));
-            if (buttonRect.Contains(mousePos)) {
-                is_hovered = true;
-                if (ImGui::IsMouseDown(0))
-                    is_active = true;
-            }
-        }
+
+
+
         if (s.forceOverlap && s.allowItemOverlap && s.blockUnderlying) {
+
             ImGui::SetNextWindowPos(button_abs_pos);
             ImGui::SetNextWindowSize(button_size);
             std::string overlay_id = "BlockOverlay_" + std::to_string(s.id);
             ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
             ImGui::BeginChild(overlay_id.c_str(), button_size, false,
                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground);
-            ImGui::Dummy(button_size);
+                ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
+
             ImGui::EndChild();
             ImGui::PopStyleColor();
         }
-        if (is_hovered)
+
+
+
+        drawColor = s.fillColor;
+        if (is_hovered) {
             drawColor = s.hoverColor;
+        }
+
+
         for (auto& anim : s.onClickAnimations) {
             if (anim.triggerMode == ButtonAnimation::TriggerMode::OnHover) {
                 if (is_hovered) {
                     if (!anim.isPlaying) {
+
                         if (anim.behavior == ButtonAnimation::AnimationBehavior::Toggle) {
                             if (!anim.toggleState) {
                                 anim.isPlaying = true;
                                 anim.progress = 0.0f;
-                                anim.speed = fabs(anim.speed);
+                                anim.speed = std::fabs(anim.speed);
                                 s.currentAnimation = &anim;
-                                anim.startTime = ImGui::GetTime();
+                                anim.startTime = (float)ImGui::GetTime();
                             }
                         }
                         else {
                             anim.isPlaying = true;
                             anim.progress = 0.0f;
-                            anim.speed = fabs(anim.speed);
+                            anim.speed = std::fabs(anim.speed);
                             s.currentAnimation = &anim;
-                            anim.startTime = ImGui::GetTime();
+                            anim.startTime = (float)ImGui::GetTime();
                         }
                     }
                 }
                 else {
+
                     if (anim.isPlaying) {
-                        if (anim.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndReverse && anim.progress > 0.0f && anim.speed > 0.0f)
-                            anim.speed = -fabs(anim.speed);
-                        if (anim.behavior == ButtonAnimation::AnimationBehavior::Toggle) {
+
+                        if (anim.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndReverse && anim.progress > 0.0f && anim.speed > 0.0f) {
+
+                            anim.speed = -std::fabs(anim.speed);
+                        }
+                        else if (anim.behavior == ButtonAnimation::AnimationBehavior::Toggle) {
                             if (anim.toggleState) {
                                 anim.isPlaying = true;
-                                anim.speed = -fabs(anim.speed);
+                                anim.speed = -std::fabs(anim.speed);
+
                             }
+
                         }
+
                     }
                 }
             }
         }
+
+
         if (s.buttonBehavior == ShapeItem::ButtonBehavior::SingleClick) {
             if (ImGui::IsItemClicked()) {
-                s.buttonState = !s.buttonState;
+
                 s.shouldCallOnClick = true;
             }
-            if (ImGui::IsItemActive())
+            if (is_active) {
                 drawColor = s.clickedColor;
-            else if (is_hovered)
-                drawColor = s.hoverColor;
-            else
-                drawColor = s.fillColor;
+            }
+
+
         }
         else if (s.buttonBehavior == ShapeItem::ButtonBehavior::Toggle) {
             if (ImGui::IsItemClicked()) {
                 bool newState = !s.buttonState;
+
                 if (newState && s.groupId > 0) {
                     auto allButtons = GetAllButtonShapes();
                     for (auto* otherButton : allButtons) {
-                        if (otherButton->id != s.id && otherButton->groupId == s.groupId)
+                        if (otherButton && otherButton->id != s.id && otherButton->groupId == s.groupId) {
                             otherButton->buttonState = false;
+                        }
                     }
                 }
                 s.buttonState = newState;
                 s.shouldCallOnClick = true;
             }
-            if (s.buttonState)
+
+
+            if (s.buttonState) {
                 drawColor = s.clickedColor;
-            else if (!s.buttonState && !s.openWindow) {
-                if (!is_hovered)
-                    drawColor = s.fillColor;
             }
+
+
         }
         else if (s.buttonBehavior == ShapeItem::ButtonBehavior::Hold) {
             if (is_active) {
@@ -1436,41 +1786,76 @@ namespace DesignManager
                     s.buttonState = true;
                 }
             }
-            if (ImGui::IsMouseReleased(0) && s.buttonState) {
-                s.shouldCallOnClick = true;
-                s.buttonState = false;
+            else {
+                if (s.buttonState) {
+                    s.shouldCallOnClick = true;
+                    s.buttonState = false;
+                }
+
             }
-            if (s.buttonState)
+
+            if (s.buttonState) {
                 drawColor = s.clickedColor;
-            else if (is_hovered)
-                drawColor = s.hoverColor;
+            }
         }
+
+
         if (s.shouldCallOnClick) {
+
             DispatchEvent(s, "onClick");
+
+
             if (!s.onClickAnimations.empty()) {
                 std::vector<int> onClickIndices;
                 onClickIndices.reserve(s.onClickAnimations.size());
                 for (int i = 0; i < (int)s.onClickAnimations.size(); i++) {
-                    if (s.onClickAnimations[i].triggerMode == ButtonAnimation::TriggerMode::OnClick)
+                    if (s.onClickAnimations[i].triggerMode == ButtonAnimation::TriggerMode::OnClick) {
                         onClickIndices.push_back(i);
+                    }
                 }
-                static int currentAnimIndex = -1;
+
+
+
+
+                static int currentAnimIndexMap[10000];
+                int& currentAnimIndex = currentAnimIndexMap[s.id % 10000];
+
                 if (!onClickIndices.empty()) {
-                    if (currentAnimIndex < 0)
+                    if (currentAnimIndex < 0 || currentAnimIndex >= onClickIndices.size()) {
                         currentAnimIndex = 0;
-                    else
-                        currentAnimIndex = (currentAnimIndex + 1) % onClickIndices.size();
-                    int idx = onClickIndices[currentAnimIndex];
-                    auto& anim = s.onClickAnimations[idx];
-                    anim.progress = 0.0f;
-                    anim.isPlaying = true;
-                    anim.startTime = ImGui::GetTime();
-                    s.currentAnimation = &anim;
+                    }
+
+                    int animToPlayIdx = onClickIndices[currentAnimIndex];
+                    ButtonAnimation& anim = s.onClickAnimations[animToPlayIdx];
+
+
+                    if (anim.behavior == ButtonAnimation::AnimationBehavior::Toggle) {
+                        if (!anim.isPlaying) {
+                            anim.isPlaying = true;
+                            anim.speed = anim.toggleState ? -std::fabs(anim.speed) : std::fabs(anim.speed);
+                            anim.progress = anim.toggleState ? 1.0f : 0.0f;
+                            s.currentAnimation = &anim;
+                            anim.startTime = (float)ImGui::GetTime();
+                        }
+                    }
+                    else {
+                        anim.progress = 0.0f;
+                        anim.speed = std::fabs(anim.speed);
+                        anim.isPlaying = true;
+                        s.currentAnimation = &anim;
+                        anim.startTime = (float)ImGui::GetTime();
+                    }
+
+
+
+                    currentAnimIndex = (currentAnimIndex + 1) % onClickIndices.size();
                 }
             }
             s.shouldCallOnClick = false;
         }
-        s.isHeld = ImGui::IsItemActive();
+
+
+        s.isHeld = is_active;
     }
 
 
@@ -1548,14 +1933,14 @@ namespace DesignManager
 
             s.isChildWindow = true;
 
-            // If using "None", process each button-child window pair individually.
+
             if (mapping.logicOp == "None")
             {
-                // For each pair, assign the group id so that SetWindowOpen can enforce exclusivity.
+
                 for (size_t i = 0; i < mapping.buttonIds.size(); i++)
                 {
                     bool btnState = false;
-                    // Get the current state of the button.
+
                     for (auto& [wName, winData] : g_windowsMap)
                     {
                         for (auto& layer : winData.layers)
@@ -1572,9 +1957,9 @@ namespace DesignManager
                     }
 
                     const std::string& childKey = mapping.childWindowKeys[i];
-                    // Set the group id for the child window to enable exclusivity.
+
                     g_windowsMap[childKey].groupId = s.childWindowGroupId;
-                    // Open or close the window based on the button state.
+
                     SetWindowOpen(childKey, btnState);
                 }
             }
@@ -1672,7 +2057,7 @@ namespace DesignManager
                         }
                     }
                 }
-                // Set group id for each child window before opening.
+
                 for (auto& childKey : mapping.childWindowKeys)
                 {
                     g_windowsMap[childKey].groupId = s.childWindowGroupId;
@@ -1680,7 +2065,7 @@ namespace DesignManager
                 }
             }
 
-            // Draw the child windows that are open.
+
             for (auto& childKey : mapping.childWindowKeys)
             {
                 if (IsWindowOpen(childKey))
@@ -1829,6 +2214,7 @@ namespace DesignManager
 
     inline void DrawShape(ImDrawList* dl, ShapeItem& s, ImVec2 wp) {
         if (!s.visible) return;
+
         float scaleFactor = globalScaleFactor;
         ImDrawList* dlEffective = (s.forceOverlap && s.allowItemOverlap) ? ImGui::GetForegroundDrawList() : dl;
         ImVec2 c = ImVec2(
@@ -1864,36 +2250,31 @@ namespace DesignManager
         {
             DrawShape_Fill(dlEffective, s, poly, scaleFactor, drawColor);
         }
-    
-    
-        /******************************************************/
-        /******************************************************/
-        DrawShape_RenderImGuiContent(dl, s, wp, scaleFactor); // <--- NEW CALL
-    
-        if (s.isChildWindow && !s.isImGuiContainer) { // <--- MODIFIED CONDITION
+
+
+
+
+        DrawShape_RenderImGuiContent(dl, s, wp, scaleFactor);
+
+        if (s.isChildWindow && !s.isImGuiContainer) {
             DrawShape_RenderChildWindow(s, wp, scaleFactor, poly);
-            // Usually, if a child window is rendered, we might not draw the shape's own border/text?
-            // Depends on desired look. Let's return here for now if it's a child window container.
-            // return; // Or maybe just skip border/text below? Let's skip them.
+
+
+
         }
-        else if (!s.isImGuiContainer) { // <--- MODIFIED CONDITION: Only draw border/text if NOT an ImGui container (content handles itself) and not a child window
+        else if (!s.isImGuiContainer) {
             DrawShape_DrawBorder(dlEffective, s, scaleFactor, c, wp);
-            // Glass effect might need careful integration with ImGuiContainer
+
             if (s.useGlass) {
-                // Apply glass effect - how does this interact with BeginChild content? Needs thought.
+
             }
             DrawShape_DrawText(dlEffective, s, scaleFactor, wp);
         }
-        /******************************************************/
-        /******************************************************/
-    
-    
-        /*
-        if (s.openWindow) {
-            DrawShape_RenderChildWindow(s, wp, scaleFactor, poly);
-            return;
-        }
-        */
+
+
+
+
+
         {
             DrawShape_DrawBorder(dlEffective, s, scaleFactor, c, wp);
         }
@@ -1910,7 +2291,7 @@ namespace DesignManager
 
 
 
-    //static std::vector<ShapeItem*> selectedShapes;
+
     static int lastSelectedLayerIndex = -1;
     static int lastSelectedShapeIndex = -1;
     static int selectedLayerIndex = 0, selectedShapeIndex = -1;
@@ -1948,339 +2329,440 @@ namespace DesignManager
 
 
     inline void MarkSceneUpdated() {
-        //
+
         DesignManager::sceneUpdated = false;
         shouldCaptureScene = true;
         glFinish();
     }
-    //
+
     inline float NormalizeProgress(float progress) {
         return progress / 100.0f;
     }
 
-    //
-//
-//
-    inline void UpdateShapeTransforms_Unified(GLFWwindow* window, float deltaTime)
-	{
-	    // Loop through each window: g_windowsMap is now <std::string, WindowData>
-	    for (auto& [winName, windowData] : g_windowsMap)
-	    {
-	        // Find the ImGui window to get its current size (needed for Shape Keys)
-	        ImGuiWindow* imguiWindow = ImGui::FindWindowByName(winName.c_str());
-	        // Use window size from GLFW if the ImGui window isn't found or if it's the main window.
-	        ImVec2 currentWindowSize = (imguiWindow != nullptr && imguiWindow->Size.x > 0 && imguiWindow->Size.y > 0) ? imguiWindow->Size : GetWindowSize(window);
-	
-	        // Layers belonging to the window: windowData.layers
-	        for (auto& layer : windowData.layers)
-	        {
-	            // Loop for each shape in the layer
-	            for (auto& shape : layer.shapes)
-	            {
-	                // --- Step 1: Determine Base Values ---
-	                // Calculate the effective base transform by adding any base offsets from shape keys
-	                ImVec2 effectiveBasePos = shape.basePosition + shape.baseKeyOffset;
-	                ImVec2 effectiveBaseSize = shape.baseSize + shape.baseKeySizeOffset;
-	                float effectiveBaseRot = shape.baseRotation + shape.baseKeyRotationOffset;
-	
-	                // --- Step 2: Calculate Shape Key Influence (if any) ---
-	                // Initialize results with the effective base values. These will be overwritten only if shape keys exist and are processed.
-	                ImVec2 shapeKeyResultPosition = effectiveBasePos;
-	                ImVec2 shapeKeyResultSize = effectiveBaseSize;
-	                float shapeKeyResultRotation = effectiveBaseRot;
-	
-	                // Only process shape keys if the shape actually has them defined.
-	                if (!shape.shapeKeys.empty())
-	                {
-	                    // Variables to accumulate the blended values from multiple keys
-	                    float blendedPosX = 0.0f, blendedPosY = 0.0f, blendedSizeX = 0.0f, blendedSizeY = 0.0f, blendedRot = 0.0f;
-	                    int countPosX = 0, countPosY = 0, countSizeX = 0, countSizeY = 0, countRot = 0;
-	
-	                    // Loop through each defined shape key
-	                    for (auto& key : shape.shapeKeys)
-	                    {
-	                        float currentDim = 0.0f, startDim = 0.0f, endDim = 0.0f;
-	                        float baseVal = 0.0f, targetVal = 0.0f;
-	
-	                        // Determine which window dimension and base/target values to use based on key type
-	                        switch (key.type)
-	                        {
-	                        case ShapeKeyType::PositionX:
-	                            currentDim = currentWindowSize.x; startDim = key.startWindowSize.x; endDim = key.endWindowSize.x;
-	                            baseVal = effectiveBasePos.x; targetVal = key.targetValue.x;
-	                            break;
-	                        case ShapeKeyType::PositionY:
-	                            currentDim = currentWindowSize.y; startDim = key.startWindowSize.y; endDim = key.endWindowSize.y;
-	                            baseVal = effectiveBasePos.y; targetVal = key.targetValue.y;
-	                            break;
-	                        case ShapeKeyType::SizeX:
-	                            currentDim = currentWindowSize.x; startDim = key.startWindowSize.x; endDim = key.endWindowSize.x;
-	                            baseVal = effectiveBaseSize.x; targetVal = key.targetValue.x;
-	                            break;
-	                        case ShapeKeyType::SizeY:
-	                            currentDim = currentWindowSize.y; startDim = key.startWindowSize.y; endDim = key.endWindowSize.y;
-	                            baseVal = effectiveBaseSize.y; targetVal = key.targetValue.y;
-	                            break;
-	                        case ShapeKeyType::Rotation:
-	                            currentDim = currentWindowSize.x; // Or height, depending on design choice
-	                            startDim = key.startWindowSize.x; endDim = key.endWindowSize.x;
-	                            baseVal = effectiveBaseRot; targetVal = key.targetRotation;
-	                            break;
-	                        }
-	
-	                        // Calculate interpolation factor 't' based on current window size relative to key's range
-	                        float t = (endDim != startDim) ? std::clamp((currentDim - startDim) / (endDim - startDim), 0.0f, 1.0f)
-	                            : ((currentDim < startDim) ? 0.0f : 1.0f);
-	                        key.value = t * 100.0f; // Update key's value for UI display
-	
-	                        // Calculate the interpolated value between base and target
-	                        float computedVal = Lerp(baseVal, targetVal, t);
-	
-	                        // Apply the key's specific offset
-	                        if (key.type == ShapeKeyType::Rotation)
-	                            computedVal += key.rotationOffset;
-	                        else // Position or Size keys
-	                            computedVal += (key.type == ShapeKeyType::PositionX || key.type == ShapeKeyType::SizeX) ? key.offset.x : key.offset.y;
-	
-	                        // Accumulate the computed value for averaging later
-	                        switch (key.type)
-	                        {
-	                        case ShapeKeyType::PositionX: blendedPosX += computedVal; countPosX++; break;
-	                        case ShapeKeyType::PositionY: blendedPosY += computedVal; countPosY++; break;
-	                        case ShapeKeyType::SizeX:     blendedSizeX += computedVal; countSizeX++; break;
-	                        case ShapeKeyType::SizeY:     blendedSizeY += computedVal; countSizeY++; break;
-	                        case ShapeKeyType::Rotation:  blendedRot += computedVal; countRot++; break;
-	                        }
-	                    } // End loop through shape keys
-	
-	                    // Calculate the final shape key result by averaging blended values.
-	                    // If a component (e.g., PosX) wasn't affected by any key, its initial effectiveBase value remains.
-	                    shapeKeyResultPosition = ImVec2(
-	                        (countPosX > 0 ? blendedPosX / countPosX : effectiveBasePos.x),
-	                        (countPosY > 0 ? blendedPosY / countPosY : effectiveBasePos.y)
-	                    );
-	                    shapeKeyResultSize = ImVec2(
-	                        (countSizeX > 0 ? blendedSizeX / countSizeX : effectiveBaseSize.x),
-	                        (countSizeY > 0 ? blendedSizeY / countSizeY : effectiveBaseSize.y)
-	                    );
-	                    shapeKeyResultRotation = (countRot > 0 ? blendedRot / countRot : effectiveBaseRot);
-	
-	                } // End if(!shape.shapeKeys.empty())
-	
-	                // --- Step 3: Determine Animation Base ---
-	                // The starting point for animations depends on whether they should adapt to shape key changes.
-	                ImVec2 animationBasePos = shape.updateAnimBaseOnResize ? shapeKeyResultPosition : effectiveBasePos;
-	                ImVec2 animationBaseSize = shape.updateAnimBaseOnResize ? shapeKeyResultSize : effectiveBaseSize;
-	                float animationBaseRot = shape.updateAnimBaseOnResize ? shapeKeyResultRotation : effectiveBaseRot;
-	
-	                // --- Step 4: Apply Animation (if active) ---
-	                if (shape.currentAnimation && shape.currentAnimation->isPlaying)
-	                {
-	                    ButtonAnimation* anim = shape.currentAnimation;
-	
-	                    // --- Update Animation Progress ---
-	                    // (This logic remains the same as the original code you provided, handling repeats, behaviors etc.)
-	                    switch (anim->behavior)
-	                    {
-	                    case ButtonAnimation::AnimationBehavior::PlayOnceAndStay:
-	                        anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
-	                        if (anim->progress >= 1.0f)
-	                        {
-	                            if (!anim->hasStartedRepeatCount)
-	                            {
-	                                anim->hasStartedRepeatCount = true;
-	                                anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount - 1; // -1 infinite, 0 no repeat, >0 count
-	                            }
-	
-	                            if (anim->remainingRepeats < 0) // Infinite repeat
-	                            {
-	                                anim->progress = 0.0f;
-	                            }
-	                            else if (anim->remainingRepeats > 0) // Finite repeats left
-	                            {
-	                                anim->remainingRepeats--;
-	                                anim->progress = 0.0f;
-	                            }
-	                            else // No repeats left or was initially 1
-	                            {
-	                                anim->isPlaying = false;
-	                                anim->persistentPositionOffset = (anim->animationTargetPosition - animationBasePos);
-	                                anim->persistentSizeOffset = (anim->animationTargetSize - animationBaseSize);
-	                                anim->persistentRotationOffset = anim->transformRotation - animationBaseRot;
-	                                shape.currentAnimation = nullptr;
-	                                anim->hasStartedRepeatCount = false; // Reset for next trigger
-	                            }
-	                        }
-	                        break;
-	                    case ButtonAnimation::AnimationBehavior::PlayOnceAndReverse:
-	                        anim->progress += deltaTime * anim->speed; // Speed determines direction
-	                        anim->progress = std::clamp(anim->progress, 0.0f, 1.0f); // Keep within bounds
-	
-	                        if (anim->speed > 0.0f && anim->progress >= 1.0f) // Reached end playing forward
-	                        {
-	                            anim->speed *= -1.0f; // Reverse direction
-	                        }
-	                        else if (anim->speed < 0.0f && anim->progress <= 0.0f) // Reached start playing backward
-	                        {
-	                            if (!anim->hasStartedRepeatCount)
-	                            {
-	                                anim->hasStartedRepeatCount = true;
-	                                anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount - 1;
-	                            }
-	
-	                            if (anim->remainingRepeats < 0) // Infinite
-	                            {
-	                                anim->speed *= -1.0f; // Start forward again
-	                            }
-	                            else if (anim->remainingRepeats > 0) // Finite
-	                            {
-	                                anim->remainingRepeats--;
-	                                anim->speed *= -1.0f; // Start forward again
-	                            }
-	                            else // Done
-	                            {
-	                                anim->speed = std::fabs(anim->speed); // Ensure speed is positive for next time
-	                                anim->isPlaying = false;
-	                                anim->persistentPositionOffset = ImVec2(0, 0); // No persistent offset
-	                                anim->persistentSizeOffset = ImVec2(0, 0);
-	                                anim->persistentRotationOffset = 0.0f;
-	                                shape.currentAnimation = nullptr;
-	                                anim->hasStartedRepeatCount = false;
-	                            }
-	                        }
-	                        break;
-	                    case ButtonAnimation::AnimationBehavior::Toggle:
-	                        if (!anim->toggleState) // Playing forward to ON state
-	                        {
-	                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
-	                            if (anim->progress >= 1.0f) // Reached ON
-	                            {
-	                                anim->toggleState = true;
-	                                anim->isPlaying = false;
-	                                anim->persistentPositionOffset = (anim->animationTargetPosition - animationBasePos);
-	                                anim->persistentSizeOffset = (anim->animationTargetSize - animationBaseSize);
-	                                anim->persistentRotationOffset = anim->transformRotation - animationBaseRot;
-	                                shape.currentAnimation = nullptr;
-	                            }
-	                        }
-	                        else // Playing backward to OFF state
-	                        {
-	                            anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
-	                            if (anim->progress <= 0.0f) // Reached OFF
-	                            {
-	                                anim->toggleState = false;
-	                                anim->isPlaying = false;
-	                                anim->persistentPositionOffset = ImVec2(0, 0); // Clear offset
-	                                anim->persistentSizeOffset = ImVec2(0, 0);
-	                                anim->persistentRotationOffset = 0.0f;
-	                                shape.currentAnimation = nullptr;
-	                            }
-	                        }
-	                        break;
-	                    case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndReverseOnRelease:
-	                        if (shape.isHeld)
-	                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
-	                        else
-	                        {
-	                            anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
-	                            if (anim->progress <= 0.0f)
-	                            {
-	                                anim->isPlaying = false;
-	                                shape.currentAnimation = nullptr;
-	                            }
-	                        }
-	                        break;
-	                    case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay:
-	                        if (shape.isHeld)
-	                        {
-	                            // Progress forward while held, stop at 1.0
-	                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
-	                        }
-	                        else // Released
-	                        {
-	                            anim->isPlaying = false;
-	                            // Calculate persistent offset based on progress when released
-	                            float t = anim->progress;
-	                            if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut)
-	                                t = t * t * (3.0f - 2.0f * t);
-	                            anim->persistentPositionOffset = ImVec2(
-	                                Lerp(0.0f, anim->animationTargetPosition.x - animationBasePos.x, t),
-	                                Lerp(0.0f, anim->animationTargetPosition.y - animationBasePos.y, t)
-	                            );
-	                            anim->persistentSizeOffset = ImVec2(
-	                                Lerp(0.0f, anim->animationTargetSize.x - animationBaseSize.x, t),
-	                                Lerp(0.0f, anim->animationTargetSize.y - animationBaseSize.y, t)
-	                            );
-	                            anim->persistentRotationOffset = Lerp(0.0f, anim->transformRotation - animationBaseRot, t);
-	                            shape.currentAnimation = nullptr; // Stop referencing
-	                        }
-	                        break;
-	                    }
-	
-	
-	                    // --- Calculate Current Frame's Animation Offset ---
-	                    float tInterp = anim->progress;
-	                    if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut)
-	                        tInterp = tInterp * tInterp * (3.0f - 2.0f * tInterp);
-	
-	                    ImVec2 animPosOffset = Lerp(ImVec2(0, 0), anim->animationTargetPosition - animationBasePos, tInterp);
-	                    ImVec2 animSizeOffset = Lerp(ImVec2(0, 0), anim->animationTargetSize - animationBaseSize, tInterp);
-	                    float animRotOffset = Lerp(0.0f, anim->transformRotation - animationBaseRot, tInterp);
-	
-	                    // --- Apply Final Transform (ShapeKey + Animation) ---
-	                    shape.position = shapeKeyResultPosition + animPosOffset;
-	                    shape.size = shapeKeyResultSize + animSizeOffset;
-	                    shape.rotation = shapeKeyResultRotation + animRotOffset;
-	                }
-	                else // --- Step 4b: Apply Persistent Offsets (if no active animation) ---
-	                {
-	                    // Start with the result from shape keys (or base if no keys)
-	                    ImVec2 cumulativePos = shapeKeyResultPosition;
-	                    ImVec2 cumulativeSize = shapeKeyResultSize;
-	                    float cumulativeRot = shapeKeyResultRotation;
-	
-	                    // Add persistent offsets from any completed/toggled animations
-	                    for (auto& a : shape.onClickAnimations)
-	                    {
-	                        // Check which behaviors leave a persistent state
-	                        bool toggleOn = (a.behavior == ButtonAnimation::AnimationBehavior::Toggle && a.toggleState);
-	                        // PlayOnceAndStay leaves offset if it finished fully (progress >= 1.0) and isn't currently playing (e.g., completed repeats or single run)
-	                        bool playedOnceAndStayed = (a.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndStay && !a.isPlaying && a.progress >= 1.0f);
-	                        // PlayWhileHoldingAndStay leaves offset if released
-	                        bool heldStay = (a.behavior == ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay && !a.isPlaying && a.progress > 0.0f);
-	
-	                        if (toggleOn || playedOnceAndStayed || heldStay)
-	                        {
-	                            cumulativePos += a.persistentPositionOffset;
-	                            cumulativeSize += a.persistentSizeOffset;
-	                            cumulativeRot += a.persistentRotationOffset;
-	                        }
-	                    }
-	                    // --- Apply Final Transform (ShapeKey + Persistent Offsets) ---
-	                    shape.position = cumulativePos;
-	                    shape.size = cumulativeSize;
-	                    shape.rotation = cumulativeRot;
-	                }
-	
-	                // Clamp size to avoid issues
-	                shape.size.x = std::max(0.0f, shape.size.x);
-	                shape.size.y = std::max(0.0f, shape.size.y);
-	
-	            } // end for each shape
-	        } // end for each layer
-	    } // end for each window
-	}
 
+
+    inline int FindShapeLayerIndex(int shapeId) {
+        if (g_windowsMap.count(selectedGuiWindow)) {
+            WindowData& currentWindowData = g_windowsMap.at(selectedGuiWindow);
+            for (size_t i = 0; i < currentWindowData.layers.size(); ++i) {
+                for (const auto& shape : currentWindowData.layers[i].shapes) {
+                    if (shape.id == shapeId) {
+                        return static_cast<int>(i);
+                    }
+                }
+            }
+        }
+        return -1;
+    }
+
+    inline void UpdateShapeTransforms_Unified(GLFWwindow* window, float deltaTime)
+    {
+        for (auto& [winName, windowData] : g_windowsMap)
+        {
+
+            ImGuiWindow* imguiWindow = ImGui::FindWindowByName(winName.c_str());
+            ImVec2 baseWindowSize = GetWindowSize(window);
+            ImVec2 containerSizeForShapeKeys = (imguiWindow != nullptr && imguiWindow->Size.x > 0 && imguiWindow->Size.y > 0) ? imguiWindow->Size : baseWindowSize;
+            containerSizeForShapeKeys.x = std::max(1.0f, containerSizeForShapeKeys.x);
+            containerSizeForShapeKeys.y = std::max(1.0f, containerSizeForShapeKeys.y);
+
+
+            std::vector<ShapeItem*> rootShapes;
+            for (auto& layer : windowData.layers) {
+                for (auto& shape : layer.shapes) {
+                    if (shape.parent == nullptr) {
+                        rootShapes.push_back(&shape);
+                    }
+                }
+            }
+
+
+            std::function<void(ShapeItem*, const ImVec2&, ShapeItem*)> processShapeRecursive =
+                [&](ShapeItem* shape, const ImVec2& parentSize, ShapeItem* parentShape)
+                {
+                    if (!shape) {
+                        return;
+                    }
+
+                    if (!shape->visible) {
+
+
+
+                        return;
+                    }
+
+
+                    bool layer_is_locked = false;
+                    int current_shape_layer_idx = FindShapeLayerIndex(shape->id);
+                    if (current_shape_layer_idx != -1 && g_windowsMap.count(shape->ownerWindow) && current_shape_layer_idx < g_windowsMap[shape->ownerWindow].layers.size()) {
+                        layer_is_locked = g_windowsMap[shape->ownerWindow].layers[current_shape_layer_idx].locked;
+                    }
+                    bool shape_effectively_locked = shape->locked || layer_is_locked;
+
+
+                    ImVec2 currentContainerSize = parentSize;
+                    currentContainerSize.x = std::max(1.0f, currentContainerSize.x);
+                    currentContainerSize.y = std::max(1.0f, currentContainerSize.y);
+
+
+                    ImVec2 effectiveBasePos = shape->basePosition + shape->baseKeyOffset;
+                    ImVec2 effectiveBaseSize = shape->baseSize + shape->baseKeySizeOffset;
+                    float effectiveBaseRot = shape->baseRotation + shape->baseKeyRotationOffset;
+
+
+                    ImVec2 shapeKeyResultPosition = effectiveBasePos;
+                    ImVec2 shapeKeyResultSize = effectiveBaseSize;
+                    float shapeKeyResultRotation = effectiveBaseRot;
+
+                    if (!shape_effectively_locked && !shape->shapeKeys.empty())
+                    {
+                        float blendedPosX = 0.0f, blendedPosY = 0.0f, blendedSizeX = 0.0f, blendedSizeY = 0.0f, blendedRot = 0.0f;
+                        int countPosX = 0, countPosY = 0, countSizeX = 0, countSizeY = 0, countRot = 0;
+                        for (auto& key : shape->shapeKeys) {
+                            float currentDim = 0.0f, startDim = 0.0f, endDim = 0.0f;
+                            float baseVal = 0.0f, targetVal = 0.0f;
+
+
+                            ImVec2 currentWindowContextSize = containerSizeForShapeKeys;
+                            switch (key.type) {
+                            case ShapeKeyType::PositionX: currentDim = currentWindowContextSize.x; startDim = key.startWindowSize.x; endDim = key.endWindowSize.x; baseVal = effectiveBasePos.x; targetVal = key.targetValue.x; break;
+                            case ShapeKeyType::PositionY: currentDim = currentWindowContextSize.y; startDim = key.startWindowSize.y; endDim = key.endWindowSize.y; baseVal = effectiveBasePos.y; targetVal = key.targetValue.y; break;
+                            case ShapeKeyType::SizeX:     currentDim = currentWindowContextSize.x; startDim = key.startWindowSize.x; endDim = key.endWindowSize.x; baseVal = effectiveBaseSize.x; targetVal = key.targetValue.x; break;
+                            case ShapeKeyType::SizeY:     currentDim = currentWindowContextSize.y; startDim = key.startWindowSize.y; endDim = key.endWindowSize.y; baseVal = effectiveBaseSize.y; targetVal = key.targetValue.y; break;
+                            case ShapeKeyType::Rotation:  currentDim = currentWindowContextSize.x; startDim = key.startWindowSize.x; endDim = key.endWindowSize.x; baseVal = effectiveBaseRot; targetVal = key.targetRotation; break;
+                            }
+                            float t = (fabs(endDim - startDim) > 1e-6f) ? std::clamp((currentDim - startDim) / (endDim - startDim), 0.0f, 1.0f) : ((currentDim < startDim) ? 0.0f : 1.0f);
+                            key.value = t;
+                            float computedVal = Lerp(baseVal, targetVal, t);
+                            if (key.type == ShapeKeyType::Rotation) computedVal += key.rotationOffset;
+                            else computedVal += (key.type == ShapeKeyType::PositionX || key.type == ShapeKeyType::SizeX) ? key.offset.x : key.offset.y;
+                            switch (key.type) {
+                            case ShapeKeyType::PositionX: blendedPosX += computedVal; countPosX++; break;
+                            case ShapeKeyType::PositionY: blendedPosY += computedVal; countPosY++; break;
+                            case ShapeKeyType::SizeX:     blendedSizeX += computedVal; countSizeX++; break;
+                            case ShapeKeyType::SizeY:     blendedSizeY += computedVal; countSizeY++; break;
+                            case ShapeKeyType::Rotation:  blendedRot += computedVal; countRot++; break;
+                            }
+                        }
+                        shapeKeyResultPosition = ImVec2((countPosX > 0 ? blendedPosX / countPosX : effectiveBasePos.x), (countPosY > 0 ? blendedPosY / countPosY : effectiveBasePos.y));
+                        shapeKeyResultSize = ImVec2((countSizeX > 0 ? blendedSizeX / countSizeX : effectiveBaseSize.x), (countSizeY > 0 ? blendedSizeY / countSizeY : effectiveBaseSize.y));
+                        shapeKeyResultRotation = (countRot > 0 ? blendedRot / countRot : effectiveBaseRot);
+                    }
+
+
+                    ImVec2 layoutResultPosition = shapeKeyResultPosition;
+                    ImVec2 layoutResultSize = shapeKeyResultSize;
+                    float layoutResultRotation = shapeKeyResultRotation;
+
+
+                    bool parentIsLayout = (parentShape != nullptr && parentShape->isLayoutContainer && parentShape->layoutManager != nullptr);
+
+
+                    if (!parentIsLayout && !shape_effectively_locked)
+                    {
+
+                        if (shape->usePercentageSize) {
+                            layoutResultSize.x = currentContainerSize.x * (shape->percentageSize.x / 100.0f);
+                            layoutResultSize.y = currentContainerSize.y * (shape->percentageSize.y / 100.0f);
+                        }
+
+                        layoutResultSize.x = std::max(shape->minSize.x, std::min(layoutResultSize.x, shape->maxSize.x));
+                        layoutResultSize.y = std::max(shape->minSize.y, std::min(layoutResultSize.y, shape->maxSize.y));
+                        layoutResultSize.x = std::max(0.0f, layoutResultSize.x);
+                        layoutResultSize.y = std::max(0.0f, layoutResultSize.y);
+
+
+                        if (shape->usePercentagePos && shape->anchorMode == ShapeItem::AnchorMode::None) {
+                            layoutResultPosition.x = currentContainerSize.x * (shape->percentagePos.x / 100.0f);
+                            layoutResultPosition.y = currentContainerSize.y * (shape->percentagePos.y / 100.0f);
+                        }
+
+
+                        if (shape->anchorMode != ShapeItem::AnchorMode::None) {
+                            switch (shape->anchorMode) {
+                            case ShapeItem::AnchorMode::TopLeft: layoutResultPosition = shape->anchorMargin; break;
+                            case ShapeItem::AnchorMode::Top: layoutResultPosition = ImVec2((currentContainerSize.x - layoutResultSize.x) * 0.5f + shape->anchorMargin.x, shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::TopRight: layoutResultPosition = ImVec2(currentContainerSize.x - layoutResultSize.x - shape->anchorMargin.x, shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::Left: layoutResultPosition = ImVec2(shape->anchorMargin.x, (currentContainerSize.y - layoutResultSize.y) * 0.5f + shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::Center: layoutResultPosition = ImVec2((currentContainerSize.x - layoutResultSize.x) * 0.5f + shape->anchorMargin.x, (currentContainerSize.y - layoutResultSize.y) * 0.5f + shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::Right: layoutResultPosition = ImVec2(currentContainerSize.x - layoutResultSize.x - shape->anchorMargin.x, (currentContainerSize.y - layoutResultSize.y) * 0.5f + shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::BottomLeft: layoutResultPosition = ImVec2(shape->anchorMargin.x, currentContainerSize.y - layoutResultSize.y - shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::Bottom: layoutResultPosition = ImVec2((currentContainerSize.x - layoutResultSize.x) * 0.5f + shape->anchorMargin.x, currentContainerSize.y - layoutResultSize.y - shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::BottomRight: layoutResultPosition = ImVec2(currentContainerSize.x - layoutResultSize.x - shape->anchorMargin.x, currentContainerSize.y - layoutResultSize.y - shape->anchorMargin.y); break;
+                            case ShapeItem::AnchorMode::None: default: break;
+                            }
+                        }
+                    }
+                    else if (shape_effectively_locked) {
+
+                        layoutResultPosition = shapeKeyResultPosition;
+                        layoutResultSize = shapeKeyResultSize;
+                        layoutResultRotation = shapeKeyResultRotation;
+                    }
+
+
+
+
+                    ImVec2 animationBasePos = shape->updateAnimBaseOnResize ? layoutResultPosition : effectiveBasePos;
+                    ImVec2 animationBaseSize = shape->updateAnimBaseOnResize ? layoutResultSize : effectiveBaseSize;
+                    float animationBaseRot = shape->updateAnimBaseOnResize ? layoutResultRotation : effectiveBaseRot;
+
+
+                    ImVec2 finalPosition = layoutResultPosition;
+                    ImVec2 finalSize = layoutResultSize;
+                    float finalRotation = layoutResultRotation;
+
+
+                    if (!shape_effectively_locked && shape->currentAnimation && shape->currentAnimation->isPlaying)
+                    {
+                        ButtonAnimation* anim = shape->currentAnimation;
+
+                        switch (anim->behavior) {
+                        case ButtonAnimation::AnimationBehavior::PlayOnceAndStay:
+                            anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+                            if (anim->progress >= 1.0f) {
+                                if (!anim->hasStartedRepeatCount) { anim->hasStartedRepeatCount = true; anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount - 1; }
+                                if (anim->remainingRepeats < 0) {
+                                    anim->progress = 1.0f;
+                                    anim->isPlaying = false;
+                                    anim->persistentPositionOffset = Lerp(animationBasePos, anim->animationTargetPosition, 1.0f);
+                                    anim->persistentSizeOffset = Lerp(animationBaseSize, anim->animationTargetSize, 1.0f);
+                                    anim->persistentRotationOffset = Lerp(animationBaseRot, anim->transformRotation, 1.0f);
+                                    shape->currentAnimation = nullptr;
+                                }
+                                else if (anim->remainingRepeats > 0) {
+                                    anim->remainingRepeats--;
+                                    anim->progress = 0.0f;
+                                }
+                                else {
+                                    anim->progress = 1.0f;
+                                    anim->isPlaying = false;
+                                    anim->persistentPositionOffset = Lerp(animationBasePos, anim->animationTargetPosition, 1.0f);
+                                    anim->persistentSizeOffset = Lerp(animationBaseSize, anim->animationTargetSize, 1.0f);
+                                    anim->persistentRotationOffset = Lerp(animationBaseRot, anim->transformRotation, 1.0f);
+                                    shape->currentAnimation = nullptr;
+                                    anim->hasStartedRepeatCount = false;
+                                }
+                            }
+                            break;
+                        case ButtonAnimation::AnimationBehavior::PlayOnceAndReverse:
+                            anim->progress += deltaTime * anim->speed;
+                            anim->progress = std::clamp(anim->progress, 0.0f, 1.0f);
+                            if (anim->speed > 0.0f && anim->progress >= 1.0f) {
+                                anim->speed *= -1.0f;
+                            }
+                            else if (anim->speed < 0.0f && anim->progress <= 0.0f) {
+                                if (!anim->hasStartedRepeatCount) { anim->hasStartedRepeatCount = true; anim->remainingRepeats = (anim->repeatCount <= 0) ? -1 : anim->repeatCount - 1; }
+                                if (anim->remainingRepeats < 0) {
+                                    anim->speed *= -1.0f;
+                                    anim->progress = 0.0f;
+                                    anim->isPlaying = false;
+                                    anim->persistentPositionOffset = ImVec2(0, 0);
+                                    anim->persistentSizeOffset = ImVec2(0, 0);
+                                    anim->persistentRotationOffset = 0.0f;
+                                    shape->currentAnimation = nullptr;
+                                }
+                                else if (anim->remainingRepeats > 0) {
+                                    anim->remainingRepeats--;
+                                    anim->speed *= -1.0f;
+                                }
+                                else {
+                                    anim->progress = 0.0f;
+                                    anim->speed = std::fabs(anim->speed);
+                                    anim->isPlaying = false;
+                                    anim->persistentPositionOffset = ImVec2(0, 0);
+                                    anim->persistentSizeOffset = ImVec2(0, 0);
+                                    anim->persistentRotationOffset = 0.0f;
+                                    shape->currentAnimation = nullptr;
+                                    anim->hasStartedRepeatCount = false;
+                                }
+                            }
+                            break;
+                        case ButtonAnimation::AnimationBehavior::Toggle:
+                            if (!anim->toggleState) {
+                                anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+                                if (anim->progress >= 1.0f) {
+                                    anim->toggleState = true;
+                                    anim->isPlaying = false;
+                                    anim->progress = 1.0f;
+                                    anim->persistentPositionOffset = Lerp(animationBasePos, anim->animationTargetPosition, 1.0f);
+                                    anim->persistentSizeOffset = Lerp(animationBaseSize, anim->animationTargetSize, 1.0f);
+                                    anim->persistentRotationOffset = Lerp(animationBaseRot, anim->transformRotation, 1.0f);
+                                    shape->currentAnimation = nullptr;
+                                }
+                            }
+                            else {
+                                anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
+                                if (anim->progress <= 0.0f) {
+                                    anim->toggleState = false;
+                                    anim->isPlaying = false;
+                                    anim->progress = 0.0f;
+                                    anim->persistentPositionOffset = ImVec2(0, 0);
+                                    anim->persistentSizeOffset = ImVec2(0, 0);
+                                    anim->persistentRotationOffset = 0.0f;
+                                    shape->currentAnimation = nullptr;
+                                }
+                            }
+                            break;
+                        case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndReverseOnRelease:
+                            if (shape->isHeld) {
+                                anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+                            }
+                            else {
+                                anim->progress = std::max(0.0f, anim->progress - deltaTime * std::fabs(anim->speed));
+
+                                if (anim->progress <= 0.0f && anim->isPlaying) {
+                                    anim->isPlaying = false;
+                                    anim->progress = 0.0f;
+                                    shape->currentAnimation = nullptr;
+                                }
+                            }
+
+                            anim->persistentPositionOffset = ImVec2(0, 0);
+                            anim->persistentSizeOffset = ImVec2(0, 0);
+                            anim->persistentRotationOffset = 0.0f;
+                            break;
+                        case ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay:
+                            if (shape->isHeld) {
+                                anim->progress = std::min(1.0f, anim->progress + deltaTime * std::fabs(anim->speed));
+                            }
+                            else {
+                                if (anim->isPlaying) {
+                                    anim->isPlaying = false;
+                                    float t = anim->progress;
+                                    if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut) t = t * t * (3.0f - 2.0f * t);
+
+                                    anim->persistentPositionOffset = Lerp(animationBasePos, anim->animationTargetPosition, t);
+                                    anim->persistentSizeOffset = Lerp(animationBaseSize, anim->animationTargetSize, t);
+                                    anim->persistentRotationOffset = Lerp(animationBaseRot, anim->transformRotation, t);
+                                    shape->currentAnimation = nullptr;
+                                }
+
+                            }
+                            break;
+                        }
+
+
+                        float tInterp = anim->progress;
+                        if (anim->interpolationMethod == ButtonAnimation::InterpolationMethod::EaseInOut) {
+                            tInterp = tInterp * tInterp * (3.0f - 2.0f * tInterp);
+                        }
+                        finalPosition = Lerp(animationBasePos, anim->animationTargetPosition, tInterp);
+                        finalSize = Lerp(animationBaseSize, anim->animationTargetSize, tInterp);
+                        finalRotation = Lerp(animationBaseRot, anim->transformRotation, tInterp);
+                    }
+
+                    else if (!shape_effectively_locked)
+                    {
+                        bool appliedPersistentState = false;
+                        for (auto& anim : shape->onClickAnimations) {
+                            bool toggleIsOn = (anim.behavior == ButtonAnimation::AnimationBehavior::Toggle && anim.toggleState);
+
+                            bool stayedAtEnd = (anim.behavior == ButtonAnimation::AnimationBehavior::PlayOnceAndStay && !anim.isPlaying && anim.progress >= 1.0f);
+
+                            bool heldStayed = (anim.behavior == ButtonAnimation::AnimationBehavior::PlayWhileHoldingAndStay && !anim.isPlaying && anim.progress > 0.0f);
+
+                            if (toggleIsOn || stayedAtEnd || heldStayed) {
+
+                                finalPosition = anim.persistentPositionOffset;
+                                finalSize = anim.persistentSizeOffset;
+                                finalRotation = anim.persistentRotationOffset;
+                                appliedPersistentState = true;
+                                break;
+                            }
+                        }
+
+                        if (!appliedPersistentState) {
+                            finalPosition = layoutResultPosition;
+                            finalSize = layoutResultSize;
+                            finalRotation = layoutResultRotation;
+                        }
+                    }
+
+
+
+                    shape->position = finalPosition;
+                    shape->size = finalSize;
+                    shape->rotation = finalRotation;
+
+
+                    shape->size.x = std::max(shape->minSize.x, std::min(shape->size.x, shape->maxSize.x));
+                    shape->size.y = std::max(shape->minSize.y, std::min(shape->size.y, shape->maxSize.y));
+                    shape->size.x = std::max(0.0f, shape->size.x);
+                    shape->size.y = std::max(0.0f, shape->size.y);
+
+
+
+                    if (!shape_effectively_locked && shape->isLayoutContainer && shape->layoutManager != nullptr)
+                    {
+                        try {
+
+                            shape->layoutManager->doLayout(*shape, shape->size);
+                        }
+                        catch (const std::exception& e) {
+                            std::cerr << "      EXCEPTION during doLayout for " << shape->name << ": " << e.what() << std::endl;
+                        }
+                        catch (...) {
+                            std::cerr << "      UNKNOWN EXCEPTION during doLayout for " << shape->name << std::endl;
+                        }
+                    }
+
+
+
+
+                    if (!shape->children.empty()) {
+
+
+
+                        for (ShapeItem* child : shape->children) {
+                            if (child) {
+
+                                processShapeRecursive(child, shape->size, shape);
+                            }
+                            else {
+                                std::cerr << "      WARNING: Found null child pointer in children of ID: " << shape->id << std::endl;
+                            }
+                        }
+                    }
+
+
+
+
+                    if (parentShape != nullptr)
+                    {
+                        ImVec2 parentFinalPos = parentShape->position;
+                        float parentFinalRot = parentShape->rotation;
+
+                        ImVec2 localOffset = shape->originalPosition;
+                        ImVec2 rotatedLocalOffset = RotateP(localOffset, ImVec2(0.0f, 0.0f), parentFinalRot);
+
+
+                        shape->position = parentFinalPos + rotatedLocalOffset;
+
+                        shape->rotation = parentFinalRot + shape->baseRotation;
+                    }
+
+
+
+                };
+
+
+            for (ShapeItem* rootShape : rootShapes) {
+
+                processShapeRecursive(rootShape, containerSizeForShapeKeys, nullptr);
+            }
+        }
+    }
 
 
     inline ImVec2 ComputeChainOffset(const ShapeItem& shape) {
         const ChainAnimation& chain = shape.chainAnimation;
         ImVec2 offset(0, 0);
         if (!chain.isPlaying) {
-            return offset; // If the animation is not playing, return zero offset
+            return offset;
         }
         if (!chain.reverseMode) {
-            // Forward animation
+
             for (int i = 0; i <= chain.currentStep; i++) {
                 const ButtonAnimation& anim = chain.steps[i].animation;
                 float t = (i < chain.currentStep) ? 1.0f : anim.progress;
@@ -2289,7 +2771,7 @@ namespace DesignManager
             }
         }
         else {
-            // Backward animation
+
             for (int i = chain.steps.size() - 1; i >= chain.currentStep; i--) {
                 const ButtonAnimation& anim = chain.steps[i].animation;
                 float t = (i > chain.currentStep) ? 1.0f : anim.progress;
@@ -2309,70 +2791,110 @@ namespace DesignManager
                 for (auto& shape : layer.shapes)
                 {
                     ChainAnimation& chain = shape.chainAnimation;
-                    if (chain.isPlaying && !chain.steps.empty())
+
+                    if (shape.parent != nullptr)
                     {
-                        ButtonAnimation& anim = chain.steps[chain.currentStep].animation;
-                        float stepProgress = anim.progress;
-                        ImVec2 startPos, endPos;
-                        if (!chain.reverseMode) {
-                            if (chain.currentStep == 0)
-                                startPos = shape.basePosition;
-                            else
-                                startPos = chain.steps[chain.currentStep - 1].animation.animationTargetPosition;
-                            endPos = anim.animationTargetPosition;
-                            shape.position = Lerp(startPos, endPos, stepProgress);
-                            anim.progress += deltaTime * std::fabs(anim.speed);
-                            if (anim.progress >= 1.0f)
-                            {
-                                anim.progress = 1.0f;
-                                if (chain.steps[chain.currentStep].onStepComplete)
-                                    chain.steps[chain.currentStep].onStepComplete();
-                                if (chain.currentStep < (int)chain.steps.size() - 1)
-                                {
-                                    chain.currentStep++;
-                                    chain.steps[chain.currentStep].animation.progress = 0.0f;
+                        if (chain.isPlaying && !chain.steps.empty())
+                        {
+                            ButtonAnimation& anim = chain.steps[chain.currentStep].animation;
+                            if (!chain.reverseMode) {
+                                anim.progress += deltaTime * std::fabs(anim.speed);
+                                if (anim.progress >= 1.0f) {
+                                    anim.progress = 1.0f;
+                                    if (chain.steps[chain.currentStep].onStepComplete) chain.steps[chain.currentStep].onStepComplete();
+                                    if (chain.currentStep < (int)chain.steps.size() - 1) {
+                                        chain.currentStep++;
+                                        chain.steps[chain.currentStep].animation.progress = 0.0f;
+                                    }
+                                    else {
+                                        chain.isPlaying = false;
+                                        chain.toggled = true;
+                                    }
                                 }
-                                else
-                                {
-                                    chain.isPlaying = false;
-                                    chain.toggled = true;
-                                    shape.position = endPos;
+                            }
+                            else {
+                                anim.progress -= deltaTime * std::fabs(anim.speed);
+                                if (anim.progress <= 0.0f) {
+                                    anim.progress = 0.0f;
+                                    if (chain.currentStep > 0) {
+                                        chain.currentStep--;
+                                        chain.steps[chain.currentStep].animation.progress = 1.0f;
+                                    }
+                                    else {
+                                        chain.isPlaying = false;
+                                        chain.toggled = false;
+                                    }
                                 }
                             }
                         }
-                        else {
-                            startPos = anim.animationTargetPosition;
-                            if (chain.currentStep == 0)
-                                endPos = shape.basePosition;
-                            else
-                                endPos = chain.steps[chain.currentStep - 1].animation.animationTargetPosition;
-                            shape.position = Lerp(startPos, endPos, 1.0f - stepProgress);
-                            anim.progress -= deltaTime * std::fabs(anim.speed);
-                            if (anim.progress <= 0.0f)
-                            {
-                                anim.progress = 0.0f;
-                                if (chain.currentStep > 0)
-                                {
-                                    chain.currentStep--;
-                                    chain.steps[chain.currentStep].animation.progress = 1.0f;
-                                }
-                                else
-                                {
-                                    chain.isPlaying = false;
-                                    chain.toggled = false;
-                                    shape.position = shape.basePosition;
-                                }
-                            }
-                        }
-                    }
-                    else if (chain.toggled)
-                    {
-                        if (!chain.steps.empty())
-                            shape.position = chain.steps.back().animation.animationTargetPosition;
                     }
                     else
                     {
-                        shape.position = shape.basePosition;
+                        if (chain.isPlaying && !chain.steps.empty())
+                        {
+                            ButtonAnimation& anim = chain.steps[chain.currentStep].animation;
+                            float stepProgress = anim.progress;
+                            ImVec2 startPos, endPos;
+                            if (!chain.reverseMode) {
+                                if (chain.currentStep == 0)
+                                    startPos = shape.basePosition;
+                                else
+                                    startPos = chain.steps[chain.currentStep - 1].animation.animationTargetPosition;
+                                endPos = anim.animationTargetPosition;
+                                shape.position = Lerp(startPos, endPos, stepProgress);
+                                anim.progress += deltaTime * std::fabs(anim.speed);
+                                if (anim.progress >= 1.0f)
+                                {
+                                    anim.progress = 1.0f;
+                                    if (chain.steps[chain.currentStep].onStepComplete)
+                                        chain.steps[chain.currentStep].onStepComplete();
+                                    if (chain.currentStep < (int)chain.steps.size() - 1)
+                                    {
+                                        chain.currentStep++;
+                                        chain.steps[chain.currentStep].animation.progress = 0.0f;
+                                    }
+                                    else
+                                    {
+                                        chain.isPlaying = false;
+                                        chain.toggled = true;
+                                        shape.position = endPos;
+                                    }
+                                }
+                            }
+                            else {
+                                startPos = anim.animationTargetPosition;
+                                if (chain.currentStep == 0)
+                                    endPos = shape.basePosition;
+                                else
+                                    endPos = chain.steps[chain.currentStep - 1].animation.animationTargetPosition;
+                                shape.position = Lerp(startPos, endPos, 1.0f - stepProgress);
+                                anim.progress -= deltaTime * std::fabs(anim.speed);
+                                if (anim.progress <= 0.0f)
+                                {
+                                    anim.progress = 0.0f;
+                                    if (chain.currentStep > 0)
+                                    {
+                                        chain.currentStep--;
+                                        chain.steps[chain.currentStep].animation.progress = 1.0f;
+                                    }
+                                    else
+                                    {
+                                        chain.isPlaying = false;
+                                        chain.toggled = false;
+                                        shape.position = shape.basePosition;
+                                    }
+                                }
+                            }
+                        }
+                        else if (chain.toggled)
+                        {
+                            if (!chain.steps.empty())
+                                shape.position = chain.steps.back().animation.animationTargetPosition;
+                        }
+                        else
+                        {
+                            shape.position = shape.basePosition;
+                        }
                     }
                 }
             }
@@ -2380,9 +2902,9 @@ namespace DesignManager
     }
 
     static int GetUniqueShapeID() {
-        static int nextShapeID = 1000; // Starting value
+        static int nextShapeID = 1000;
         static std::unordered_set<int> usedIDs;
-        // If nextShapeID is already used, increment until a suitable value is found.
+
         while (usedIDs.count(nextShapeID))
             ++nextShapeID;
         usedIDs.insert(nextShapeID);
@@ -2555,24 +3077,21 @@ namespace DesignManager
 
     inline void DrawAll(ImDrawList* dl)
     {
-        //
+
         const char* currentWindowName = ImGui::GetCurrentWindow()->Name;
         std::string windowNameStr = currentWindowName;
 
-        //
+
         if (g_windowsMap.empty())
             return;
 
-        //
-        bool didHideGlass = false;
 
-        //
+        bool didHideGlass = false;
         if (shouldCaptureScene)
         {
-            //
-            for (auto& [oWindowName, WindowData] : g_windowsMap)
+            for (auto& [oWindowName, windowData] : g_windowsMap)
             {
-                for (auto& layer : WindowData.layers)
+                for (auto& layer : windowData.layers)
                 {
                     for (auto& shape : layer.shapes)
                     {
@@ -2586,34 +3105,50 @@ namespace DesignManager
             }
         }
 
+
         for (auto& [oWindowName, windowData] : g_windowsMap)
         {
-            if (windowNameStr.find(oWindowName) == std::string::npos)
-                continue; // Skip the loop if the related window is not found.
 
-            // Sort the layers of the related window:
+
+
+
+            if (windowNameStr.find(oWindowName) == std::string::npos)
+                continue;
+
+
             std::stable_sort(windowData.layers.begin(), windowData.layers.end(), CompareLayersByZOrder);
+
 
             for (auto& layer : windowData.layers)
             {
+
                 if (!layer.visible)
                     continue;
 
-                // Sort the shapes in the layer:
+
                 std::stable_sort(layer.shapes.begin(), layer.shapes.end(), CompareShapesByZOrder);
+
 
                 for (auto& shape : layer.shapes)
                 {
-                    // If the shape's owner matches the window name and the shape does not have any sub-shapes:
-                    if (shape.ownerWindow == oWindowName && shape.parent == nullptr)
+
+
+
+
+
+
+                    if (shape.ownerWindow == oWindowName && shape.visible)
                     {
+
+
+
                         DrawShape(dl, shape, ImGui::GetWindowPos());
                     }
                 }
             }
         }
 
-        //
+
         if (shouldCaptureScene)
         {
             if (didHideGlass)
@@ -2659,7 +3194,7 @@ namespace DesignManager
         }
         return varName;
     }
-    
+
 
 
     inline std::string escapeNewlines(const std::string& input) {
@@ -2668,9 +3203,9 @@ namespace DesignManager
             if (ch == '\n') {
                 output += "\\n";
             }
-            // If the text contains '\r' and you want to handle it as well:
+
             else if (ch == '\r') {
-                // On Windows systems, the "\r\n" pair may occur, so take that into account.
+
                 output += "\\r";
             }
             else {
@@ -2684,11 +3219,11 @@ namespace DesignManager
         ImGui::SetClipboardText(text.c_str());
     }
 
-    // -------------------------
-    // Helper: Function to generate ButtonAnimation code (Updated)
-    // -------------------------
 
-    // No comments version
+
+
+
+
     inline std::string GenerateButtonAnimationCode(const ButtonAnimation& anim)
     {
         std::stringstream ss;
@@ -2723,8 +3258,8 @@ namespace DesignManager
         ss << "    .build()";
         return ss.str();
     }
-    
-    // No comments version
+
+
     inline std::string GenerateShapeKeyCode(const ShapeKey& key)
     {
         std::stringstream ss;
@@ -2743,7 +3278,7 @@ namespace DesignManager
         }
         ss << "    .setStartWindowSize(ImVec2(" << key.startWindowSize.x << "f, " << key.startWindowSize.y << "f))\n";
         ss << "    .setEndWindowSize(ImVec2(" << key.endWindowSize.x << "f, " << key.endWindowSize.y << "f))\n";
-    
+
         if (key.type == ShapeKeyType::Rotation) {
             if (std::fabs(key.targetRotation) > 1e-4f)
                 ss << "    .setTargetRotation(" << key.targetRotation << "f)\n";
@@ -2759,55 +3294,87 @@ namespace DesignManager
         ss << "    .build()";
         return ss.str();
     }
-    
-    // No comments version
+
+
     inline std::string GenerateSingleShapeCode(const DesignManager::ShapeItem& shape)
     {
         using namespace DesignManager;
         std::string shapeVar = SanitizeVariableName(shape.name);
         std::stringstream code;
-        int uniqueID = (shape.id > 0) ? shape.id : GetUniqueShapeID();
-    
+        int uniqueID = shape.id;
+
         auto writeColorLine = [&](const std::string& methodName, const ImVec4& color) {
-            code << "    ." << methodName << "(ImVec4("
+            code << "        ." << methodName << "(ImVec4("
                 << color.x << "f, " << color.y << "f, " << color.z << "f, " << color.w << "f))\n";
             };
-    
-        code << "auto " << shapeVar << " = ShapeBuilder()\n";
-        code << "    .setId(" << uniqueID << ")\n";
-        code << "    .setName(\"" << shape.name << "\")\n";
-        code << "    .setOwnerWindow(\"" << shape.ownerWindow << "\")\n";
-        if (shape.groupId != 0) code << "    .setGroupId(" << shape.groupId << ")\n";
-    
-        code << "    .setBasePosition(ImVec2(" << shape.basePosition.x << "f, " << shape.basePosition.y << "f))\n";
-        code << "    .setBaseSize(ImVec2(" << shape.baseSize.x << "f, " << shape.baseSize.y << "f))\n";
-        if (std::fabs(shape.baseRotation) > 1e-4f) code << "    .setBaseRotation(" << shape.baseRotation << "f)\n";
-    
-        if (shape.position != shape.basePosition) code << "    .setPosition(ImVec2(" << shape.position.x << "f, " << shape.position.y << "f))\n";
-        if (shape.size != shape.baseSize) code << "    .setSize(ImVec2(" << shape.size.x << "f, " << shape.size.y << "f))\n";
-        if (std::fabs(shape.rotation) > 1e-4f) code << "    .setRotation(" << shape.rotation << "f)\n";
-    
-        if (shape.cornerRadius != 0.0f) code << "    .setCornerRadius(" << shape.cornerRadius << "f)\n";
-        if (shape.borderThickness != 0.0f) code << "    .setBorderThickness(" << shape.borderThickness << "f)\n";
-    
-        writeColorLine("setFillColor", shape.fillColor);
-        writeColorLine("setBorderColor", shape.borderColor);
-        writeColorLine("setShadowColor", shape.shadowColor);
-    
-        if (shape.shadowSpread != ImVec4(0, 0, 0, 0)) code << "    .setShadowSpread(ImVec4(" << shape.shadowSpread.x << "f, " << shape.shadowSpread.y << "f, " << shape.shadowSpread.z << "f, " << shape.shadowSpread.w << "f))\n";
-        if (shape.shadowOffset != ImVec2(0, 0)) code << "    .setShadowOffset(ImVec2(" << shape.shadowOffset.x << "f, " << shape.shadowOffset.y << "f))\n";
-        if (!shape.shadowUseCornerRadius) code << "    .setShadowUseCornerRadius(false)\n";
-        if (std::fabs(shape.shadowRotation) > 1e-4f) code << "    .setShadowRotation(" << shape.shadowRotation << "f)\n";
-    
-        if (shape.blurAmount != 0.0f) code << "    .setBlurAmount(" << shape.blurAmount << "f)\n";
-        if (!shape.visible) code << "    .setVisible(false)\n";
-        if (shape.locked) code << "    .setLocked(true)\n";
-    
+
+        code << "    auto " << shapeVar << " = ShapeBuilder()\n";
+        code << "        .setId(" << uniqueID << ")\n";
+        code << "        .setName(\"" << shape.name << "\")\n";
+        if (!shape.ownerWindow.empty()) code << "        .setOwnerWindow(\"" << shape.ownerWindow << "\")\n";
+        if (shape.groupId != 0) code << "        .setGroupId(" << shape.groupId << ")\n";
+
+
+        code << "        .setBasePosition(ImVec2(" << shape.basePosition.x << "f, " << shape.basePosition.y << "f))\n";
+        code << "        .setBaseSize(ImVec2(" << shape.baseSize.x << "f, " << shape.baseSize.y << "f))\n";
+        if (std::fabs(shape.baseRotation) > 1e-4f) code << "        .setBaseRotation(" << shape.baseRotation << "f)\n";
+
+        if (shape.position != shape.basePosition) code << "        .setPosition(ImVec2(" << shape.position.x << "f, " << shape.position.y << "f))\n";
+        if (shape.size != shape.baseSize) code << "        .setSize(ImVec2(" << shape.size.x << "f, " << shape.size.y << "f))\n";
+        if (std::fabs(shape.rotation) > 1e-4f && std::fabs(shape.rotation - shape.baseRotation) > 1e-4f) code << "        .setRotation(" << shape.rotation << "f)\n";
+
+        if (shape.anchorMode != ShapeItem::AnchorMode::None) {
+            code << "        .setAnchorMode(DesignManager::ShapeItem::AnchorMode::";
+            switch (shape.anchorMode) {
+            case ShapeItem::AnchorMode::TopLeft: code << "TopLeft"; break;
+            case ShapeItem::AnchorMode::Top: code << "Top"; break;
+            case ShapeItem::AnchorMode::TopRight: code << "TopRight"; break;
+            case ShapeItem::AnchorMode::Left: code << "Left"; break;
+            case ShapeItem::AnchorMode::Center: code << "Center"; break;
+            case ShapeItem::AnchorMode::Right: code << "Right"; break;
+            case ShapeItem::AnchorMode::BottomLeft: code << "BottomLeft"; break;
+            case ShapeItem::AnchorMode::Bottom: code << "Bottom"; break;
+            case ShapeItem::AnchorMode::BottomRight: code << "BottomRight"; break;
+            default: code << "None"; break;
+            }
+            code << ")\n";
+
+            if (shape.anchorMargin != ImVec2(0, 0)) code << "        .setAnchorMargin(ImVec2(" << shape.anchorMargin.x << "f, " << shape.anchorMargin.y << "f))\n";
+        }
+        if (shape.anchorMode == ShapeItem::AnchorMode::None && shape.usePercentagePos) {
+            code << "        .setUsePercentagePos(true)\n";
+
+            if (shape.percentagePos != ImVec2(0, 0)) code << "        .setPercentagePos(ImVec2(" << shape.percentagePos.x << "f, " << shape.percentagePos.y << "f))\n";
+        }
+
+        if (shape.usePercentageSize) {
+            code << "        .setUsePercentageSize(true)\n";
+
+            if (shape.percentageSize != ImVec2(10, 10)) code << "        .setPercentageSize(ImVec2(" << shape.percentageSize.x << "f, " << shape.percentageSize.y << "f))\n";
+        }
+
+
+        if (shape.minSize != ImVec2(0, 0)) code << "        .setMinSize(ImVec2(" << shape.minSize.x << "f, " << shape.minSize.y << "f))\n";
+        if (shape.maxSize != ImVec2(99999, 99999)) code << "        .setMaxSize(ImVec2(" << shape.maxSize.x << "f, " << shape.maxSize.y << "f))\n";
+
+        if (shape.cornerRadius != 10.0f) code << "        .setCornerRadius(" << shape.cornerRadius << "f)\n";
+        if (shape.borderThickness != 2.0f) code << "        .setBorderThickness(" << shape.borderThickness << "f)\n";
+        if (shape.fillColor != ImVec4(0.932f, 0.932f, 0.932f, 1)) writeColorLine("setFillColor", shape.fillColor);
+        if (shape.borderColor != ImVec4(0, 0, 0, 0.8f)) writeColorLine("setBorderColor", shape.borderColor);
+        if (shape.shadowColor != ImVec4(0, 0, 0, 0.2f)) writeColorLine("setShadowColor", shape.shadowColor);
+        if (shape.shadowSpread != ImVec4(2, 2, 2, 2)) code << "        .setShadowSpread(ImVec4(" << shape.shadowSpread.x << "f, " << shape.shadowSpread.y << "f, " << shape.shadowSpread.z << "f, " << shape.shadowSpread.w << "f))\n";
+        if (shape.shadowOffset != ImVec2(2, 2)) code << "        .setShadowOffset(ImVec2(" << shape.shadowOffset.x << "f, " << shape.shadowOffset.y << "f))\n";
+        if (!shape.shadowUseCornerRadius) code << "        .setShadowUseCornerRadius(false)\n";
+        if (std::fabs(shape.shadowRotation) > 1e-4f) code << "        .setShadowRotation(" << shape.shadowRotation << "f)\n";
+        if (shape.blurAmount != 0.0f) code << "        .setBlurAmount(" << shape.blurAmount << "f)\n";
+        if (!shape.visible) code << "        .setVisible(false)\n";
+        if (shape.locked) code << "        .setLocked(true)\n";
+
         if (shape.useGradient) {
-            code << "    .setUseGradient(true)\n";
-            if (shape.gradientRotation != 0.0f) code << "    .setGradientRotation(" << shape.gradientRotation << "f)\n";
+            code << "        .setUseGradient(true)\n";
+            if (shape.gradientRotation != 0.0f) code << "        .setGradientRotation(" << shape.gradientRotation << "f)\n";
             if (shape.gradientInterpolation != ShapeItem::GradientInterpolation::Linear) {
-                code << "    .setGradientInterpolation(DesignManager::ShapeItem::GradientInterpolation::";
+                code << "        .setGradientInterpolation(DesignManager::ShapeItem::GradientInterpolation::";
                 switch (shape.gradientInterpolation) {
                 case ShapeItem::GradientInterpolation::Ease: code << "Ease"; break;
                 case ShapeItem::GradientInterpolation::Constant: code << "Constant"; break;
@@ -2817,38 +3384,39 @@ namespace DesignManager
                 }
                 code << ")\n";
             }
-            if (!shape.colorRamp.empty()) {
-                code << "    .setColorRamp({\n";
-                for (const auto& ramp : shape.colorRamp) { code << "        {" << ramp.first << "f, ImVec4(" << ramp.second.x << "f, " << ramp.second.y << "f, " << ramp.second.z << "f, " << ramp.second.w << "f)},\n"; }
-                code << "    })\n";
+            if (!shape.colorRamp.empty() && !(shape.colorRamp.size() == 2 && shape.colorRamp[0].first == 0.0f && shape.colorRamp[1].first == 1.0f && shape.colorRamp[0].second == ImVec4(1.0f, 1.0f, 1.0f, 1.0f) && shape.colorRamp[1].second == ImVec4(0.5f, 0.5f, 0.5f, 1.0f))) {
+                code << "        .setColorRamp({\n";
+                for (const auto& ramp : shape.colorRamp) { code << "            {" << ramp.first << "f, ImVec4(" << ramp.second.x << "f, " << ramp.second.y << "f, " << ramp.second.z << "f, " << ramp.second.w << "f)},\n"; }
+                code << "        })\n";
             }
         }
-    
+
         if (shape.useGlass) {
-            code << "    .setUseGlass(true)\n";
-            if (shape.glassBlur != 0.0f) code << "    .setGlassBlur(" << shape.glassBlur << "f)\n";
-            if (shape.glassAlpha != 0.0f) code << "    .setGlassAlpha(" << shape.glassAlpha << "f)\n";
-            writeColorLine("setGlassColor", shape.glassColor);
+            code << "        .setUseGlass(true)\n";
+            if (shape.glassBlur != 10.0f) code << "        .setGlassBlur(" << shape.glassBlur << "f)\n";
+            if (shape.glassAlpha != 0.7f) code << "        .setGlassAlpha(" << shape.glassAlpha << "f)\n";
+            if (shape.glassColor != ImVec4(1, 1, 1, 0.3f)) writeColorLine("setGlassColor", shape.glassColor);
         }
-    
-        if (shape.zOrder != 0) code << "    .setZOrder(" << shape.zOrder << ")\n";
-    
+
+        if (shape.zOrder != 0) code << "        .setZOrder(" << shape.zOrder << ")\n";
+
         if (shape.isChildWindow) {
-            code << "    .setIsChildWindow(true)\n";
-            if (shape.childWindowSync) code << "    .setChildWindowSync(true)\n";
-            if (shape.toggleChildWindow) code << "    .setToggleChildWindow(true)\n";
-            if (shape.childWindowGroupId != -1) code << "    .setChildWindowGroupId(" << shape.childWindowGroupId << ")\n";
-            if (shape.targetShapeID != 0) code << "    .setTargetShapeID(" << shape.targetShapeID << ")\n";
+            code << "        .setIsChildWindow(true)\n";
+            if (shape.childWindowSync) code << "        .setChildWindowSync(true)\n";
+            if (shape.toggleChildWindow) code << "        .setToggleChildWindow(true)\n";
+            if (shape.childWindowGroupId != -1) code << "        .setChildWindowGroupId(" << shape.childWindowGroupId << ")\n";
+            if (shape.targetShapeID != 0) code << "        .setTargetShapeID(" << shape.targetShapeID << ")\n";
         }
         else if (shape.isImGuiContainer) {
-            code << "    .setIsImGuiContainer(true)\n";
-            std::string functionName = "RenderContentFor_" + SanitizeVariableName(shape.name);
+            code << "        .setIsImGuiContainer(true)\n";
+
+            code << "        // .setRenderImGuiContent(...) // Set callback manually\n";
         }
-    
+
         if (shape.isButton) {
-            code << "    .setIsButton(true)\n";
+            code << "        .setIsButton(true)\n";
             if (shape.buttonBehavior != ShapeItem::ButtonBehavior::SingleClick) {
-                code << "    .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::";
+                code << "        .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::";
                 switch (shape.buttonBehavior) {
                 case ShapeItem::ButtonBehavior::Toggle: code << "Toggle"; break;
                 case ShapeItem::ButtonBehavior::Hold:   code << "Hold"; break;
@@ -2856,58 +3424,51 @@ namespace DesignManager
                 }
                 code << ")\n";
             }
-            if (shape.useOnClick) code << "    .setUseOnClick(true)\n";
-            writeColorLine("setHoverColor", shape.hoverColor);
-            writeColorLine("setClickedColor", shape.clickedColor);
+            if (shape.useOnClick) { code << "        .setUseOnClick(true)\n"; }
+            if (shape.hoverColor != ImVec4(0.8f, 0.8f, 0.8f, 1.0f)) writeColorLine("setHoverColor", shape.hoverColor);
+            if (shape.clickedColor != ImVec4(0.6f, 0.6f, 0.6f, 1.0f)) writeColorLine("setClickedColor", shape.clickedColor);
         }
-    
+
         if (shape.hasText && !shape.isImGuiContainer && !shape.isChildWindow) {
-            code << "    .setHasText(true)\n";
-            if (!shape.text.empty()) code << "    .setText(\"" << escapeNewlines(shape.text) << "\")\n";
-            writeColorLine("setTextColor", shape.textColor);
-            if (shape.textSize != 0.0f) code << "    .setTextSize(" << shape.textSize << "f)\n";
-            if (shape.textFont != 0) code << "    .setTextFont(" << shape.textFont << ")\n";
-            if (shape.textPosition != ImVec2(0, 0)) code << "    .setTextPosition(ImVec2(" << shape.textPosition.x << "f, " << shape.textPosition.y << "f))\n";
-            if (std::fabs(shape.textRotation) > 1e-4f) code << "    .setTextRotation(" << shape.textRotation << "f)\n";
-            if (shape.textAlignment != 0) code << "    .setTextAlignment(" << shape.textAlignment << ")\n";
-            if (shape.dynamicTextSize) code << "    .setDynamicTextSize(true)\n";
+            code << "        .setHasText(true)\n";
+            if (!shape.text.empty()) code << "        .setText(\"" << escapeNewlines(shape.text) << "\")\n";
+            if (shape.textColor != ImVec4(0, 0, 0, 1)) writeColorLine("setTextColor", shape.textColor);
+            if (shape.textSize != 16.0f) code << "        .setTextSize(" << shape.textSize << "f)\n";
+            if (shape.textFont != 0) code << "        .setTextFont(" << shape.textFont << ")\n";
+            if (shape.textPosition != ImVec2(0, 0)) code << "        .setTextPosition(ImVec2(" << shape.textPosition.x << "f, " << shape.textPosition.y << "f))\n";
+            if (std::fabs(shape.textRotation) > 1e-4f) code << "        .setTextRotation(" << shape.textRotation << "f)\n";
+            if (shape.textAlignment != 0) code << "        .setTextAlignment(" << shape.textAlignment << ")\n";
+            if (shape.dynamicTextSize) code << "        .setDynamicTextSize(true)\n";
         }
-    
-        if (shape.updateAnimBaseOnResize) code << "    .setUpdateAnimBaseOnResize(true)\n";
+
+        if (shape.updateAnimBaseOnResize) code << "        .setUpdateAnimBaseOnResize(true)\n";
         if (shape.hasEmbeddedImage) {
-            code << "    .setHasEmbeddedImage(true)\n";
-            if (shape.embeddedImageIndex >= 0) code << "    .setEmbeddedImageIndex(" << shape.embeddedImageIndex << ")\n";
+            code << "        .setHasEmbeddedImage(true)\n";
+            if (shape.embeddedImageIndex >= 0) code << "        .setEmbeddedImageIndex(" << shape.embeddedImageIndex << ")\n";
         }
-        if (shape.allowItemOverlap) code << "    .setAllowItemOverlap(true)\n";
-        if (shape.forceOverlap) code << "    .setForceOverlap(true)\n";
-        if (!shape.blockUnderlying) code << "    .setBlockUnderlying(false)\n";
-        if (shape.type != ShapeType::Rectangle) code << "    .setType(ShapeType::" << (shape.type == ShapeType::Circle ? "Circle" : "Rectangle") << ")\n";
-    
+        if (shape.allowItemOverlap) code << "        .setAllowItemOverlap(true)\n";
+        if (shape.forceOverlap) code << "        .setForceOverlap(true)\n";
+        if (!shape.blockUnderlying) code << "        .setBlockUnderlying(false)\n";
+        if (shape.type != ShapeType::Rectangle) code << "        .setType(ShapeType::Circle)\n";
+
         if (!shape.onClickAnimations.empty()) {
-            for (const auto& anim : shape.onClickAnimations) {
-                code << "    .addOnClickAnimation(" << GenerateButtonAnimationCode(anim) << ")\n";
-            }
+            code << "        // Add OnClick Animations manually using .addOnClickAnimation(AnimationBuilder()...build())\n";
         }
         if (!shape.shapeKeys.empty()) {
-            for (const auto& key : shape.shapeKeys) {
-                code << "    .addShapeKey(" << GenerateShapeKeyCode(key) << ")\n";
-            }
+            code << "        // Add Shape Keys manually using .addShapeKey(ShapeBuilder::createShapeKey()...build())\n";
         }
         if (!shape.eventHandlers.empty()) {
-            for (const auto& handler : shape.eventHandlers) {
-                std::string handlerFnName = handler.name.empty() ? (SanitizeVariableName(shape.name) + "_" + handler.eventType) : handler.name;
-                code << "    .addEventHandler(\"" << handler.eventType << "\", \"" << handler.name << "\",\n";
-                code << "        [](DesignManager::ShapeItem& s){ extern void " << handlerFnName << "(DesignManager::ShapeItem&); " << handlerFnName << "(s); })\n";
-            }
+            code << "        // Add Event Handlers manually using .addEventHandler(...)\n";
         }
-    
-        code << "    .build();\n";
-    
+
+        code << "        .build();\n";
+
         return code.str();
     }
-    // -------------------------
-// New: Function to generate global Child Window Mappings code
-// -------------------------
+
+
+
+
     inline std::string GenerateChildWindowMappingsCode() {
         std::string code;
         code += "// Global Child Window Mappings\n";
@@ -2934,57 +3495,294 @@ namespace DesignManager
         }
         return code;
     }
-    // -------------------------
-// Updated version of the GenerateCodeForWindow function (using GenerateSingleShapeCode calls)
-// -------------------------
+
+
+
+    inline std::set<int> GetAllShapeIDs() {
+        std::set<int> ids;
+
+        if (!g_windowsMap.empty()) {
+            for (const auto& pair : g_windowsMap) {
+                const auto& winData = pair.second;
+                for (const auto& layer : winData.layers) {
+                    for (const auto& shape : layer.shapes) {
+                        ids.insert(shape.id);
+                    }
+                }
+            }
+        }
+        return ids;
+    }
+
+    inline ShapeItem* FindShapeByID_Internal(int id) {
+
+        if (!g_windowsMap.empty()) {
+            for (auto& pair : g_windowsMap) {
+                auto& winData = pair.second;
+                for (auto& layer : winData.layers) {
+                    for (auto& shape : layer.shapes) {
+                        if (shape.id == id) {
+                            return &shape;
+                        }
+
+                    }
+                }
+            }
+        }
+        return nullptr;
+    }
+
+
+
+    inline std::string GenerateComponentDefinitionCode(const std::string& componentName, const ComponentDefinition& compDef)
+    {
+        using namespace DesignManager;
+        std::string safeCompName = SanitizeVariableName(componentName);
+        std::stringstream code;
+
+
+        code << "inline std::vector<DesignManager::ShapeItem> Create" << safeCompName << "Instance(\n";
+        code << "    int instanceRootId, // Placeholder ID for the root instance concept\n";
+        code << "    const std::string& instanceRootName, // Base name for generated shapes\n";
+        code << "    const ImVec2& positionOffset, // Where to place the component instance\n";
+        code << "    const std::string& ownerWindow, // Window the instance belongs to\n";
+        code << "    int& nextAvailableId) // Pass ID counter by reference to ensure uniqueness across calls\n";
+        code << "{\n";
+
+
+        code << "    std::vector<DesignManager::ShapeItem> createdShapes;\n";
+        code << "    std::map<int, int> originalIdToNewId;\n";
+        code << "    std::map<int, int> newIdToOriginalParentId;\n";
+
+        code << "    std::vector<DesignManager::ShapeItem> tempStorage;\n";
+        code << "    std::set<int> existingInstanceIDs; // Keep track of IDs used *within this instance*\n";
+        code << "    tempStorage.reserve(" << compDef.shapeTemplates.size() << ");\n\n";
+
+        code << "    // --- First Pass: Create Shapes (Assigning New Unique IDs) ---\n";
+        for (const auto& shapeTemplate : compDef.shapeTemplates) {
+
+
+            std::string shapeCode = GenerateSingleShapeCode(shapeTemplate.item);
+
+            std::stringstream finalShapeCodeSS;
+            std::stringstream generatedSS(shapeCode);
+            std::string line;
+
+
+
+
+            code << "    int newId = nextAvailableId;\n";
+
+
+
+            code << "    nextAvailableId++;\n";
+
+
+            code << "    originalIdToNewId[" << shapeTemplate.originalId << "] = newId;\n";
+            code << "    newIdToOriginalParentId[newId] = " << shapeTemplate.originalParentId << ";\n\n";
+
+
+
+            std::string shapeVarName = SanitizeVariableName(shapeTemplate.item.name) + "_" + std::to_string(shapeTemplate.originalId);
+            finalShapeCodeSS << "ShapeBuilder()\n";
+
+            while (std::getline(generatedSS, line)) {
+
+                if (line.find(".setId(") == std::string::npos &&
+                    line.find(".setName(") == std::string::npos &&
+                    line.find(".setPosition(") == std::string::npos &&
+                    line.find(".setBasePosition(") == std::string::npos &&
+                    line.find(".setOwnerWindow(") == std::string::npos &&
+                    line.find(".setComponentSource(") == std::string::npos &&
+                    line.find("auto ") != 0 &&
+                    line.find(".build();") == std::string::npos)
+                {
+                    finalShapeCodeSS << line << "\n";
+                }
+            }
+
+
+            finalShapeCodeSS << "        .setId(newId)\n";
+            finalShapeCodeSS << "        .setName(instanceRootName + \"_" << SanitizeVariableName(shapeTemplate.item.name) << "\") // Combine instance name and original name\n";
+            finalShapeCodeSS << "        .setPosition(ImVec2(positionOffset.x + " << shapeTemplate.item.position.x << "f, positionOffset.y + " << shapeTemplate.item.position.y << "f)) // Apply offset to relative position\n";
+            finalShapeCodeSS << "        .setBasePosition(ImVec2(positionOffset.x + " << shapeTemplate.item.basePosition.x << "f, positionOffset.y + " << shapeTemplate.item.basePosition.y << "f)) // Apply offset to relative base position\n";
+            finalShapeCodeSS << "        .setOwnerWindow(ownerWindow)\n";
+            finalShapeCodeSS << "        .setComponentSource(\"\") // Clear component source for the instance\n";
+            finalShapeCodeSS << "        .build()";
+
+
+            code << "    tempStorage.push_back(" << finalShapeCodeSS.str() << ");\n\n";
+        }
+        code << "\n";
+
+        code << "    // --- Second Pass: Link Parents ---\n";
+        code << "    std::map<int, DesignManager::ShapeItem*> newIdToShapePtrMap;\n";
+        code << "    for(auto& shape : tempStorage) { newIdToShapePtrMap[shape.id] = &shape; }\n\n";
+        code << "    for(auto& shape : tempStorage) {\n";
+        code << "        int currentNewId = shape.id;\n";
+        code << "        if (newIdToOriginalParentId.count(currentNewId)) {\n";
+        code << "            int originalParentId = newIdToOriginalParentId.at(currentNewId);\n";
+        code << "            if (originalParentId != -1 && originalIdToNewId.count(originalParentId)) { // Check if parent was part of the component\n";
+        code << "                int newParentId = originalIdToNewId.at(originalParentId);\n";
+        code << "                if (newIdToShapePtrMap.count(newParentId)) { // Check if the new parent pointer exists\n";
+        code << "                    shape.parent = newIdToShapePtrMap.at(newParentId); // Assign parent pointer\n";
+        code << "                    newIdToShapePtrMap.at(newParentId)->children.push_back(&shape); // Add to parent's children\n";
+        code << "                }\n";
+        code << "            }\n";
+        code << "        }\n";
+        code << "    }\n\n";
+
+        code << "    createdShapes = std::move(tempStorage);\n";
+        code << "    return createdShapes;\n";
+        code << "}\n\n";
+
+        return code.str();
+    }
+
+
+
+    inline std::string GenerateAllComponentDefinitionsCode() {
+
+
+
+        const auto& currentComponentDefinitions = DesignManager::g_componentDefinitions;
+
+        std::stringstream allCompCode;
+        allCompCode << "// --- Generated Component Definitions ---\n\n";
+        allCompCode << "#pragma once\n\n";
+        allCompCode << "#include \"design_manager.h\" // Include the base header where ShapeItem etc. are defined\n";
+        allCompCode << "#include <vector>\n";
+        allCompCode << "#include <map>\n";
+        allCompCode << "#include <set>\n\n";
+        allCompCode << "namespace DesignManager {\n\n";
+
+
+        for (const auto& pair : currentComponentDefinitions) {
+            const std::string& name = pair.first;
+            const ComponentDefinition& compDef = pair.second;
+
+            allCompCode << GenerateComponentDefinitionCode(name, compDef);
+        }
+
+        allCompCode << "} // namespace DesignManager\n";
+        allCompCode << "// --- End Generated Component Definitions ---\n";
+        return allCompCode.str();
+    }
+
     inline std::string GenerateCodeForWindow(const std::string& windowName)
     {
         using namespace DesignManager;
+
+
         if (g_windowsMap.find(windowName) == g_windowsMap.end()) {
-            return "// No layer found in this window or window does not exist.\n";
+            std::cerr << "Error: Window '" << windowName << "' not found for code generation." << std::endl;
+            return "// Error: Window '" + windowName + "' not found.\n";
         }
-
-        std::string code;
-        code += "// Generated code for window: " + windowName + "\n\n";
-
-        std::string centralHeaderFileName = "GeneratedButtons_" + SanitizeVariableName(windowName) + ".h";
-        std::ofstream centralHeader(centralHeaderFileName, std::ios::trunc);
-        if (!centralHeader.is_open()) {
-            return "// Unable to open central header file.\n";
-        }
-        centralHeader << "// This file was automatically generated for the " << windowName << " window. Please do not modify it directly.\n\n";
-
         const auto& winData = g_windowsMap.at(windowName);
-        for (auto& layer : winData.layers)
+
+        std::string safeWindowName = SanitizeVariableName(windowName);
+        std::stringstream code;
+
+
+
+        code << "// --- Automatically generated code for window: " << windowName << " ---\n";
+        code << "// --- Paste this code block into your initialization function --- \n\n";
+
+
+
+        if (!g_componentDefinitions.empty())
+        {
+            code << "    // --- Define Components ---\n";
+
+
+            for (const auto& [compName, compDef] : g_componentDefinitions)
+            {
+                std::string safeCompName = SanitizeVariableName(compName);
+                code << "    {\n";
+                code << "        DesignManager::ComponentDefinition " << safeCompName << "_def;\n";
+                code << "        " << safeCompName << "_def.name = \"" << compName << "\";\n";
+                if (!compDef.shapeTemplates.empty()) {
+                    code << "        " << safeCompName << "_def.shapeTemplates.reserve(" << compDef.shapeTemplates.size() << ");\n";
+                }
+                code << "\n";
+
+                int templateIdx = 0;
+                for (const auto& shapeTemplate : compDef.shapeTemplates)
+                {
+                    std::string templateShapeVar = safeCompName + "_template_" + std::to_string(templateIdx);
+                    std::string templateShapeCode = GenerateSingleShapeCode(shapeTemplate.item);
+                    size_t assignPos = templateShapeCode.find("= ShapeBuilder()");
+                    size_t buildPos = templateShapeCode.rfind(".build();");
+
+                    if (assignPos != std::string::npos && buildPos != std::string::npos) {
+                        templateShapeCode = templateShapeCode.substr(assignPos + 2, buildPos - (assignPos + 2));
+                    }
+                    else {
+                        templateShapeCode = "ShapeBuilder() /* Error parsing template code */";
+                    }
+
+                    code << "        DesignManager::ComponentShapeTemplate " << templateShapeVar << "_template;\n";
+                    code << "        " << templateShapeVar << "_template.item = " << templateShapeCode << ".build();\n";
+                    code << "        " << templateShapeVar << "_template.originalId = " << shapeTemplate.originalId << ";\n";
+                    code << "        " << templateShapeVar << "_template.originalParentId = " << shapeTemplate.originalParentId << ";\n";
+                    code << "        " << safeCompName << "_def.shapeTemplates.push_back(" << templateShapeVar << "_template);\n\n";
+                    templateIdx++;
+                }
+                code << "        DesignManager::g_componentDefinitions[\"" << compName << "\"] = " << safeCompName << "_def;\n";
+                code << "    }\n";
+            }
+            code << "\n";
+        }
+        else {
+            code << "    // No components defined in the editor.\n\n";
+        }
+
+
+
+
+
+
+        for (const auto& layer : winData.layers)
         {
             std::string layerVar = SanitizeVariableName(layer.name);
-            code += "// Layer: " + layer.name + "\n";
-            code += "DesignManager::Layer " + layerVar + "(\"" + layer.name + "\");\n";
-            if (layer.zOrder != 0)
-                code += layerVar + ".zOrder = " + std::to_string(layer.zOrder) + ";\n";
-            if (!layer.visible)
-                code += layerVar + ".visible = false;\n";
-            if (layer.locked)
-                code += layerVar + ".locked = true;\n";
-            code += "\n";
+            code << "    DesignManager::Layer " << layerVar << "(\"" << layer.name << "\");\n";
+            if (layer.zOrder != 0) code << "    " << layerVar << ".zOrder = " << layer.zOrder << ";\n";
+            if (!layer.visible) code << "    " << layerVar << ".visible = false;\n";
+            if (layer.locked) code << "    " << layerVar << ".locked = true;\n";
+            code << "\n";
 
-            for (auto& shape : layer.shapes)
+            for (const auto& shape : layer.shapes)
             {
-                code += GenerateSingleShapeCode(shape);
-                code += layerVar + ".shapes.push_back(" + SanitizeVariableName(shape.name) + ");\n\n";
+
+                code << GenerateSingleShapeCode(shape);
+
+                code << "    " << layerVar << ".shapes.push_back(" << SanitizeVariableName(shape.name) << ");\n\n";
             }
-            code += "g_windowsMap[\"" + windowName + "\"].layers.push_back(" + layerVar + ");\n\n";
+
+
+            code << "    DesignManager::g_windowsMap[\"" << windowName << "\"].layers.push_back(std::move(" << layerVar << "));\n\n";
         }
-        // Append the generated code for global child window mappings.
-        code += GenerateChildWindowMappingsCode();
-        centralHeader << code;
-        centralHeader.close();
-        return code;
+
+
+
+
+
+
+
+
+        code << "    // --- Child Window Mappings ---\n";
+        code << GenerateChildWindowMappingsCode();
+        code << "\n";
+
+
+        code << "// --- End of generated code for window: " << windowName << " ---\n";
+
+        return code.str();
     }
 
-    // -------------------------
-    // Updated version of the GenerateCodeForSingleButton function
-    // -------------------------
+
+
+
     inline std::string GenerateCodeForSingleButton(const DesignManager::ShapeItem& buttonShape)
     {
         std::string safeName = SanitizeVariableName(buttonShape.name);
@@ -3045,7 +3843,7 @@ namespace DesignManager
 
 
 
-    //
+
     inline void RefreshLayerIDs()
     {
         auto& windowData = g_windowsMap[DesignManager::selectedGuiWindow];
@@ -3056,533 +3854,2326 @@ namespace DesignManager
     }
 
 
-    inline void ShowUI_WindowSelectionAndGroupSettings(WindowData& windowData)
-    {
-        ImGui::TextUnformatted("Select Target ImGui Window:");
-        if (ImGui::BeginCombo("##SelectedImGuiWindow", DesignManager::selectedGuiWindow.c_str()))
-        {
-            for (const auto& [winName, winData] : g_windowsMap)
-            {
-                bool is_sel = (DesignManager::selectedGuiWindow == winName);
-                if (ImGui::Selectable(winName.c_str(), is_sel))
-                {
-                    DesignManager::selectedGuiWindow = winName;
-                    MarkSceneUpdated();
+
+    inline void EnsureMainWindowExists() {
+        if (g_windowsMap.find("Main") == g_windowsMap.end()) {
+            g_windowsMap["Main"] = WindowData{};
+            g_windowsMap["Main"].isOpen = true;
+            g_windowsMap["Main"].layers.emplace_back("Layer 1");
+            if (selectedGuiWindow.empty() || g_windowsMap.find(selectedGuiWindow) == g_windowsMap.end()) {
+                selectedGuiWindow = "Main";
+            }
+            selectedLayerIndex = 0;
+            selectedShapes.clear();
+            lastSelectedLayerIndex = -1;
+            lastSelectedShapeIndex = -1;
+        }
+        else {
+
+            if (g_windowsMap.find(selectedGuiWindow) == g_windowsMap.end()) {
+                selectedGuiWindow = "Main";
+
+                selectedLayerIndex = g_windowsMap["Main"].layers.empty() ? -1 : 0;
+                selectedShapes.clear();
+                lastSelectedLayerIndex = -1;
+                lastSelectedShapeIndex = -1;
+            }
+        }
+
+
+        WindowData& currentWindowData = g_windowsMap[selectedGuiWindow];
+        if (!currentWindowData.layers.empty()) {
+            if (selectedLayerIndex < 0 || selectedLayerIndex >= currentWindowData.layers.size()) {
+                selectedLayerIndex = 0;
+                selectedShapes.clear();
+                lastSelectedLayerIndex = -1;
+                lastSelectedShapeIndex = -1;
+            }
+        }
+        else {
+            selectedLayerIndex = -1;
+            selectedShapes.clear();
+            lastSelectedLayerIndex = -1;
+            lastSelectedShapeIndex = -1;
+        }
+
+
+
+    }
+
+
+    inline int GetUniqueLayerID() {
+        static int layer_id_counter = 1000;
+        return layer_id_counter++;
+    }
+
+
+    static ShapeItem* lastClickedShape = nullptr;
+
+
+
+    static int lastClickedLayerIndex = -1;
+
+    inline ShapeItem* FindShapeByIdRecursiveHelper(int shapeId, ShapeItem* currentShape) {
+        if (!currentShape) {
+            return nullptr;
+        }
+        if (currentShape->id == shapeId) {
+            return currentShape;
+        }
+        for (ShapeItem* child : currentShape->children) {
+            ShapeItem* found = FindShapeByIdRecursiveHelper(shapeId, child);
+            if (found) {
+                return found;
+            }
+        }
+        return nullptr;
+    }
+
+
+    inline ShapeItem* FindShapeByIdRecursive(int shapeId) {
+        if (g_windowsMap.count(selectedGuiWindow)) {
+            WindowData& currentWindowData = g_windowsMap.at(selectedGuiWindow);
+            for (Layer& layer : currentWindowData.layers) {
+                for (ShapeItem& shape : layer.shapes) {
+
+                    if (shape.parent == nullptr) {
+                        ShapeItem* found = FindShapeByIdRecursiveHelper(shapeId, &shape);
+                        if (found) {
+                            return found;
+                        }
+                    }
                 }
-                if (is_sel)
-                    ImGui::SetItemDefaultFocus();
+
+
+
+
+
+            }
+        }
+        return nullptr;
+    }
+
+
+    inline void ShowUI_HierarchyPanel(WindowData& windowData, int& selectedLayerIndex, std::vector<ShapeItem*>& selectedShapes) {
+        ImGui::BeginChild("HierarchyPanel", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.5f));
+
+
+        ImGui::TextUnformatted("Window:"); ImGui::SameLine();
+        ImGui::PushItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##SelectedImGuiWindow", selectedGuiWindow.c_str())) {
+            std::vector<std::string> windowNames;
+            for (auto const& [winName, winData] : g_windowsMap) {
+                windowNames.push_back(winName);
+            }
+            std::sort(windowNames.begin(), windowNames.end());
+
+            for (const auto& winName : windowNames) {
+                bool is_selected = (selectedGuiWindow == winName);
+                if (ImGui::Selectable(winName.c_str(), is_selected)) {
+                    if (selectedGuiWindow != winName) {
+                        selectedGuiWindow = winName;
+                        EnsureMainWindowExists();
+
+                        windowData = g_windowsMap[selectedGuiWindow];
+                        selectedLayerIndex = windowData.layers.empty() ? -1 : 0;
+                        selectedShapes.clear();
+                        lastSelectedLayerIndex = -1;
+                        lastSelectedShapeIndex = -1;
+                        MarkSceneUpdated();
+                    }
+                }
+                if (is_selected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }
+        ImGui::PopItemWidth();
+        ImGui::Separator();
 
-        if (!g_windowsMap.empty())
-        {
-            ImGui::Separator();
-            ImGui::TextUnformatted("Window Group Settings:");
+        ImGui::Text("Layers & Shapes");
+        ImGui::Spacing();
 
-            int groupId = windowData.groupId;
-            if (ImGui::InputInt("Window Group ID", &groupId))
-            {
-                if (groupId < 0) groupId = 0;
-                windowData.groupId = groupId;
+
+
+
+        static bool needsLayerSort = false;
+        static int layerToSort = -1;
+
+        for (int i = 0; i < (int)windowData.layers.size(); i++) {
+            ImGui::PushID(i);
+            Layer& layer = windowData.layers[i];
+            bool layer_is_selected_for_ops = (selectedLayerIndex == i);
+
+            ImGuiTreeNodeFlags layerNodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap;
+            if (layer_is_selected_for_ops && selectedShapes.empty()) {
+                layerNodeFlags |= ImGuiTreeNodeFlags_Selected;
+            }
+
+
+            ImGui::BeginGroup();
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, layer.visible ? 1.0f : 0.5f);
+            if (ImGui::Checkbox(("##Visible" + std::to_string(i)).c_str(), &layer.visible)) { MarkSceneUpdated(); }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Layer Visibility");
+            ImGui::PopStyleVar();
+            ImGui::SameLine(0, 2);
+
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, layer.locked ? 1.0f : 0.6f);
+            const char* lockIcon = layer.locked ? "[L]" : "[U]";
+            if (ImGui::Checkbox((lockIcon + std::string("##Locked") + std::to_string(i)).c_str(), &layer.locked)) {
+                if (layer.locked) {
+                    selectedShapes.erase(std::remove_if(selectedShapes.begin(), selectedShapes.end(),
+                        [&](ShapeItem* s_ptr) { return FindShapeLayerIndex(s_ptr->id) == i; }), selectedShapes.end());
+                    if (selectedLayerIndex == i && selectedShapes.empty()) {
+
+                    }
+                }
+                MarkSceneUpdated();
+            }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lock Layer (prevents selection/modification)");
+            ImGui::PopStyleVar();
+
+            ImGui::SameLine(0, 5);
+            ImGui::PushItemWidth(50);
+
+            int currentZ = layer.zOrder;
+            if (ImGui::DragInt(("Z##LayerZ" + std::to_string(i)).c_str(), &layer.zOrder, 0.1f)) {
+
+                needsLayerSort = true;
+                layerToSort = -2;
                 MarkSceneUpdated();
             }
 
-            ImGui::TextWrapped("Windows with the same group ID (>0) will behave exclusively - only one window in the group can be open at a time.");
+            if (ImGui::IsItemDeactivatedAfterEdit() && currentZ != layer.zOrder) {
+                if (needsLayerSort && layerToSort == -2) {
+                    std::stable_sort(windowData.layers.begin(), windowData.layers.end(), [](const Layer& a, const Layer& b) {
+                        return a.zOrder < b.zOrder;
+                        });
 
-            if (ImGui::Button("Test Open Window"))
+                    int oldSelectedLayerId = (selectedLayerIndex >= 0 && selectedLayerIndex < windowData.layers.size()) ? windowData.layers[selectedLayerIndex].id : -1;
+                    int oldLastSelectedLayerId = (lastSelectedLayerIndex >= 0 && lastSelectedLayerIndex < windowData.layers.size()) ? windowData.layers[lastSelectedLayerIndex].id : -1;
+
+
+                    selectedLayerIndex = -1;
+                    lastSelectedLayerIndex = -1;
+                    for (int newIdx = 0; newIdx < windowData.layers.size(); ++newIdx) {
+                        if (windowData.layers[newIdx].id == oldSelectedLayerId) selectedLayerIndex = newIdx;
+                        if (windowData.layers[newIdx].id == oldLastSelectedLayerId) lastSelectedLayerIndex = newIdx;
+                    }
+                    if (selectedLayerIndex == -1 && !windowData.layers.empty()) selectedLayerIndex = 0;
+
+
+                    needsLayerSort = false;
+                    layerToSort = -1;
+                    MarkSceneUpdated();
+                }
+            }
+            ImGui::PopItemWidth();
+            ImGui::SameLine();
+            ImGui::EndGroup();
+
+
+
+            bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)layer.id, layerNodeFlags, "%s", layer.name.c_str());
+
+
+            if (!layer.locked && ImGui::BeginDragDropTarget())
             {
-                if (windowData.groupId > 0)
+
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SHAPE_ITEM"))
                 {
-                    for (auto& [winName, winData] : g_windowsMap)
-                    {
-                        if (winName == DesignManager::selectedGuiWindow)
-                            continue;
-                        if (winData.groupId == windowData.groupId && winData.isOpen)
-                        {
-                            winData.isOpen = false;
+                    IM_ASSERT(payload->DataSize == sizeof(ShapeItem*));
+                    ShapeItem* dragged_shape_ptr = *(ShapeItem**)payload->Data;
+
+
+                    int originalLayerIndex = -1;
+                    Layer* originalLayerPtr = nullptr;
+                    for (size_t layIdx = 0; layIdx < windowData.layers.size(); ++layIdx) {
+                        auto& shapes = windowData.layers[layIdx].shapes;
+                        auto it = std::find_if(shapes.begin(), shapes.end(), [id = dragged_shape_ptr->id](const ShapeItem& s) { return s.id == id; });
+                        if (it != shapes.end()) {
+                            originalLayerIndex = layIdx;
+                            originalLayerPtr = &windowData.layers[layIdx];
+                            break;
                         }
                     }
+
+
+                    if (dragged_shape_ptr && !dragged_shape_ptr->locked && originalLayerPtr != nullptr && originalLayerIndex != i)
+                    {
+
+                        ShapeItem movedShape = *dragged_shape_ptr;
+
+
+
+                        if (dragged_shape_ptr->parent) {
+
+                            ShapeItem* original_parent_ptr = FindShapeByIdRecursive(dragged_shape_ptr->parent->id);
+                            if (original_parent_ptr) {
+                                auto& childrenVec = original_parent_ptr->children;
+
+
+                                childrenVec.erase(std::remove(childrenVec.begin(), childrenVec.end(), dragged_shape_ptr), childrenVec.end());
+                            }
+                        }
+
+                        std::vector<ShapeItem*> children_copy = dragged_shape_ptr->children;
+                        for (auto* child_ptr : children_copy) {
+                            if (child_ptr) {
+
+                                RemoveParentKeepTransform(child_ptr);
+                            }
+                        }
+
+
+                        movedShape.parent = nullptr;
+                        movedShape.children.clear();
+                        movedShape.ownerWindow = selectedGuiWindow;
+
+
+
+                        originalLayerPtr->shapes.erase(std::remove_if(originalLayerPtr->shapes.begin(), originalLayerPtr->shapes.end(),
+                            [id = movedShape.id](const ShapeItem& s) { return s.id == id; }),
+                            originalLayerPtr->shapes.end());
+
+
+                        layer.shapes.push_back(movedShape);
+                        ShapeItem* newShapePtr = &layer.shapes.back();
+
+
+                        selectedShapes.clear();
+                        selectedShapes.push_back(newShapePtr);
+                        selectedLayerIndex = i;
+                        lastSelectedShapeIndex = layer.shapes.size() - 1;
+                        lastSelectedLayerIndex = i;
+                        lastClickedShape = newShapePtr;
+                        lastClickedLayerIndex = i;
+
+
+                        MarkSceneUpdated();
+                    }
                 }
-                SetWindowOpen(DesignManager::selectedGuiWindow, true);
+
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DESIGNER_COMPONENT")) {
+                    IM_ASSERT(payload->DataSize > 0);
+                    const char* componentNamePayload = (const char*)payload->Data;
+                    std::string componentNameToInstantiate = componentNamePayload;
+
+                    if (g_componentDefinitions.count(componentNameToInstantiate)) {
+                        const ComponentDefinition& compDef = g_componentDefinitions.at(componentNameToInstantiate);
+
+
+                        ImVec2 dropPos = ImGui::GetMousePos();
+                        ImVec2 targetWindowPos = ImVec2(0, 0);
+                        ImVec2 targetWindowScroll = ImVec2(0, 0);
+                        ImGuiWindow* targetImGuiWindow = ImGui::FindWindowByName(selectedGuiWindow.c_str());
+                        if (targetImGuiWindow) {
+                            targetWindowPos = targetImGuiWindow->Pos;
+                            targetWindowScroll = targetImGuiWindow->Scroll;
+                        }
+                        ImVec2 instantiationPos = dropPos - targetWindowPos + targetWindowScroll;
+
+                        std::vector<ShapeItem*> newInstanceShapesPtrs;
+                        std::map<int, int> originalToNewIdMap;
+                        std::map<int, ShapeItem*> newIdToPtrMap;
+                        std::map<int, int> newIdToOriginalParentId;
+
+                        std::set<std::string> existingNamesInWindow;
+                        for (const auto& l : windowData.layers) {
+                            for (const auto& shp : l.shapes) existingNamesInWindow.insert(shp.name);
+                        }
+
+
+                        for (const auto& shapeTemplate : compDef.shapeTemplates) {
+                            ShapeItem newShape = shapeTemplate.item;
+                            int newId = GetUniqueShapeID();
+                            newShape.id = newId;
+
+                            newShape.position = instantiationPos + shapeTemplate.item.position;
+                            newShape.basePosition = newShape.position;
+                            newShape.ownerWindow = selectedGuiWindow;
+                            newShape.parent = nullptr;
+                            newShape.children.clear();
+                            newShape.visible = true;
+                            newShape.locked = false;
+                            newShape.isPressed = false;
+                            newShape.isHeld = false;
+                            newShape.isAnimating = false;
+                            newShape.currentAnimation = nullptr;
+
+
+                            std::string baseName = componentNameToInstantiate + "_" + shapeTemplate.item.name;
+                            std::string finalName = baseName;
+                            int suffix = 1;
+                            while (existingNamesInWindow.count(finalName)) { finalName = baseName + "_" + std::to_string(suffix++); }
+                            newShape.name = finalName;
+                            existingNamesInWindow.insert(finalName);
+
+
+                            layer.shapes.push_back(newShape);
+                            ShapeItem* ptr = &layer.shapes.back();
+
+
+                            newInstanceShapesPtrs.push_back(ptr);
+                            originalToNewIdMap[shapeTemplate.originalId] = newId;
+                            newIdToPtrMap[newId] = ptr;
+                            newIdToOriginalParentId[newId] = shapeTemplate.originalParentId;
+                        }
+
+
+                        for (ShapeItem* instanceShapePtr : newInstanceShapesPtrs) {
+                            int currentNewId = instanceShapePtr->id;
+                            if (newIdToOriginalParentId.count(currentNewId)) {
+                                int originalParentId = newIdToOriginalParentId[currentNewId];
+
+                                if (originalParentId != -1 && originalToNewIdMap.count(originalParentId)) {
+                                    int newParentId = originalToNewIdMap[originalParentId];
+
+                                    if (newIdToPtrMap.count(newParentId)) {
+                                        ShapeItem* newParentPtr = newIdToPtrMap[newParentId];
+
+
+                                        SetParent(instanceShapePtr, newParentPtr);
+                                    }
+                                }
+                            }
+                        }
+
+
+                        selectedShapes = newInstanceShapesPtrs;
+                        selectedLayerIndex = i;
+                        lastSelectedLayerIndex = i;
+                        lastSelectedShapeIndex = -1;
+                        lastClickedShape = nullptr;
+                        lastClickedLayerIndex = i;
+
+                        MarkSceneUpdated();
+                    }
+                }
+                ImGui::EndDragDropTarget();
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Test Close Window"))
-            {
-                SetWindowOpen(DesignManager::selectedGuiWindow, false);
+
+
+            if (ImGui::IsItemClicked(0) && !ImGui::IsItemToggledOpen() && !ImGui::GetIO().KeyShift && !ImGui::IsMouseDragging(0)) {
+                selectedLayerIndex = i;
+                selectedShapes.clear();
+                lastSelectedLayerIndex = i;
+                lastSelectedShapeIndex = -1;
+                lastClickedShape = nullptr;
+                lastClickedLayerIndex = i;
             }
-        }
-    }
 
-    inline void ShowUI_LayerManagement(WindowData& windowData, int& selectedLayerIndex, int& selectedShapeIndex)
-    {
-        if (ImGui::Button("Add New Layer"))
-        {
-            std::string newLayerName = "Layer " + std::to_string(windowData.layers.size() + 1);
-            windowData.layers.emplace_back(newLayerName);
-            windowData.layers.back().zOrder = static_cast<int>(windowData.layers.size()) - 1;
-            MarkSceneUpdated();
-        }
-        ImGui::Separator();
 
-        for (int i = 0; i < static_cast<int>(windowData.layers.size()); i++)
-        {
-            ImGui::PushID(i);
-            Layer& layer = windowData.layers[i];
 
-            if (ImGui::TreeNodeEx((layer.name + "##Layer_" + std::to_string(i)).c_str(),
-                ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                if (ImGui::Button(("Add Shape to " + layer.name).c_str()))
-                {
-                    ShapeItem newShape;
-                    newShape.id = DesignManager::nextShapeID++;
-                    newShape.name = "Shape " + std::to_string(newShape.id);
-                    newShape.ownerWindow = DesignManager::selectedGuiWindow;
-                    newShape.position = ImVec2(100.0f, 100.0f);
-                    newShape.size = ImVec2(200.0f, 150.0f);
-                    newShape.rotation = 0.0f;
-                    newShape.basePosition = newShape.position;
-                    newShape.baseSize = newShape.size;
-                    newShape.baseRotation = newShape.rotation;
 
-                    ButtonAnimation sizeXAnim;
-                    sizeXAnim.name = "SizeX Animation";
-                    sizeXAnim.duration = 1.0f;
-                    sizeXAnim.speed = 1.0f;
-                    sizeXAnim.animationTargetPosition = newShape.basePosition;
-                    sizeXAnim.animationTargetSize = ImVec2(300.0f, newShape.baseSize.y);
-                    sizeXAnim.transformRotation = newShape.baseRotation;
-                    newShape.onClickAnimations.push_back(sizeXAnim);
+            if (ImGui::BeginPopupContextItem(("LayerContext##" + std::to_string(layer.id)).c_str())) {
+                if (ImGui::MenuItem("Rename")) {
 
-                    ButtonAnimation sizeYAnim;
-                    sizeYAnim.name = "SizeY Animation";
-                    sizeYAnim.duration = 1.0f;
-                    sizeYAnim.speed = 1.0f;
-                    sizeYAnim.animationTargetPosition = newShape.basePosition;
-                    sizeYAnim.animationTargetSize = ImVec2(newShape.baseSize.x, 300.0f);
-                    sizeYAnim.transformRotation = newShape.baseRotation;
-                    newShape.onClickAnimations.push_back(sizeYAnim);
+                    ImGui::OpenPopup("RenameLayerPopup");
+                }
+                if (ImGui::MenuItem("Delete Layer", nullptr, false, windowData.layers.size() > 1)) {
+                    std::vector<int> shapesInDeletedLayerIds;
+                    for (const auto& s : layer.shapes) shapesInDeletedLayerIds.push_back(s.id);
 
-                    layer.shapes.push_back(newShape);
+
+                    selectedShapes.erase(std::remove_if(selectedShapes.begin(), selectedShapes.end(),
+                        [&](ShapeItem* s_ptr) {
+                            return std::find(shapesInDeletedLayerIds.begin(), shapesInDeletedLayerIds.end(), s_ptr->id) != shapesInDeletedLayerIds.end();
+                        }), selectedShapes.end());
+
+
+                    int deletedLayerId = layer.id;
+
+
+                    windowData.layers.erase(windowData.layers.begin() + i);
+
+
+
+                    int oldSelectedLayerIdAfterPotentialDelete = -1;
+                    if (selectedLayerIndex != -1) {
+                        if (selectedLayerIndex == i) {
+                            oldSelectedLayerIdAfterPotentialDelete = -1;
+                        }
+                        else if (selectedLayerIndex > i) {
+
+                            oldSelectedLayerIdAfterPotentialDelete = windowData.layers[selectedLayerIndex - 1].id;
+                        }
+                        else {
+                            oldSelectedLayerIdAfterPotentialDelete = windowData.layers[selectedLayerIndex].id;
+                        }
+                    }
+
+
+                    selectedLayerIndex = -1;
+                    for (int k = 0; k < windowData.layers.size(); ++k) {
+                        if (windowData.layers[k].id == oldSelectedLayerIdAfterPotentialDelete) {
+                            selectedLayerIndex = k;
+                            break;
+                        }
+                    }
+
+                    if (oldSelectedLayerIdAfterPotentialDelete == -1 && selectedLayerIndex == -1) {
+                        selectedLayerIndex = windowData.layers.empty() ? -1 : std::max(0, i - 1);
+                    }
+
+
+
+                    lastSelectedLayerIndex = selectedLayerIndex;
+                    lastClickedLayerIndex = selectedLayerIndex;
+                    lastSelectedShapeIndex = -1;
+                    if (selectedLayerIndex == -1) selectedShapes.clear();
+
+                    MarkSceneUpdated();
+                    ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                    ImGui::PopID();
+                    node_open = false;
+                    i--;
+                    continue;
+                }
+
+                if (ImGui::MenuItem("Move Up", nullptr, false, i > 0)) {
+                    int currentSelectedId = (selectedLayerIndex != -1) ? windowData.layers[selectedLayerIndex].id : -1;
+                    std::swap(windowData.layers[i], windowData.layers[i - 1]);
+
+                    selectedLayerIndex = -1;
+                    for (int k = 0; k < windowData.layers.size(); ++k) if (windowData.layers[k].id == currentSelectedId) selectedLayerIndex = k;
+                    lastSelectedLayerIndex = selectedLayerIndex;
+                    lastClickedLayerIndex = selectedLayerIndex;
+                    MarkSceneUpdated();
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::MenuItem("Move Down", nullptr, false, i < (int)windowData.layers.size() - 1)) {
+                    int currentSelectedId = (selectedLayerIndex != -1) ? windowData.layers[selectedLayerIndex].id : -1;
+                    std::swap(windowData.layers[i], windowData.layers[i + 1]);
+
+                    selectedLayerIndex = -1;
+                    for (int k = 0; k < windowData.layers.size(); ++k) if (windowData.layers[k].id == currentSelectedId) selectedLayerIndex = k;
+                    lastSelectedLayerIndex = selectedLayerIndex;
+                    lastClickedLayerIndex = selectedLayerIndex;
+                    MarkSceneUpdated();
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Add New Shape Here")) {
+                    ShapeItem s;
+                    std::string baseName = "New Shape";
+                    std::string finalName = baseName;
+                    int suffix = 0;
+                    std::set<std::string> existingNames;
+                    for (const auto& l : windowData.layers) for (const auto& shp : l.shapes) existingNames.insert(shp.name);
+                    while (existingNames.count(finalName)) { finalName = baseName + "_" + std::to_string(suffix++); }
+                    s.name = finalName;
+                    s.id = GetUniqueShapeID();
+                    s.ownerWindow = selectedGuiWindow;
+                    s.zOrder = layer.shapes.empty() ? 0 : layer.shapes.back().zOrder + 1;
+                    s.position = ImVec2(150, 150);
+                    s.size = ImVec2(150, 150);
+                    s.basePosition = s.position;
+                    s.baseSize = s.size;
+                    s.parent = nullptr;
+                    s.children.clear();
+
+                    layer.shapes.push_back(s);
                     selectedLayerIndex = i;
-                    selectedShapeIndex = static_cast<int>(layer.shapes.size()) - 1;
+                    selectedShapes.clear();
+                    selectedShapes.push_back(&layer.shapes.back());
+                    lastSelectedLayerIndex = i;
+                    lastSelectedShapeIndex = layer.shapes.size() - 1;
+                    lastClickedShape = selectedShapes.back();
+                    lastClickedLayerIndex = i;
+                    MarkSceneUpdated();
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+
+            if (ImGui::BeginPopup("RenameLayerPopup")) {
+                static char renameLayerBufferContext[128];
+
+                if (ImGui::IsWindowAppearing()) {
+
+                    if (selectedLayerIndex == i) {
+                        strncpy(renameLayerBufferContext, layer.name.c_str(), 127);
+                        renameLayerBufferContext[127] = '\0';
+                    }
+                    else {
+
+
+                        renameLayerBufferContext[0] = '\0';
+                    }
+                    ImGui::SetKeyboardFocusHere();
+                }
+
+                ImGui::Text("Rename Layer:");
+                ImGui::Separator();
+                ImGui::PushItemWidth(200);
+                if (ImGui::InputText("##NewLayerNameInput", renameLayerBufferContext, IM_ARRAYSIZE(renameLayerBufferContext), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    if (strlen(renameLayerBufferContext) > 0 && layer.name != renameLayerBufferContext) {
+                        layer.name = renameLayerBufferContext;
+                        MarkSceneUpdated();
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::PopItemWidth();
+                ImGui::Spacing();
+                if (ImGui::Button("OK##RenameLayer")) {
+                    if (strlen(renameLayerBufferContext) > 0 && layer.name != renameLayerBufferContext) {
+                        layer.name = renameLayerBufferContext;
+                        MarkSceneUpdated();
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel##RenameLayer") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+
+            if (node_open) {
+
+
+                if (ImGui::IsMouseReleased(0) && needsLayerSort && layerToSort == i) {
+                    std::stable_sort(layer.shapes.begin(), layer.shapes.end(), [](const ShapeItem& a, const ShapeItem& b) {
+                        return a.zOrder < b.zOrder;
+                        });
+
+                    if (!selectedShapes.empty() && lastSelectedLayerIndex == i && lastSelectedShapeIndex != -1) {
+                        int currentlySelectedShapeId = selectedShapes.back()->id;
+                        lastSelectedShapeIndex = -1;
+                        for (int newIdx = 0; newIdx < layer.shapes.size(); ++newIdx) {
+                            if (layer.shapes[newIdx].id == currentlySelectedShapeId) {
+                                lastSelectedShapeIndex = newIdx;
+                                break;
+                            }
+                        }
+                    }
+                    needsLayerSort = false;
+                    layerToSort = -1;
                     MarkSceneUpdated();
                 }
 
-                ImGui::Separator();
 
-                for (int j = 0; j < static_cast<int>(layer.shapes.size()); j++)
-                {
-                    ImGui::PushID(j);
-                    ShapeItem& shape = layer.shapes[j];
-                    bool isSelected = (selectedLayerIndex == i && selectedShapeIndex == j);
 
-                    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnArrow;
-                    if (isSelected)
-                        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+                for (int j = 0; j < (int)layer.shapes.size(); ++j) {
 
-                    if (ImGui::TreeNodeEx((shape.name + "##Shape_" + std::to_string(j)).c_str(),
-                        nodeFlags))
-                    {
-                        if (ImGui::IsItemClicked())
-                        {
-                            selectedLayerIndex = i;
-                            selectedShapeIndex = j;
-                            MarkSceneUpdated();
-                        }
-                        ImGui::TreePop();
+
+
+
+                    ShapeItem& current_shape = layer.shapes[j];
+
+                    if (current_shape.parent == nullptr) {
+
+                        DrawShapeTreeNode(&current_shape, layer, i, j, selectedLayerIndex, selectedShapes, lastClickedShape, lastClickedLayerIndex, layerToSort, needsLayerSort);
                     }
-                    ImGui::PopID();
                 }
-
                 ImGui::TreePop();
             }
             ImGui::PopID();
         }
+
+
+        ImGui::EndChild();
+
+        if (ImGui::Button("Add Layer")) {
+            std::string newLayerName = "Layer " + std::to_string(windowData.layers.size() + 1);
+
+            int suffix = 1;
+            std::set<std::string> existingNames;
+            for (const auto& lyr : windowData.layers) existingNames.insert(lyr.name);
+            while (existingNames.count(newLayerName)) { newLayerName = "Layer " + std::to_string(windowData.layers.size() + 1) + "_" + std::to_string(suffix++); }
+
+            windowData.layers.emplace_back(newLayerName);
+
+            int maxZ = -1;
+            if (windowData.layers.size() > 1) {
+                maxZ = windowData.layers[windowData.layers.size() - 2].zOrder;
+            }
+            windowData.layers.back().zOrder = maxZ + 1;
+            windowData.layers.back().id = GetUniqueLayerID();
+
+            selectedLayerIndex = (int)windowData.layers.size() - 1;
+            selectedShapes.clear();
+            lastSelectedLayerIndex = selectedLayerIndex;
+            lastSelectedShapeIndex = -1;
+            lastClickedLayerIndex = selectedLayerIndex;
+            lastClickedShape = nullptr;
+            MarkSceneUpdated();
+        }
+
+        ImGui::SameLine();
+
+        ImGui::BeginDisabled(selectedShapes.size() < 2);
+        if (ImGui::Button("Set Parent (Manual)")) {
+            if (selectedShapes.size() >= 2) {
+                ShapeItem* parent = selectedShapes.back();
+                for (size_t k = 0; k < selectedShapes.size() - 1; ++k) {
+                    ShapeItem* child = selectedShapes[k];
+                    if (child && parent && child != parent && !child->locked && !parent->locked) {
+
+                        int parentLayer = FindShapeLayerIndex(parent->id);
+                        int childLayer = FindShapeLayerIndex(child->id);
+                        if (parentLayer != -1 && parentLayer == childLayer) {
+                            if (!IsAncestor(child, parent)) {
+                                SetParent(child, parent);
+                            }
+                        }
+                        else {
+
+                        }
+                    }
+                }
+                MarkSceneUpdated();
+
+            }
+        }
+        ImGui::EndDisabled();
+
+
+        ImGui::SameLine();
+        ImGui::BeginDisabled(selectedShapes.empty() || std::all_of(selectedShapes.begin(), selectedShapes.end(), [](ShapeItem* s) { return !s || s->parent == nullptr; }));
+        if (ImGui::Button("Unparent")) {
+            std::vector<ShapeItem*> shapesToUnparent = selectedShapes;
+            for (ShapeItem* child : shapesToUnparent) {
+                if (child && !child->locked && child->parent) {
+                    RemoveParent(child);
+                }
+            }
+
+            MarkSceneUpdated();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Unparent (Keep Transform)")) {
+            std::vector<ShapeItem*> shapesToUnparent = selectedShapes;
+            for (ShapeItem* child : shapesToUnparent) {
+                if (child && !child->locked && child->parent) {
+                    RemoveParentKeepTransform(child);
+                }
+            }
+
+            MarkSceneUpdated();
+        }
+        ImGui::EndDisabled();
     }
 
-    inline void ShowUI_ShapeDetails(WindowData& windowData, int selectedLayerIndex, int selectedShapeIndex)
-    {
-        if (selectedLayerIndex >= 0 && selectedShapeIndex >= 0 &&
-            selectedLayerIndex < static_cast<int>(windowData.layers.size()))
-        {
-            Layer& selLayer = windowData.layers[selectedLayerIndex];
-            if (selectedShapeIndex < static_cast<int>(selLayer.shapes.size()))
-            {
-                ShapeItem& s = selLayer.shapes[selectedShapeIndex];
 
-                ImGui::Text("Selected Shape: %s", s.name.c_str());
-                ImGui::Separator();
 
-                if (ImGui::Button("Reset Shape"))
-                {
-                    s.position = s.basePosition;
-                    s.size = s.baseSize;
-                    s.rotation = s.baseRotation;
-                    for (auto& anim : s.onClickAnimations)
-                    {
-                        anim.progress = 0.0f;
-                        anim.isPlaying = false;
+    inline void DrawShapeTreeNode(ShapeItem* shape, Layer& layer, int layerIndex, int shapeIndexInLayer, int& selectedLayerIndex, std::vector<ShapeItem*>& selectedShapes, ShapeItem*& lastClickedShape, int& lastClickedLayerIndex, int& layerToSort, bool& needsLayerSort) {
+        if (!shape) return;
+        ImGui::PushID(shape->id);
+
+
+        ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap;
+
+
+        bool is_selected = std::find(selectedShapes.begin(), selectedShapes.end(), shape) != selectedShapes.end();
+        if (is_selected) {
+            node_flags |= ImGuiTreeNodeFlags_Selected;
+        }
+
+
+        bool is_leaf = true;
+        for (const auto& child : shape->children) {
+            if (child != nullptr) {
+                is_leaf = false;
+                break;
+            }
+        }
+        if (is_leaf) {
+            node_flags |= ImGuiTreeNodeFlags_Leaf;
+        }
+
+
+        bool layer_is_locked = layer.locked;
+        bool shape_effectively_locked = shape->locked || layer_is_locked;
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, shape_effectively_locked ? 0.5f : 1.0f);
+
+
+        bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)shape->id, node_flags, "%s", shape->name.c_str());
+
+
+        if (!shape_effectively_locked && ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+
+            ImGui::SetDragDropPayload("SHAPE_ITEM", &shape, sizeof(ShapeItem*));
+
+            ImGui::Text("Move/Parent: %s", shape->name.c_str());
+            ImGui::EndDragDropSource();
+        }
+
+
+        if (!shape_effectively_locked && ImGui::BeginDragDropTarget()) {
+
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SHAPE_ITEM")) {
+                IM_ASSERT(payload->DataSize == sizeof(ShapeItem*));
+                ShapeItem* dragged_shape = *(ShapeItem**)payload->Data;
+
+
+
+
+
+                if (dragged_shape && shape && dragged_shape != shape && !IsAncestor(shape, dragged_shape) && !shape->locked && !dragged_shape->locked) {
+
+                    int draggedShapeLayerIndex = FindShapeLayerIndex(dragged_shape->id);
+                    if (draggedShapeLayerIndex != -1) {
+
+
+                        SetParent(dragged_shape, shape);
+                        MarkSceneUpdated();
+
+
+
+
                     }
-                    s.currentAnimation = nullptr;
+                    else {
+                        std::cerr << "Warning: Dragged shape layer not found for parenting." << std::endl;
+                    }
+                }
+            }
+
+
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DESIGNER_COMPONENT")) {
+                IM_ASSERT(payload->DataSize > 0);
+                const char* componentNamePayload = (const char*)payload->Data;
+                std::string componentNameToInstantiate = componentNamePayload;
+                std::cerr << "Warning: Dropping component onto shape not fully implemented yet." << std::endl;
+
+
+
+
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+
+
+
+        if (!shape_effectively_locked && ImGui::IsItemClicked(0) && !ImGui::IsMouseDragging(0)) {
+            bool ctrl_pressed = ImGui::GetIO().KeyCtrl;
+            bool shift_pressed = ImGui::GetIO().KeyShift;
+
+            if (!shift_pressed) {
+                if (!ctrl_pressed) {
+                    selectedShapes.clear();
+                    selectedShapes.push_back(shape);
+                    lastClickedShape = shape;
+                    lastClickedLayerIndex = layerIndex;
+                    selectedLayerIndex = layerIndex;
+                    lastSelectedLayerIndex = layerIndex;
+
+
+                    lastSelectedShapeIndex = shapeIndexInLayer;
+                }
+                else {
+                    auto it = std::find(selectedShapes.begin(), selectedShapes.end(), shape);
+                    if (it == selectedShapes.end()) {
+                        selectedShapes.push_back(shape);
+
+                        lastClickedShape = shape;
+                        lastClickedLayerIndex = layerIndex;
+
+                        lastSelectedLayerIndex = layerIndex;
+                        lastSelectedShapeIndex = shapeIndexInLayer;
+                    }
+                    else {
+                        selectedShapes.erase(it);
+
+                        if (lastClickedShape == shape) {
+                            lastClickedShape = nullptr;
+                            lastClickedLayerIndex = -1;
+
+                            lastSelectedShapeIndex = -1;
+                        }
+
+                        if (selectedShapes.empty()) {
+                            lastSelectedShapeIndex = -1;
+
+
+                        }
+                    }
+
+                    selectedLayerIndex = layerIndex;
+                }
+            }
+            else {
+
+                if (lastClickedShape != nullptr && lastClickedLayerIndex == layerIndex) {
+                    selectedShapes.clear();
+
+
+
+
+
+
+
+
+                    int currentShapeIndexInLayerVec = -1;
+                    int lastShapeIndexInLayerVec = -1;
+                    for (int k = 0; k < layer.shapes.size(); ++k) {
+                        if (layer.shapes[k].id == shape->id) currentShapeIndexInLayerVec = k;
+                        if (layer.shapes[k].id == lastClickedShape->id) lastShapeIndexInLayerVec = k;
+                    }
+
+                    if (currentShapeIndexInLayerVec != -1 && lastShapeIndexInLayerVec != -1) {
+                        int startIdx = std::min(currentShapeIndexInLayerVec, lastShapeIndexInLayerVec);
+                        int endIdx = std::max(currentShapeIndexInLayerVec, lastShapeIndexInLayerVec);
+
+                        for (int k = startIdx; k <= endIdx; ++k) {
+
+                            if (k < layer.shapes.size()) {
+                                ShapeItem& potentialSelection = layer.shapes[k];
+                                bool potentialLocked = potentialSelection.locked || layer.locked;
+                                if (!potentialLocked) {
+
+                                    if (std::find(selectedShapes.begin(), selectedShapes.end(), &potentialSelection) == selectedShapes.end()) {
+                                        selectedShapes.push_back(&potentialSelection);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else {
+
+                        if (!shape->locked) selectedShapes.push_back(shape);
+                    }
+
+
+                    selectedLayerIndex = layerIndex;
+                    lastSelectedLayerIndex = layerIndex;
+
+                    lastSelectedShapeIndex = currentShapeIndexInLayerVec;
+
+                }
+                else {
+                    selectedShapes.clear();
+                    if (!shape->locked) selectedShapes.push_back(shape);
+                    lastClickedShape = shape;
+                    lastClickedLayerIndex = layerIndex;
+                    selectedLayerIndex = layerIndex;
+                    lastSelectedLayerIndex = layerIndex;
+                    lastSelectedShapeIndex = shapeIndexInLayer;
+                }
+            }
+        }
+
+
+        if (ImGui::BeginPopupContextItem(("ShapeContext##" + std::to_string(shape->id)).c_str())) {
+
+            if (ImGui::MenuItem("Rename##ShapeCtx", nullptr, false, !shape_effectively_locked)) {
+
+
+                ImGui::OpenPopup("RenameShapePopupProp");
+
+
+            }
+
+            if (ImGui::MenuItem("Duplicate##ShapeCtx", nullptr, false, !shape_effectively_locked)) {
+                ShapeItem duplicatedShape = *shape;
+                duplicatedShape.id = GetUniqueShapeID();
+
+
+                std::string baseName = shape->name + "_Copy";
+                std::string finalName = baseName;
+                int suffix = 1;
+                std::set<std::string> existingNames;
+                WindowData& currentWindowData = g_windowsMap.at(selectedGuiWindow);
+                for (const auto& l : currentWindowData.layers) {
+                    for (const auto& shp : l.shapes) existingNames.insert(shp.name);
+                }
+                while (existingNames.count(finalName)) {
+                    finalName = baseName + "_" + std::to_string(suffix++);
+                }
+                duplicatedShape.name = finalName;
+
+
+                duplicatedShape.parent = nullptr;
+                duplicatedShape.children.clear();
+
+
+                duplicatedShape.isPressed = false;
+                duplicatedShape.isHeld = false;
+                duplicatedShape.isAnimating = false;
+                duplicatedShape.currentAnimation = nullptr;
+
+
+                duplicatedShape.position += ImVec2(10, 10);
+                duplicatedShape.basePosition = duplicatedShape.position;
+
+
+                layer.shapes.push_back(duplicatedShape);
+
+
+                selectedShapes.clear();
+                selectedShapes.push_back(&layer.shapes.back());
+                lastSelectedShapeIndex = layer.shapes.size() - 1;
+                lastSelectedLayerIndex = layerIndex;
+                lastClickedShape = selectedShapes.back();
+                lastClickedLayerIndex = layerIndex;
+
+                MarkSceneUpdated();
+                ImGui::CloseCurrentPopup();
+            }
+
+            if (ImGui::MenuItem("Delete##ShapeCtx", nullptr, false, !shape_effectively_locked)) {
+
+                int deletedShapeId = shape->id;
+
+
+                std::vector<ShapeItem*> childrenCopy = shape->children;
+                for (auto* child : childrenCopy) {
+                    if (child) RemoveParentKeepTransform(child);
+                }
+
+
+
+
+                if (shape->parent) {
+                    auto& siblings = shape->parent->children;
+
+                    siblings.erase(std::remove_if(siblings.begin(), siblings.end(),
+                        [deletedShapeId](const ShapeItem* s) { return s && s->id == deletedShapeId; }),
+                        siblings.end());
+                    shape->parent = nullptr;
+                }
+
+
+                layer.shapes.erase(std::remove_if(layer.shapes.begin(), layer.shapes.end(),
+                    [deletedShapeId](const ShapeItem& s) { return s.id == deletedShapeId; }),
+                    layer.shapes.end());
+
+
+                selectedShapes.erase(std::remove_if(selectedShapes.begin(), selectedShapes.end(),
+                    [deletedShapeId](ShapeItem* s_ptr) { return s_ptr && s_ptr->id == deletedShapeId; }),
+                    selectedShapes.end());
+
+
+                if (lastClickedShape && lastClickedShape->id == deletedShapeId) {
+                    lastClickedShape = nullptr;
+                    lastClickedLayerIndex = -1;
+                }
+
+                if (lastSelectedLayerIndex == layerIndex) {
+                    lastSelectedShapeIndex = -1;
+                }
+
+                if (selectedShapes.empty()) {
+                    lastSelectedLayerIndex = layerIndex;
+                    lastSelectedShapeIndex = -1;
+                }
+
+                MarkSceneUpdated();
+                ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+                ImGui::PopStyleVar();
+                ImGui::PopID();
+
+                return;
+            }
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Clear Parent", nullptr, false, shape->parent != nullptr && !shape_effectively_locked)) {
+                RemoveParent(shape);
+                MarkSceneUpdated();
+                ImGui::CloseCurrentPopup();
+            }
+
+            if (ImGui::MenuItem("Clear Parent and Keep Transform", nullptr, false, shape->parent != nullptr && !shape_effectively_locked)) {
+                RemoveParentKeepTransform(shape);
+                MarkSceneUpdated();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::Separator();
+
+            int currentShapeZ = shape->zOrder;
+            ImGui::PushItemWidth(80);
+            if (ImGui::DragInt("Z-Order##ShapeCtx", &shape->zOrder, 0.1f)) {
+
+                if (shape->zOrder != currentShapeZ) {
+                    needsLayerSort = true;
+                    layerToSort = layerIndex;
                     MarkSceneUpdated();
                 }
+
+            }
+
+
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+
+            }
+            ImGui::PopItemWidth();
+
+            ImGui::EndPopup();
+        }
+
+
+
+
+        if (node_open) {
+            if (!is_leaf) {
+
+
+                std::vector<ShapeItem*> childrenToDraw = shape->children;
+                for (ShapeItem* child : childrenToDraw) {
+                    if (!child) continue;
+
+
+
+
+
+                    int childShapeIndexInLayer = -1;
+
+
+
+
+
+
+                    DrawShapeTreeNode(child, layer, layerIndex, childShapeIndexInLayer, selectedLayerIndex, selectedShapes, lastClickedShape, lastClickedLayerIndex, layerToSort, needsLayerSort);
+
+                }
+            }
+            ImGui::TreePop();
+        }
+
+        ImGui::PopStyleVar();
+        ImGui::PopID();
+    }
+
+    inline void ShowUI_PropertiesPanel(WindowData& windowData, int& selectedLayerIndex, std::vector<ShapeItem*>& selectedShapes) {
+
+
+
+
+
+        ImGui::BeginChild("PropertiesPanel");
+
+        if (selectedShapes.empty() && selectedLayerIndex >= 0 && selectedLayerIndex < windowData.layers.size())
+        {
+
+            ImGui::Text("Layer Properties: %s", windowData.layers[selectedLayerIndex].name.c_str());
+            ImGui::Separator();
+            Layer& layer = windowData.layers[selectedLayerIndex];
+            bool layerWasLocked = layer.locked;
+            if (ImGui::Checkbox("Visible##LayerProp", &layer.visible)) MarkSceneUpdated(); ImGui::SameLine();
+            if (ImGui::Checkbox("Locked##LayerProp", &layer.locked)) {
+                if (layer.locked && !layerWasLocked) {
+                    selectedShapes.erase(std::remove_if(selectedShapes.begin(), selectedShapes.end(),
+                        [&](ShapeItem* s_ptr) { return s_ptr && FindShapeLayerIndex(s_ptr->id) == selectedLayerIndex; }), selectedShapes.end());
+                }
+                MarkSceneUpdated();
+            }
+            if (ImGui::DragInt("Z-Order##LayerProp", &layer.zOrder, 0.1f)) {
+
+
+
+
+                MarkSceneUpdated();
+
+            }
+
+        }
+        else if (selectedShapes.size() == 1)
+        {
+
+            ShapeItem& s = *selectedShapes[0];
+            bool layer_is_locked = false;
+            int current_shape_layer_idx = FindShapeLayerIndex(s.id);
+            if (current_shape_layer_idx != -1 && current_shape_layer_idx < windowData.layers.size()) {
+                layer_is_locked = windowData.layers[current_shape_layer_idx].locked;
+            }
+            bool shape_effectively_locked = s.locked || layer_is_locked;
+
+
+            ImGui::Text("Shape Properties: %s (ID: %d)", s.name.c_str(), s.id);
+            if (shape_effectively_locked) {
+                ImGui::SameLine(); ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "[LOCKED]");
+            }
+            ImGui::Separator();
+
+
+            ImGui::BeginDisabled(shape_effectively_locked);
+            if (ImGui::Button("[X] Delete##Shape")) {
+                int layerIdx = FindShapeLayerIndex(s.id);
+                if (layerIdx != -1) {
+                    Layer& layer = windowData.layers[layerIdx];
+                    std::vector<ShapeItem*> childrenCopy = s.children;
+                    for (auto* child : childrenCopy) if (child) RemoveParentKeepTransform(child);
+                    if (s.parent) {
+                        auto& siblings = s.parent->children;
+                        siblings.erase(std::remove(siblings.begin(), siblings.end(), &s), siblings.end());
+                    }
+                    int deletedShapeId = s.id;
+                    layer.shapes.erase(std::remove_if(layer.shapes.begin(), layer.shapes.end(),
+                        [deletedShapeId](const ShapeItem& shp) { return shp.id == deletedShapeId; }),
+                        layer.shapes.end());
+
+                    selectedShapes.clear();
+
+                    if (lastClickedShape && lastClickedShape->id == deletedShapeId) {
+                        lastClickedShape = nullptr;
+                        lastClickedLayerIndex = -1;
+                    }
+                    lastSelectedLayerIndex = layerIdx;
+                    lastSelectedShapeIndex = -1;
+
+                    MarkSceneUpdated();
+                    ImGui::EndChild();
+                    ImGui::EndDisabled();
+                    return;
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("[Dup] Duplicate##Shape")) {
+                int layerIdx = FindShapeLayerIndex(s.id);
+                if (layerIdx != -1) {
+                    Layer& layer = windowData.layers[layerIdx];
+                    ShapeItem duplicatedShape = s;
+                    duplicatedShape.id = GetUniqueShapeID();
+                    std::string baseName = s.name + "_Copy";
+                    std::string finalName = baseName;
+                    int suffix = 1;
+                    std::set<std::string> existingNames;
+                    for (const auto& l : windowData.layers) for (const auto& shp : l.shapes) existingNames.insert(shp.name);
+                    while (existingNames.count(finalName)) { finalName = baseName + "_" + std::to_string(suffix++); }
+                    duplicatedShape.name = finalName;
+
+                    duplicatedShape.parent = nullptr;
+                    duplicatedShape.children.clear();
+                    duplicatedShape.isPressed = false;
+                    duplicatedShape.isHeld = false;
+                    duplicatedShape.isAnimating = false;
+                    duplicatedShape.currentAnimation = nullptr;
+                    duplicatedShape.position += ImVec2(10, 10);
+                    duplicatedShape.basePosition = duplicatedShape.position;
+
+                    layer.shapes.push_back(duplicatedShape);
+                    selectedShapes.clear();
+                    selectedShapes.push_back(&layer.shapes.back());
+                    lastSelectedShapeIndex = layer.shapes.size() - 1;
+                    lastSelectedLayerIndex = layerIdx;
+                    if (lastClickedShape) {
+                        lastClickedShape = selectedShapes.back();
+                        lastClickedLayerIndex = layerIdx;
+                    }
+                    MarkSceneUpdated();
+                }
+            }
+            ImGui::SameLine();
+            static char renameBufferPopup[128];
+            if (ImGui::Button("[Ren] Rename##Shape")) {
+                strncpy(renameBufferPopup, s.name.c_str(), 127);
+                renameBufferPopup[127] = '\0';
+                ImGui::OpenPopup("RenameShapePopupProp");
+            }
+            if (ImGui::BeginPopup("RenameShapePopupProp")) {
+                ImGui::Text("Rename Shape:");
+                if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+                if (ImGui::InputText("##NewShapeNameInput", renameBufferPopup, 128, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    if (strlen(renameBufferPopup) > 0 && s.name != renameBufferPopup) {
+                        s.name = renameBufferPopup;
+                        MarkSceneUpdated();
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::Button("OK##RenameShape")) {
+                    if (strlen(renameBufferPopup) > 0 && s.name != renameBufferPopup) {
+                        s.name = renameBufferPopup;
+                        MarkSceneUpdated();
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
                 ImGui::SameLine();
-                if (ImGui::Button("Apply Offset to Base"))
+                if (ImGui::Button("Cancel##RenameShape") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+            ImGui::EndDisabled();
+            ImGui::Separator();
+
+
+            ImGui::BeginDisabled(shape_effectively_locked);
+
+            if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::BeginDisabled(shape_effectively_locked);
+
+
+                ImGui::Text("Abs:");
+                ImVec2 tempAbsPos = s.position;
+
+                if (ImGui::DragFloat2("Position##Abs", (float*)&tempAbsPos, 0.5f))
                 {
+                    if (s.parent == nullptr) {
+
+                        ImVec2 delta = tempAbsPos - s.position;
+                        s.basePosition = s.basePosition + delta;
+                    }
+                    else {
+
+                        ImVec2 parentPos = s.parent->position;
+                        float parentRot = s.parent->rotation;
+
+
+                        ImVec2 newWorldOffset = tempAbsPos - parentPos;
+
+
+                        ImVec2 newLocalOffset = RotateP(newWorldOffset, ImVec2(0.0f, 0.0f), -parentRot);
+
+
+                        s.originalPosition = newLocalOffset;
+                    }
+                    MarkSceneUpdated();
+                }
+                ImGui::Separator();
+                ImGui::Text("Local (Parented):");
+                ImGui::BeginDisabled(s.parent == nullptr);
+                if (ImGui::DragFloat2("Offset##Local", (float*)&s.originalPosition, 0.5f)) {
+                    MarkSceneUpdated();
+                }
+                if (s.parent == nullptr && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                    ImGui::SetTooltip("Only available when parented.");
+                }
+                ImGui::EndDisabled();
+                ImGui::Separator();
+
+
+                ImVec2 currentSize = s.size;
+                ImVec2 tempAbsSize = s.size;
+                if (ImGui::DragFloat2("Size##Abs", (float*)&tempAbsSize, 0.5f)) {
+
+                    tempAbsSize.x = std::max(s.minSize.x, std::min(tempAbsSize.x, s.maxSize.x));
+                    tempAbsSize.y = std::max(s.minSize.y, std::min(tempAbsSize.y, s.maxSize.y));
+
+                    if (memcmp(&tempAbsSize, &currentSize, sizeof(ImVec2)) != 0) {
+                        ImVec2 deltaSize = tempAbsSize - s.size;
+                        s.baseSize = s.baseSize + deltaSize;
+
+                        s.baseSize.x = std::max(s.minSize.x, std::min(s.baseSize.x, s.maxSize.x));
+                        s.baseSize.y = std::max(s.minSize.y, std::min(s.baseSize.y, s.maxSize.y));
+                        MarkSceneUpdated();
+                    }
+                }
+                float currentWorldRotDeg = s.rotation * (180.0f / IM_PI);
+                float tempAbsRotDeg = currentWorldRotDeg;
+                if (ImGui::DragFloat("Rot##Abs", &tempAbsRotDeg, 1.0f, -720, 720, "%.1f deg")) {
+                    if (fabs(tempAbsRotDeg - currentWorldRotDeg) > 1e-4) {
+                        float newWorldRotRad = tempAbsRotDeg * (IM_PI / 180.0f);
+                        if (s.parent != nullptr) {
+
+
+                            s.baseRotation = newWorldRotRad - s.parent->rotation;
+                        }
+                        else {
+
+                            s.baseRotation = newWorldRotRad;
+                            s.rotation = newWorldRotRad;
+                        }
+                        MarkSceneUpdated();
+                    }
+                }
+
+                ImGui::Text("Base:");
+                if (ImGui::DragFloat2("Position##Base", (float*)&s.basePosition, 0.5f)) MarkSceneUpdated();
+                ImVec2 currentBaseSize = s.baseSize;
+                if (ImGui::DragFloat2("Size##Base", (float*)&s.baseSize, 0.5f)) {
+                    s.baseSize.x = std::max(s.minSize.x, std::min(s.baseSize.x, s.maxSize.x));
+                    s.baseSize.y = std::max(s.minSize.y, std::min(s.baseSize.y, s.maxSize.y));
+                    if (memcmp(&s.baseSize, &currentBaseSize, sizeof(ImVec2)) != 0) MarkSceneUpdated();
+                }
+                float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
+                if (ImGui::DragFloat("Rot##Base", &baseRotDeg, 1.0f, -720, 720, "%.1f deg")) { s.baseRotation = baseRotDeg * (IM_PI / 180.0f); MarkSceneUpdated(); }
+
+                if (ImGui::Button("Apply Current to Base")) {
                     s.basePosition = s.position;
                     s.baseSize = s.size;
                     s.baseRotation = s.rotation;
-                    for (auto& anim : s.onClickAnimations)
-                    {
-                        anim.progress = 0.0f;
-                        anim.isPlaying = false;
-                    }
+                    MarkSceneUpdated();
+                }
+                if (ImGui::Button("Reset Transform to Base")) {
+                    s.position = s.basePosition;
+                    s.size = s.baseSize;
+                    s.rotation = s.baseRotation;
+
+                    for (auto& anim : s.onClickAnimations) { anim.progress = 0.0; anim.isPlaying = false; }
                     s.currentAnimation = nullptr;
+                    s.baseKeyOffset = ImVec2(0, 0); s.baseKeySizeOffset = ImVec2(0, 0); s.baseKeyRotationOffset = 0.0f;
+                    MarkSceneUpdated();
+                }
+                ImGui::EndDisabled();
+            }
+
+
+            if (ImGui::CollapsingHeader("Layout & Constraints", ImGuiTreeNodeFlags_DefaultOpen)) {
+
+                ImGui::SeparatorText("Sizing");
+                if (ImGui::Checkbox("Percentage Size", &s.usePercentageSize)) MarkSceneUpdated();
+                ImGui::BeginDisabled(!s.usePercentageSize);
+                if (ImGui::DragFloat2("Size (%)##PercSize", (float*)&s.percentageSize, 0.5f, 0.0f, 1000.0f, "%.1f")) {
+                    s.percentageSize.x = std::max(0.0f, s.percentageSize.x);
+                    s.percentageSize.y = std::max(0.0f, s.percentageSize.y);
+                    MarkSceneUpdated();
+                }
+                ImGui::EndDisabled();
+
+
+                ImGui::SeparatorText("Positioning");
+
+                const char* anchorModes[] = { "None", "TopLeft", "Top", "TopRight", "Left", "Center", "Right", "BottomLeft", "Bottom", "BottomRight" };
+                int currentAnchor = static_cast<int>(s.anchorMode);
+                if (ImGui::Combo("Anchor", &currentAnchor, anchorModes, IM_ARRAYSIZE(anchorModes))) {
+                    s.anchorMode = static_cast<ShapeItem::AnchorMode>(currentAnchor);
+
+                    if (s.anchorMode != ShapeItem::AnchorMode::None) {
+                        s.usePercentagePos = false;
+                    }
+                    MarkSceneUpdated();
+                }
+
+
+                ImGui::BeginDisabled(s.anchorMode == ShapeItem::AnchorMode::None);
+                if (ImGui::DragFloat2("Margin##Anchor", (float*)&s.anchorMargin, 0.5f)) MarkSceneUpdated();
+                ImGui::EndDisabled();
+
+
+                ImGui::BeginDisabled(s.anchorMode != ShapeItem::AnchorMode::None);
+                if (ImGui::Checkbox("Percentage Position", &s.usePercentagePos)) {
+
+                    if (s.usePercentagePos) {
+                        s.anchorMode = ShapeItem::AnchorMode::None;
+                    }
+                    MarkSceneUpdated();
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Anchoring must be 'None' to enable percentage position.");
+                ImGui::EndDisabled();
+
+
+                ImGui::BeginDisabled(!s.usePercentagePos || s.anchorMode != ShapeItem::AnchorMode::None);
+                if (ImGui::DragFloat2("Position (%)##PercPos", (float*)&s.percentagePos, 0.5f, -1000.0f, 1000.0f, "%.1f")) MarkSceneUpdated();
+                ImGui::EndDisabled();
+
+
+                ImGui::SeparatorText("Constraints");
+                ImVec2 currentMin = s.minSize;
+                ImVec2 currentMax = s.maxSize;
+                bool minChanged = false;
+                bool maxChanged = false;
+
+
+                if (ImGui::DragFloat2("Min Size##Const", (float*)&s.minSize, 1.0f, 0.0f, 99999.0f, "%.0f")) {
+                    s.minSize.x = std::max(0.f, s.minSize.x);
+                    s.minSize.y = std::max(0.f, s.minSize.y);
+
+                    s.maxSize.x = std::max(s.minSize.x, s.maxSize.x);
+                    s.maxSize.y = std::max(s.minSize.y, s.maxSize.y);
+                    minChanged = true;
+                    MarkSceneUpdated();
+                }
+
+
+                if (ImGui::DragFloat2("Max Size##Const", (float*)&s.maxSize, 1.0f, 0.0f, 99999.0f, "%.0f")) {
+                    s.maxSize.x = std::max(0.f, s.maxSize.x);
+                    s.maxSize.y = std::max(0.f, s.maxSize.y);
+
+                    s.maxSize.x = std::max(s.minSize.x, s.maxSize.x);
+                    s.maxSize.y = std::max(s.minSize.y, s.maxSize.y);
+                    maxChanged = true;
+                    MarkSceneUpdated();
+                }
+
+
+                if (minChanged || maxChanged) {
+                    s.size.x = std::max(s.minSize.x, std::min(s.size.x, s.maxSize.x));
+                    s.size.y = std::max(s.minSize.y, std::min(s.size.y, s.maxSize.y));
+                    s.baseSize.x = std::max(s.minSize.x, std::min(s.baseSize.x, s.maxSize.x));
+                    s.baseSize.y = std::max(s.minSize.y, std::min(s.baseSize.y, s.maxSize.y));
+                    MarkSceneUpdated();
+                }
+            }
+
+
+            if (ImGui::CollapsingHeader("Appearance", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::SeparatorText("Shape");
+                int st = (int)s.type; if (ImGui::Combo("Type", &st, "Rectangle\0Circle\0")) { s.type = (ShapeType)st; MarkSceneUpdated(); }
+                if (ImGui::DragFloat("Corner Radius", &s.cornerRadius, 0.5f, 0.0f, 200.0f)) MarkSceneUpdated();
+                if (ImGui::DragFloat("Border", &s.borderThickness, 0.1f, 0.0f, 20.0f)) MarkSceneUpdated();
+
+                ImGui::SeparatorText("Fill & Border");
+                if (ImGui::ColorEdit4("Fill##Color", (float*)&s.fillColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                if (ImGui::ColorEdit4("Border##Color", (float*)&s.borderColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+
+                if (ImGui::Checkbox("Use Gradient Fill", &s.useGradient)) { MarkSceneUpdated(); ClearGradientTextureCache(); }
+                ImGui::BeginDisabled(!s.useGradient);
+                if (s.useGradient) {
+                    ImGui::Indent();
+                    float gradr = s.gradientRotation; if (ImGui::DragFloat("Rotation##Grad", &gradr, 1.0f, 0.0f, 360.0f, "%.1f deg")) { s.gradientRotation = gradr; MarkSceneUpdated(); ClearGradientTextureCache(); }
+                    int interp_type = (int)s.gradientInterpolation; const char* interpItems[] = { "Linear", "Ease", "Constant", "Cardinal", "BSpline" }; if (ImGui::Combo("Interpolation##Grad", &interp_type, interpItems, IM_ARRAYSIZE(interpItems))) { s.gradientInterpolation = (ShapeItem::GradientInterpolation)interp_type; MarkSceneUpdated(); ClearGradientTextureCache(); }
+                    ImGui::Text("Color Ramp:");
+                    int ramp_color_to_delete = -1;
+                    for (int ci = 0; ci < (int)s.colorRamp.size(); ci++) {
+                        ImGui::PushID(ci + 3000);
+                        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
+                        if (ImGui::SliderFloat("Pos##Grad", &s.colorRamp[ci].first, 0.0f, 1.0f, "%.3f")) { MarkSceneUpdated(); ClearGradientTextureCache(); }
+                        ImGui::PopItemWidth(); ImGui::SameLine();
+                        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 30);
+                        if (ImGui::ColorEdit4("Color##Grad", (float*)&s.colorRamp[ci].second, ImGuiColorEditFlags_AlphaBar)) { MarkSceneUpdated(); ClearGradientTextureCache(); }
+                        ImGui::PopItemWidth(); ImGui::SameLine();
+                        if (ImGui::Button("[X]##GradDel", ImVec2(25, 0)) && s.colorRamp.size() > 1) {
+                            ramp_color_to_delete = ci;
+                        }
+                        ImGui::PopID();
+                    }
+                    if (ramp_color_to_delete != -1) {
+                        s.colorRamp.erase(s.colorRamp.begin() + ramp_color_to_delete); MarkSceneUpdated(); ClearGradientTextureCache();
+                    }
+                    if (ImGui::Button("[+] Add Color##Grad")) {
+                        s.colorRamp.emplace_back(0.5f, ImVec4(1, 1, 1, 1));
+                        std::sort(s.colorRamp.begin(), s.colorRamp.end(), [](const auto& a, const auto& b) {return a.first < b.first; });
+                        MarkSceneUpdated(); ClearGradientTextureCache();
+                    }
+                    ImGui::Unindent();
+                }
+                ImGui::EndDisabled();
+
+                ImGui::SeparatorText("Effects");
+                if (ImGui::TreeNodeEx("Shadow##Effects", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                    if (ImGui::ColorEdit4("Color##Shadow", (float*)&s.shadowColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    if (ImGui::DragFloat4("Spread##Shadow", (float*)&s.shadowSpread, 0.1f, 0.0f, 100.0f)) MarkSceneUpdated();
+                    if (ImGui::DragFloat2("Offset##Shadow", (float*)&s.shadowOffset, 0.5f)) MarkSceneUpdated();
+                    float shadow_rd = s.shadowRotation * (180.0f / IM_PI); if (ImGui::DragFloat("Rotation##Shadow", &shadow_rd, 1.0f, 0.0f, 360.0f, "%.1f deg")) { s.shadowRotation = shadow_rd * (IM_PI / 180.0f); MarkSceneUpdated(); }
+                    if (ImGui::Checkbox("Use Corner Radius##Shadow", &s.shadowUseCornerRadius)) MarkSceneUpdated();
+                    ImGui::TreePop();
+                }
+                if (ImGui::TreeNodeEx("Blur##Effects", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                    if (ImGui::DragFloat("Amount##Blur", &s.blurAmount, 0.1f, 0.0f, 20.0f)) MarkSceneUpdated();
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Basic simulated blur effect (visual only).");
+                    ImGui::TreePop();
+                }
+                if (ImGui::TreeNodeEx("Glass##Effects", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                    if (ImGui::Checkbox("Enable##Glass", &s.useGlass)) MarkSceneUpdated();
+                    ImGui::BeginDisabled(!s.useGlass);
+                    if (ImGui::SliderFloat("Blur##Glass", &s.glassBlur, 1.0f, 100.0f)) MarkSceneUpdated();
+                    if (ImGui::SliderFloat("Alpha##Glass", &s.glassAlpha, 0.0f, 1.0f)) MarkSceneUpdated();
+                    if (ImGui::ColorEdit4("Tint##Glass", (float*)&s.glassColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    ImGui::EndDisabled();
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Glass effect likely requires custom shader implementation.");
+                    ImGui::TreePop();
+                }
+
+                ImGui::SeparatorText("Visibility & Interaction");
+                if (ImGui::Checkbox("Visible##Vis", &s.visible)) MarkSceneUpdated(); ImGui::SameLine();
+                if (ImGui::Checkbox("Locked##Vis", &s.locked)) MarkSceneUpdated(); ImGui::SameLine();
+                ImGui::PushItemWidth(60);
+                int currentShapeZ = s.zOrder;
+                if (ImGui::DragInt("Z-Order##Vis", &s.zOrder, 0.1f)) {
+                    if (s.zOrder != currentShapeZ) {
+                        int layerIdx = FindShapeLayerIndex(s.id);
+                        if (layerIdx != -1) {
+
+
+                            MarkSceneUpdated();
+                        }
+                    }
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit() && s.zOrder != currentShapeZ) {}
+                ImGui::PopItemWidth();
+                if (ImGui::Checkbox("Allow Overlap##Vis", &s.allowItemOverlap)) MarkSceneUpdated(); ImGui::SameLine();
+                if (ImGui::Checkbox("Force Render Last##Vis", &s.forceOverlap)) MarkSceneUpdated(); ImGui::SameLine();
+                if (ImGui::Checkbox("Block Underneath##Vis", &s.blockUnderlying)) MarkSceneUpdated();
+            }
+
+
+            bool isContainer = s.isChildWindow || s.isImGuiContainer;
+            ImGui::BeginDisabled(isContainer);
+            if (ImGui::CollapsingHeader("Text", ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (isContainer && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Text properties disabled for containers.");
+                if (ImGui::Checkbox("Enable Text", &s.hasText)) MarkSceneUpdated();
+                ImGui::BeginDisabled(!s.hasText);
+                if (s.hasText) {
+                    static char textBufferProp[1024];
+                    static int lastEditedShapeId = -1;
+                    if (s.id != lastEditedShapeId) {
+                        strncpy(textBufferProp, s.text.c_str(), 1023);
+                        textBufferProp[1023] = '\0';
+                        lastEditedShapeId = s.id;
+                    }
+                    if (ImGui::InputTextMultiline("Content##Text", textBufferProp, 1024, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 4))) { s.text = textBufferProp; MarkSceneUpdated(); }
+                    if (ImGui::ColorEdit4("Color##Text", (float*)&s.textColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    if (ImGui::DragFloat("Size##Text", &s.textSize, 0.1f, 1.0f, 128.0f)) MarkSceneUpdated();
+                    if (ImGui::DragFloat2("Position Offset##Text", (float*)&s.textPosition, 0.5f)) MarkSceneUpdated();
+                    float textRotDeg = s.textRotation; if (ImGui::DragFloat("Rotation##Text", &textRotDeg, 1.0f, -360, 360, "%.1f deg")) { s.textRotation = textRotDeg; MarkSceneUpdated(); }
+                    const char* alignItems[] = { "Left", "Center", "Right" }; int textAlign = s.textAlignment; if (ImGui::Combo("Align##Text", &textAlign, alignItems, 3)) { s.textAlignment = textAlign; MarkSceneUpdated(); }
+                    if (ImGui::Checkbox("Dynamic Size##Text", &s.dynamicTextSize)) MarkSceneUpdated();
+                }
+                ImGui::EndDisabled();
+            }
+            else {
+                if (isContainer && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Text properties disabled for containers.");
+            }
+            ImGui::EndDisabled();
+
+
+            if (ImGui::CollapsingHeader("Image", ImGuiTreeNodeFlags_DefaultOpen)) {
+                bool prevHasImage = s.hasEmbeddedImage;
+                if (ImGui::Checkbox("Use Embedded Image", &s.hasEmbeddedImage)) {
+                    if (prevHasImage && !s.hasEmbeddedImage) s.imageDirty = true;
+                    MarkSceneUpdated();
+                }
+                ImGui::BeginDisabled(!s.hasEmbeddedImage);
+                if (s.hasEmbeddedImage) {
+                    if (g_embeddedImageFunctionsCount > 0) {
+                        if (ImGui::Combo("Source##Image", &s.embeddedImageIndex, g_embeddedImageFunctions, g_embeddedImageFunctionsCount)) {
+                            s.imageDirty = true;
+                            MarkSceneUpdated();
+                        }
+                        if (s.embeddedImageIndex >= 0 && s.embeddedImageTexture) {
+                            ImGui::Text("Preview:");
+                            float aspect = (s.embeddedImageHeight > 0 && s.embeddedImageWidth > 0) ? ((float)s.embeddedImageHeight / (float)s.embeddedImageWidth) : 1.0f;
+                            ImVec2 previewSize = ImVec2(100, 100.0f * aspect);
+                            ImGui::Image(s.embeddedImageTexture, previewSize);
+                        }
+                        else if (s.embeddedImageIndex >= 0) { ImGui::TextDisabled("Loading..."); }
+                    }
+                    else { ImGui::TextDisabled("No embedded image functions available."); }
+                }
+                ImGui::EndDisabled();
+            }
+
+
+            if (ImGui::CollapsingHeader("Button Behavior", ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (ImGui::Checkbox("Is Button", &s.isButton)) MarkSceneUpdated();
+                ImGui::BeginDisabled(!s.isButton);
+                if (s.isButton) {
+                    if (ImGui::ColorEdit4("Hover Color##Button", (float*)&s.hoverColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    if (ImGui::ColorEdit4("Click Color##Button", (float*)&s.clickedColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    const char* behaviors[] = { "Single Click", "Toggle", "Hold" }; int currentBehavior = (int)s.buttonBehavior; if (ImGui::Combo("Behavior##Button", &currentBehavior, behaviors, 3)) { s.buttonBehavior = (ShapeItem::ButtonBehavior)currentBehavior; MarkSceneUpdated(); }
+                    if (s.buttonBehavior == ShapeItem::ButtonBehavior::Toggle) {
+                        if (ImGui::InputInt("Toggle Group ID##Button", &s.groupId)) MarkSceneUpdated();
+                        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Buttons in the same group (>0) will toggle exclusively.");
+                    }
+                    bool usesAction = s.useOnClick || !s.eventHandlers.empty();
+                    if (ImGui::Checkbox("Has Click Action##Button", &usesAction)) {
+                        if (usesAction && !s.useOnClick && s.eventHandlers.empty()) {
+                            s.eventHandlers.push_back({ "onClick", "defaultOnClickAction", nullptr });
+                        }
+                        else if (!usesAction) {
+                            s.eventHandlers.clear();
+                            s.useOnClick = false;
+                            s.onClick = nullptr;
+                        }
+                        MarkSceneUpdated();
+                    }
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Indicates if a click action (legacy onClick or EventHandler) is assigned.\nActual function must be assigned in code.");
+                }
+                ImGui::EndDisabled();
+            }
+
+
+            if (ImGui::CollapsingHeader("Container Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                bool is_child_win = s.isChildWindow;
+                ImGui::BeginDisabled(s.isImGuiContainer);
+                if (ImGui::Checkbox("Registered Child Window Container", &is_child_win)) {
+                    if (is_child_win) { s.isChildWindow = true; s.isImGuiContainer = false; }
+                    else { s.isChildWindow = false; } MarkSceneUpdated();
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Mutually exclusive with ImGui Content Container.");
+                ImGui::EndDisabled();
+
+                ImGui::BeginDisabled(!s.isChildWindow);
+                if (s.isChildWindow) {
+                    ImGui::Indent();
+                    if (ImGui::Checkbox("Sync Size/Pos", &s.childWindowSync)) MarkSceneUpdated();
+                    if (ImGui::InputInt("Window Group ID##Child", &s.childWindowGroupId)) MarkSceneUpdated();
+                    ImGui::Text("Note: Window mapping/logic is set globally.");
+                    ImGui::Unindent();
+                }
+                ImGui::EndDisabled();
+
+                bool is_imgui_cont = s.isImGuiContainer;
+                ImGui::BeginDisabled(s.isChildWindow);
+                if (ImGui::Checkbox("Direct ImGui Content Container", &is_imgui_cont)) {
+                    if (is_imgui_cont) { s.isImGuiContainer = true; s.isChildWindow = false; }
+                    else { s.isImGuiContainer = false; } MarkSceneUpdated();
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Mutually exclusive with Child Window Container.");
+                ImGui::EndDisabled();
+
+                ImGui::BeginDisabled(!s.isImGuiContainer);
+                if (s.isImGuiContainer) {
+                    ImGui::Indent();
+                    ImGui::TextDisabled("Requires setting 'renderImGuiContent' callback in code.");
+                    if (fabs(s.rotation) > 0.01) ImGui::TextColored(ImVec4(1, 1, 0, 1), "Warning: Rotation may clip ImGui content.");
+                    ImGui::Unindent();
+                }
+                ImGui::EndDisabled();
+            }
+
+            if (ImGui::CollapsingHeader("Layout Konteyner Ayarları", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                bool isContainer = s.isLayoutContainer;
+                if (ImGui::Checkbox("Layout Konteyneri Olarak Kullan##Layout", &isContainer)) {
+                    if (s.isLayoutContainer != isContainer) {
+                        s.isLayoutContainer = isContainer;
+
+                        if (!isContainer && s.layoutManager != nullptr) {
+                            delete s.layoutManager;
+                            s.layoutManager = nullptr;
+                        }
+
+
+                        MarkSceneUpdated();
+                    }
+                }
+
+                ImGui::BeginDisabled(!s.isLayoutContainer);
+
+                const char* layoutTypes[] = { "Yok (None)", "Dikey (Vertical)", "Yatay (Horizontal)" };
+                int currentLayoutIndex = 0;
+                if (s.layoutManager != nullptr) {
+                    const char* typeName = s.layoutManager->getTypeName();
+                    if (strcmp(typeName, "Vertical") == 0) {
+                        currentLayoutIndex = 1;
+                    }
+                    else if (strcmp(typeName, "Horizontal") == 0) {
+                        currentLayoutIndex = 2;
+                    }
+                }
+
+                ImGui::PushItemWidth(-FLT_MIN * 0.5f);
+                if (ImGui::Combo("Layout Türü##Layout", &currentLayoutIndex, layoutTypes, IM_ARRAYSIZE(layoutTypes)))
+                {
+
+                    if (s.layoutManager != nullptr) {
+                        delete s.layoutManager;
+                        s.layoutManager = nullptr;
+                    }
+                    if (currentLayoutIndex == 1) {
+                        s.layoutManager = new VerticalLayout();
+                    }
+                    else if (currentLayoutIndex == 2) {
+                        s.layoutManager = new HorizontalLayout();
+                    }
+
+                    MarkSceneUpdated();
+                }
+                ImGui::PopItemWidth();
+
+
+                if (s.layoutManager != nullptr) {
+                    ImGui::Indent();
+                    if (ImGui::DragFloat("Spacing##Layout", &s.layoutManager->spacing, 0.5f, 0.0f, 10000.0f)) MarkSceneUpdated();
+                    if (ImGui::DragFloat("Padding Top##Layout", &s.layoutManager->paddingTop, 0.5f, 0.0f, 10000.0f)) MarkSceneUpdated();
+                    if (ImGui::DragFloat("Padding Bottom##Layout", &s.layoutManager->paddingBottom, 0.5f, 0.0f, 10000.0f)) MarkSceneUpdated();
+                    if (ImGui::DragFloat("Padding Left##Layout", &s.layoutManager->paddingLeft, 0.5f, 0.0f, 10000.0f)) MarkSceneUpdated();
+                    if (ImGui::DragFloat("Padding Right##Layout", &s.layoutManager->paddingRight, 0.5f, 0.0f, 10000.0f)) MarkSceneUpdated();
+                    ImGui::Unindent();
+                }
+
+                ImGui::EndDisabled();
+            }
+
+
+
+
+            bool showChildSettings = (s.parent != nullptr && s.parent->isLayoutContainer && s.parent->layoutManager != nullptr);
+            if (showChildSettings)
+            {
+                if (ImGui::CollapsingHeader("Layout Çocuk Ayarları", ImGuiTreeNodeFlags_DefaultOpen))
+                {
+
+                    if (ImGui::DragFloat("Esneme Faktörü (Stretch)##LayoutChild", &s.stretchFactor, 0.1f, 0.0f, 10000.0f)) {
+                        s.stretchFactor = std::max(0.0f, s.stretchFactor);
+                        MarkSceneUpdated();
+                    }
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("0: Esneme yok.\n>0: Diğer esneyen elemanlarla orantılı olarak boş alanı doldurur.");
+
+
+                    const char* hAlignItems[] = { "Doldur (Fill)", "Sol (Left)", "Orta (Center)", "Sağ (Right)" };
+                    int currentHAlign = static_cast<int>(s.horizontalAlignment);
+                    if (ImGui::Combo("Yatay Hizalama##LayoutChild", &currentHAlign, hAlignItems, IM_ARRAYSIZE(hAlignItems))) {
+                        s.horizontalAlignment = static_cast<HAlignment>(currentHAlign);
+                        MarkSceneUpdated();
+                    }
+
+
+                    const char* vAlignItems[] = { "Doldur (Fill)", "Üst (Top)", "Orta (Center)", "Alt (Bottom)" };
+                    int currentVAlign = static_cast<int>(s.verticalAlignment);
+                    if (ImGui::Combo("Dikey Hizalama##LayoutChild", &currentVAlign, vAlignItems, IM_ARRAYSIZE(vAlignItems))) {
+                        s.verticalAlignment = static_cast<VAlignment>(currentVAlign);
+                        MarkSceneUpdated();
+                    }
+                }
+            }
+
+
+            if (ImGui::CollapsingHeader("Animations (Button)", ImGuiTreeNodeFlags_DefaultOpen)) {
+                int anim_to_delete = -1;
+                for (int aIdx = 0; aIdx < (int)s.onClickAnimations.size(); aIdx++) {
+                    ImGui::PushID(aIdx + 5000);
+                    ButtonAnimation& anim = s.onClickAnimations[aIdx];
+                    const char* animLabel = (anim.name.empty()) ? "[Unnamed Animation]" : anim.name.c_str();
+                    if (ImGui::TreeNode(animLabel)) {
+                        char animNameBuf[128]; strncpy(animNameBuf, anim.name.c_str(), 127); animNameBuf[127] = '\0'; if (ImGui::InputText("Name##Anim", animNameBuf, 128)) { anim.name = animNameBuf; MarkSceneUpdated(); }
+                        if (ImGui::DragFloat("Duration##Anim", &anim.duration, 0.05f, 0.01f, 30.0f, "%.2f s")) MarkSceneUpdated();
+                        if (ImGui::DragFloat("Speed##Anim", &anim.speed, 0.1f, 0.1f, 10.0f)) MarkSceneUpdated();
+                        if (ImGui::DragFloat2("Target Pos Offset##Anim", (float*)&anim.animationTargetPosition, 0.5f)) MarkSceneUpdated();
+                        if (ImGui::DragFloat2("Target Size Offset##Anim", (float*)&anim.animationTargetSize, 0.5f)) MarkSceneUpdated();
+                        float targetRotDeg = anim.transformRotation; if (ImGui::DragFloat("Target Rot Offset##Anim", &targetRotDeg, 1.0f, -720, 720, "%.1f deg")) { anim.transformRotation = targetRotDeg; MarkSceneUpdated(); }
+                        const char* interpItems[] = { "Linear", "EaseInOut" }; int interpIdx = (int)anim.interpolationMethod; if (ImGui::Combo("Interpolation##Anim", &interpIdx, interpItems, 2)) { anim.interpolationMethod = (ButtonAnimation::InterpolationMethod)interpIdx; MarkSceneUpdated(); }
+                        const char* triggerItems[] = { "OnClick", "OnHover" }; int trigIdx = (int)anim.triggerMode; if (ImGui::Combo("Trigger##Anim", &trigIdx, triggerItems, 2)) { anim.triggerMode = (ButtonAnimation::TriggerMode)trigIdx; MarkSceneUpdated(); }
+                        const char* behaviorItems[] = { "Play Once & Stay", "Play Once & Reverse", "Toggle", "Hold & Reverse", "Hold & Stay" }; int behIdx = (int)anim.behavior; if (ImGui::Combo("Behavior##Anim", &behIdx, behaviorItems, 5)) { anim.behavior = (ButtonAnimation::AnimationBehavior)behIdx; MarkSceneUpdated(); }
+                        if (ImGui::InputInt("Repeat (0=inf)##Anim", &anim.repeatCount)) MarkSceneUpdated();
+                        ImGui::ProgressBar(anim.progress, ImVec2(-FLT_MIN, 0));
+                        if (ImGui::Button("[X] Remove Animation##Anim")) { anim_to_delete = aIdx; }
+                        ImGui::TreePop();
+                    }
+                    ImGui::PopID();
+                }
+                if (anim_to_delete != -1) { s.onClickAnimations.erase(s.onClickAnimations.begin() + anim_to_delete); MarkSceneUpdated(); }
+                if (ImGui::Button("[+] Add Animation##Anim")) {
+                    s.onClickAnimations.push_back({});
+                    s.onClickAnimations.back().name = "New Animation";
+                    MarkSceneUpdated();
+                }
+            }
+
+
+            if (ImGui::CollapsingHeader("Shape Keys (Responsive)", ImGuiTreeNodeFlags_DefaultOpen)) {
+                int key_to_delete = -1;
+                for (int iKey = 0; iKey < (int)s.shapeKeys.size(); iKey++) {
+                    ImGui::PushID(iKey + 6000);
+                    auto& sk = s.shapeKeys[iKey];
+                    const char* keyLabel = (sk.name.empty()) ? "[Unnamed Key]" : sk.name.c_str();
+                    if (ImGui::TreeNode(keyLabel)) {
+                        char nameBuf[128]; strncpy(nameBuf, sk.name.c_str(), 127); nameBuf[127] = '\0'; if (ImGui::InputText("Name##SK", nameBuf, 128)) { sk.name = nameBuf; MarkSceneUpdated(); }
+                        const char* types[] = { "SizeX", "SizeY", "PositionX", "PositionY", "Rotation" }; int currentType = (int)sk.type; if (ImGui::Combo("Type##SK", &currentType, types, 5)) { sk.type = (ShapeKeyType)currentType; MarkSceneUpdated(); }
+                        if (ImGui::DragFloat2("Start Window Size##SK", (float*)&sk.startWindowSize, 5.0f, 0.0f, 8000.0f, "%.0f")) MarkSceneUpdated();
+                        if (ImGui::DragFloat2("End Window Size##SK", (float*)&sk.endWindowSize, 5.0f, 0.0f, 8000.0f, "%.0f")) MarkSceneUpdated();
+
+                        if (sk.type == ShapeKeyType::Rotation) {
+                            float targetRotDeg = sk.targetRotation; if (ImGui::DragFloat("Target Rot##SK", &targetRotDeg, 1.0f, -720, 720, "%.1f deg")) { sk.targetRotation = targetRotDeg; MarkSceneUpdated(); }
+                            float rotOffDeg = sk.rotationOffset; if (ImGui::DragFloat("Rot Offset##SK", &rotOffDeg, 1.0f, -720, 720, "%.1f deg")) { sk.rotationOffset = rotOffDeg; MarkSceneUpdated(); }
+                        }
+                        else {
+                            if (ImGui::DragFloat2("Target Value##SK", (float*)&sk.targetValue, 0.5f)) MarkSceneUpdated();
+                            if (ImGui::DragFloat2("Offset##SK", (float*)&sk.offset, 0.5f)) MarkSceneUpdated();
+                        }
+                        char progressText[32];
+                        snprintf(progressText, sizeof(progressText), "%.1f%%", sk.value * 100.0f);
+                        ImGui::ProgressBar(sk.value, ImVec2(-FLT_MIN, 0), progressText);
+                        if (ImGui::Button("[X] Remove Key##SK")) { key_to_delete = iKey; }
+                        ImGui::TreePop();
+                    }
+                    ImGui::PopID();
+                }
+                if (key_to_delete != -1) { s.shapeKeys.erase(s.shapeKeys.begin() + key_to_delete); MarkSceneUpdated(); }
+                if (ImGui::Button("[+] Add Shape Key##SK")) {
+                    s.shapeKeys.push_back({});
+                    s.shapeKeys.back().name = "New Key";
                     MarkSceneUpdated();
                 }
                 ImGui::Separator();
-
-                if (ImGui::CollapsingHeader("Original (Base) Transform", ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    if (ImGui::DragFloat2("Base Position", (float*)&s.basePosition, 1.0f))
-                        MarkSceneUpdated();
-                    if (ImGui::DragFloat2("Base Size", (float*)&s.baseSize, 1.0f))
-                        MarkSceneUpdated();
-
-                    float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
-                    if (ImGui::DragFloat("Base Rotation (deg)", &baseRotDeg, 1.0f, 0.0f, 360.0f))
-                    {
-                        s.baseRotation = baseRotDeg * (IM_PI / 180.0f);
-                        MarkSceneUpdated();
-                    }
-                }
-
-                if (ImGui::CollapsingHeader("Final Transform", ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    ImVec2 posOffset = ImVec2(s.position.x - s.basePosition.x, s.position.y - s.basePosition.y);
-                    ImVec2 sizeOffset = ImVec2(s.size.x - s.baseSize.x, s.size.y - s.baseSize.y);
-                    float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
-                    float finalRotDeg = s.rotation * (180.0f / IM_PI);
-                    float rotOffsetDeg = finalRotDeg - baseRotDeg;
-
-                    ImGui::Text("Position (Final): (%.1f, %.1f) = Base (%.1f, %.1f) + Offset (%.1f, %.1f)", s.position.x, s.position.y, s.basePosition.x, s.basePosition.y, posOffset.x, posOffset.y);
-                    ImGui::Text("Size (Final): (%.1f, %.1f) = Base (%.1f, %.1f) + Offset (%.1f, %.1f)", s.size.x, s.size.y, s.baseSize.x, s.baseSize.y, sizeOffset.x, sizeOffset.y);
-                    ImGui::Text("Rotation (Final): %.1f° = Base (%.1f°) + Offset (%.1f°)", finalRotDeg, baseRotDeg, rotOffsetDeg);
-                }
-
-                ImGui::Separator();
-
-                if (ImGui::CollapsingHeader("Shape Keys", ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    for (int iKey = 0; iKey < (int)s.shapeKeys.size(); iKey++)
-                    {
-                        ImGui::PushID(iKey);
-                        auto& sk = s.shapeKeys[iKey];
-                        if (ImGui::TreeNode(("ShapeKey: " + sk.name + "##" + std::to_string(iKey)).c_str()))
-                        {
-                            char nameBuf[128];
-                            strncpy(nameBuf, sk.name.c_str(), sizeof(nameBuf));
-                            if (ImGui::InputText("Key Name", nameBuf, sizeof(nameBuf)))
-                            {
-                                sk.name = nameBuf;
-                                MarkSceneUpdated();
-                            }
-                            const char* types[] = { "SizeX", "SizeY", "PositionX", "PositionY", "Rotation" };
-                            int currentType = (int)sk.type;
-                            if (ImGui::Combo("Type", &currentType, types, IM_ARRAYSIZE(types)))
-                            {
-                                sk.type = (ShapeKeyType)currentType;
-                                MarkSceneUpdated();
-                            }
-                            if (ImGui::DragFloat2("Start Window Size", (float*)&sk.startWindowSize, 10.0f, 300.0f, 8000.0f, "%.0f"))
-                            {
-                                MarkSceneUpdated();
-                            }
-                            if (ImGui::DragFloat2("End Window Size", (float*)&sk.endWindowSize, 10.0f, 300.0f, 8000.0f, "%.0f"))
-                            {
-                                MarkSceneUpdated();
-                            }
-                            if (sk.type == ShapeKeyType::Rotation)
-                            {
-                                float targetRotDeg = sk.targetRotation;
-                                if (ImGui::DragFloat("Target Rotation (deg)", &targetRotDeg, 1.0f, 0.0f, 360.0f))
-                                {
-                                    sk.targetRotation = targetRotDeg;
-                                    MarkSceneUpdated();
-                                }
-                                float rotationOffsetDeg = sk.rotationOffset;
-                                if (ImGui::DragFloat("Rotation Offset (deg)", &rotationOffsetDeg, 1.0f, -360.0f, 360.0f))
-                                {
-                                    sk.rotationOffset = rotationOffsetDeg;
-                                    MarkSceneUpdated();
-                                }
-                            }
-                            else
-                            {
-                                if (ImGui::DragFloat2("Target Value", (float*)&sk.targetValue, 1.0f, 0.0f, 10000.0f, "%.1f"))
-                                {
-                                    MarkSceneUpdated();
-                                }
-                                if (ImGui::DragFloat2("Offset", (float*)&sk.offset, 1.0f, -1000.0f, 1000.0f, "%.1f"))
-                                {
-                                    MarkSceneUpdated();
-                                }
-                            }
-                            if (ImGui::Button("Remove This Key"))
-                            {
-                                s.shapeKeys.erase(s.shapeKeys.begin() + iKey);
-                                ImGui::TreePop();
-                                ImGui::PopID();
-                                iKey--;
-                                continue;
-                            }
-                            ImGui::Text("Shape Key Progress = %.1f%%", sk.value);
-                            ImGui::ProgressBar(sk.value / 100.0f, ImVec2(-1, 0), (std::to_string((int)sk.value) + "%").c_str());
-                            ImGui::TreePop();
-                        }
-                        ImGui::PopID();
-                    }
-                    if (ImGui::CollapsingHeader("Base Offsets", ImGuiTreeNodeFlags_DefaultOpen))
-                    {
-                        if (ImGui::DragFloat2("Base Position Offset", (float*)&s.baseKeyOffset, 1.0f))
-                            MarkSceneUpdated();
-                        if (ImGui::DragFloat2("Base Size Offset", (float*)&s.baseKeySizeOffset, 1.0f))
-                            MarkSceneUpdated();
-
-                        float baseOffsetRotDeg = s.baseKeyRotationOffset * (180.0f / IM_PI);
-                        if (ImGui::DragFloat("Base Rotation Offset (deg)", &baseOffsetRotDeg, 1.0f, -360.0f, 360.0f))
-                        {
-                            s.baseKeyRotationOffset = baseOffsetRotDeg * (IM_PI / 180.0f);
-                            MarkSceneUpdated();
-                        }
-                        if (ImGui::Button("Reset Base Offsets"))
-                        {
-                            s.baseKeyOffset = ImVec2(0, 0);
-                            s.baseKeySizeOffset = ImVec2(0, 0);
-                            s.baseKeyRotationOffset = 0.0f;
-                            MarkSceneUpdated();
-                        }
-                    }
-                    if (ImGui::Button("Add New Shape Key"))
-                    {
-                        ShapeKey newKey;
-                        newKey.name = "New Shape Key";
-                        newKey.type = ShapeKeyType::SizeX;
-                        newKey.startWindowSize = ImVec2(800.0f, 600.0f);
-                        newKey.endWindowSize = ImVec2(1200.0f, 900.0f);
-                        newKey.targetValue = ImVec2(100.0f, 100.0f);
-                        newKey.targetRotation = 0.0f;
-                        newKey.value = 0.0f;
-                        s.shapeKeys.push_back(newKey);
-                        MarkSceneUpdated();
-                    }
-                }
-
-                ImGui::Checkbox("Update Animation Base On Resize", &s.updateAnimBaseOnResize);
-
-                if (ImGui::CollapsingHeader("Button Animations", ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    for (int aIdx = 0; aIdx < (int)s.onClickAnimations.size(); aIdx++)
-                    {
-                        ImGui::PushID(aIdx);
-                        ButtonAnimation& anim = s.onClickAnimations[aIdx];
-                        if (ImGui::TreeNode((anim.name + "##Anim_" + std::to_string(aIdx)).c_str()))
-                        {
-                            char animNameBuf[128];
-                            strncpy(animNameBuf, anim.name.c_str(), sizeof(animNameBuf));
-                            if (ImGui::InputText("Name", animNameBuf, sizeof(animNameBuf)))
-                            {
-                                anim.name = animNameBuf;
-                                MarkSceneUpdated();
-                            }
-                            ImGui::DragFloat("Duration (s)", &anim.duration, 0.1f, 0.1f, 20.0f);
-                            ImGui::DragFloat("Speed", &anim.speed, 0.1f, 0.1f, 10.0f);
-
-                            ImGui::DragFloat2("Target Pos", (float*)&anim.animationTargetPosition, 1.0f);
-                            ImGui::DragFloat2("Target Size", (float*)&anim.animationTargetSize, 1.0f);
-                            float targetRotDeg = anim.transformRotation * (180.0f / IM_PI);
-                            if (ImGui::DragFloat("Target Rotation (deg)", &targetRotDeg, 1.0f, 0.0f, 360.0f))
-                            {
-                                anim.transformRotation = targetRotDeg * DEG2RAD;
-                                MarkSceneUpdated();
-                            }
-
-                            ImGui::InputInt("Repeat Count (0=inf)", &anim.repeatCount);
-
-                            const char* poItems[] = { "Sıralı", "HemenArkasina" };
-                            int poIdx = (int)anim.playbackOrder;
-                            if (ImGui::Combo("Playback Order", &poIdx, poItems, IM_ARRAYSIZE(poItems)))
-                            {
-                                anim.playbackOrder = (PlaybackOrder)poIdx;
-                                MarkSceneUpdated();
-                            }
-                            const char* interpItems[] = { "Linear", "EaseInOut" };
-                            int interpIdx = (int)anim.interpolationMethod;
-                            if (ImGui::Combo("Interpolation", &interpIdx, interpItems, IM_ARRAYSIZE(interpItems)))
-                            {
-                                anim.interpolationMethod = (ButtonAnimation::InterpolationMethod)interpIdx;
-                                MarkSceneUpdated();
-                            }
-                            const char* triggerItems[] = { "OnClick", "OnHover" };
-                            int trigIdx = (int)anim.triggerMode;
-                            if (ImGui::Combo("Trigger Mode", &trigIdx, triggerItems, IM_ARRAYSIZE(triggerItems)))
-                            {
-                                anim.triggerMode = (ButtonAnimation::TriggerMode)trigIdx;
-                                MarkSceneUpdated();
-                            }
-                            const char* behaviorItems[] = { "Play Once and Stay", "Play Once and Reverse", "Toggle", "Play While Holding and Reverse on Release", "Play While Holding and Stay" };
-                            int behIdx = (int)anim.behavior;
-                            if (ImGui::Combo("Behavior", &behIdx, behaviorItems, IM_ARRAYSIZE(behaviorItems)))
-                            {
-                                anim.behavior = (ButtonAnimation::AnimationBehavior)behIdx;
-                                MarkSceneUpdated();
-                            }
-
-                            if (ImGui::Button("Remove This Animation"))
-                            {
-                                s.onClickAnimations.erase(s.onClickAnimations.begin() + aIdx);
-                                ImGui::TreePop();
-                                ImGui::PopID();
-                                aIdx--;
-                                continue;
-                            }
-
-                            ImGui::Text("Animation Progress: %.0f%%", anim.progress * 100.0f);
-                            ImGui::ProgressBar(anim.progress, ImVec2(-1, 0));
-                            ImGui::TreePop();
-                        }
-                        ImGui::PopID();
-                    }
-                    if (ImGui::Button("Add New Animation"))
-                    {
-                        ButtonAnimation newAnim;
-                        newAnim.name = "New Animation";
-                        newAnim.duration = 1.0f;
-                        newAnim.speed = 1.0f;
-                        newAnim.animationTargetPosition = ImVec2(150, 150);
-                        newAnim.animationTargetSize = ImVec2(300, 200);
-                        newAnim.transformRotation = 45.0f * DEG2RAD;
-                        newAnim.interpolationMethod = ButtonAnimation::InterpolationMethod::Linear;
-                        newAnim.behavior = ButtonAnimation::AnimationBehavior::PlayOnceAndStay;
-                        newAnim.progress = 0.0f;
-                        newAnim.isPlaying = false;
-
-                        s.onClickAnimations.push_back(newAnim);
-                        MarkSceneUpdated();
-                    }
-                }
-
-                if (ImGui::CollapsingHeader("Event Handlers", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    // Display existing handlers
-                    for (int i = 0; i < s.eventHandlers.size(); i++) {
-                        ImGui::PushID(i);
-                        auto& handler = s.eventHandlers[i];
-                        ImGui::Text("%s: %s", handler.eventType.c_str(), handler.name.c_str());
-                        if (ImGui::Button("Remove")) {
-                            s.eventHandlers.erase(s.eventHandlers.begin() + i);
-                            i--;
-                        }
-                        ImGui::PopID();
-                    }
-                    
-                    // Add new handler
-                    static char eventTypeBuffer[128] = "onClick";
-                    static char nameBuffer[128] = "handleEvent";
-                    ImGui::InputText("Event Type", eventTypeBuffer, sizeof(eventTypeBuffer));
-                    ImGui::InputText("Handler Name", nameBuffer, sizeof(nameBuffer));
-                    if (ImGui::Button("Add Handler")) {
-                        s.eventHandlers.push_back({eventTypeBuffer, nameBuffer, [](ShapeItem&) {}});
-                    }
-                }
+                ImGui::Text("Base Offsets for Keys:");
+                if (ImGui::DragFloat2("Pos##SKBase", (float*)&s.baseKeyOffset, 0.5f)) MarkSceneUpdated();
+                if (ImGui::DragFloat2("Size##SKBase", (float*)&s.baseKeySizeOffset, 0.5f)) MarkSceneUpdated();
+                float baseOffRotDeg = s.baseKeyRotationOffset; if (ImGui::DragFloat("Rot##SKBase", &baseOffRotDeg, 1.0f, -720, 720, "%.1f deg")) { s.baseKeyRotationOffset = baseOffRotDeg; MarkSceneUpdated(); }
+                if (ImGui::Button("Reset Base Offsets##SK")) { s.baseKeyOffset = ImVec2(0, 0); s.baseKeySizeOffset = ImVec2(0, 0); s.baseKeyRotationOffset = 0; MarkSceneUpdated(); }
             }
+
+
+            if (ImGui::CollapsingHeader("Event Handlers", ImGuiTreeNodeFlags_DefaultOpen)) {
+                int handler_to_delete = -1;
+                for (int i = 0; i < s.eventHandlers.size(); i++) {
+                    ImGui::PushID(i + 7000);
+                    auto& handler = s.eventHandlers[i];
+                    ImGui::BulletText("'%s' -> %s", handler.eventType.c_str(), handler.name.c_str()); ImGui::SameLine();
+                    if (ImGui::SmallButton("[X]##DelHandler")) { handler_to_delete = i; }
+                    ImGui::PopID();
+                }
+                if (handler_to_delete != -1) { s.eventHandlers.erase(s.eventHandlers.begin() + handler_to_delete); MarkSceneUpdated(); }
+
+                static char eventTypeBuffer[64] = "onClick";
+                static char handlerNameBuffer[64] = "myHandler";
+                ImGui::InputText("Event Type##Add", eventTypeBuffer, 64); ImGui::SameLine();
+                ImGui::InputText("Handler Name##Add", handlerNameBuffer, 64); ImGui::SameLine();
+                if (ImGui::Button("[+]##AddHandler")) {
+                    if (strlen(eventTypeBuffer) > 0 && strlen(handlerNameBuffer) > 0) {
+                        s.eventHandlers.push_back({ eventTypeBuffer, handlerNameBuffer, nullptr });
+                        MarkSceneUpdated();
+                    }
+                }
+                ImGui::TextDisabled("Note: Handler function must be assigned in code via name lookup.");
+            }
+
+            ImGui::EndDisabled();
+
         }
-    }
-
-    inline void ShowUI_ParentTreeWindow()
-    {
-        ImGui::SetNextWindowSize(ImVec2(400, 600), ImGuiCond_FirstUseEver);
-        ImVec2 windowSize = ImGui::GetWindowSize();
-        float buttonAreaHeight = ImGui::GetFrameHeight() * 5 + ImGui::GetStyle().ItemSpacing.y * 4;
-        float scrollAreaHeight = windowSize.y - buttonAreaHeight - ImGui::GetStyle().WindowPadding.y;
-
-        ImGui::Begin("Parent Tree");
+        else if (selectedShapes.size() > 1)
         {
-            ImVec2 windowSize = ImGui::GetWindowSize();
-            float buttonAreaHeight = ImGui::GetFrameHeight() * 5 + ImGui::GetStyle().ItemSpacing.y * 4;
-            float scrollAreaHeight = windowSize.y - buttonAreaHeight - ImGui::GetStyle().WindowPadding.y;
 
-            ImGui::BeginChild("ScrollArea", ImVec2(0, scrollAreaHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
-            for (auto& [windowName, winData] : g_windowsMap)
+            ImGui::Text("%zu Shapes Selected", selectedShapes.size());
+            ImGui::Separator();
+
+
+            bool anyLocked = std::any_of(selectedShapes.begin(), selectedShapes.end(), [](ShapeItem* s) {
+                if (!s) return false;
+                int layerIdx = FindShapeLayerIndex(s->id);
+                bool layerLocked = false;
+                if (g_windowsMap.count(selectedGuiWindow) && layerIdx != -1) {
+                    WindowData& currentWindowData = g_windowsMap.at(selectedGuiWindow);
+                    if (layerIdx >= 0 && layerIdx < currentWindowData.layers.size()) layerLocked = currentWindowData.layers[layerIdx].locked;
+                }
+                return s->locked || layerLocked;
+                });
+
+            if (anyLocked) ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Multi-edit disabled (some shapes/layers locked)");
+
+
+
+            static bool needsRotationSample = true;
+            static bool needsColorSample = true;
+            static bool needsMinMaxSizeSample = true;
+
+
+            static bool multiRotOffsetMode = false;
+            static bool multiColOffsetMode = false;
+
+
+            static float multiRotation = 0.0f;
+            static ImVec4 multiFillColor = ImVec4(1, 1, 1, 1);
+            static ImVec2 multiMinSize = ImVec2(0, 0);
+            static ImVec2 multiMaxSize = ImVec2(99999, 99999);
+
+
+            static float multiDeltaPos[2] = { 0.0f, 0.0f };
+            static float multiDeltaSize[2] = { 0.0f, 0.0f };
+            static float multiDeltaRot = 0.0f;
+            static float multiDeltaColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+
+            static bool isDraggingRot = false;
+            static bool isDraggingCol = false;
+
+
+            static std::vector<float> initialBaseRotations;
+            static std::vector<ImVec4> initialColors;
+
+
+            static float multiDeltaRotAccum = 0.0f;
+            static float multiDeltaColAccum[4] = { 0,0,0,0 };
+
+
+            ImGui::BeginDisabled(anyLocked);
+
+
+            static std::vector<int> lastSelectedShapeIds;
+            std::vector<int> currentSelectedShapeIds;
+            for (const auto* s : selectedShapes) { if (s) currentSelectedShapeIds.push_back(s->id); }
+            std::sort(currentSelectedShapeIds.begin(), currentSelectedShapeIds.end());
+
+            bool selectionChanged = (currentSelectedShapeIds != lastSelectedShapeIds);
+            if (selectionChanged) {
+                lastSelectedShapeIds = currentSelectedShapeIds;
+                needsRotationSample = true;
+                needsColorSample = true;
+                needsMinMaxSizeSample = true;
+
+                isDraggingRot = isDraggingCol = false;
+                multiDeltaRotAccum = 0.0f;
+                multiDeltaColAccum[0] = multiDeltaColAccum[1] = multiDeltaColAccum[2] = multiDeltaColAccum[3] = 0.0f;
+            }
+
+
+            ImGui::PushID("MultiPos");
+
+            if (ImGui::DragFloat2("Delta Position", multiDeltaPos, 0.5f))
             {
-                if (ImGui::TreeNodeEx((windowName + "##Window").c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+
+                if (fabs(multiDeltaPos[0]) > 1e-6f || fabs(multiDeltaPos[1]) > 1e-6f)
                 {
-                    for (int i = 0; i < static_cast<int>(winData.layers.size()); i++)
+                    for (ShapeItem* shape : selectedShapes)
                     {
-                        Layer& layer = winData.layers[i];
-                        if (ImGui::TreeNodeEx((layer.name + "##" + windowName + std::to_string(layer.id)).c_str(),
-                            ImGuiTreeNodeFlags_DefaultOpen))
-                        {
-                            for (int j = 0; j < static_cast<int>(layer.shapes.size()); j++)
-                            {
-                                ShapeItem* shape = &layer.shapes[j];
-                                if (shape->parent == nullptr)
-                                    DrawShapeTreeNode(shape);
+                        if (!shape || shape->locked || anyLocked) continue;
+
+                        shape->basePosition.x += multiDeltaPos[0];
+                        shape->basePosition.y += multiDeltaPos[1];
+
+                    }
+                    MarkSceneUpdated();
+
+                    multiDeltaPos[0] = multiDeltaPos[1] = 0.0f;
+                }
+
+                else if (multiDeltaPos[0] == 0.0f && multiDeltaPos[1] == 0.0f) {
+
+                }
+            }
+            ImGui::PopID();
+
+
+
+            ImGui::PushID("MultiSize");
+            if (ImGui::DragFloat2("Delta Size", multiDeltaSize, 0.5f))
+            {
+
+                if (fabs(multiDeltaSize[0]) > 1e-6f || fabs(multiDeltaSize[1]) > 1e-6f)
+                {
+                    for (ShapeItem* shape : selectedShapes)
+                    {
+                        if (!shape || shape->locked || anyLocked) continue;
+
+                        ImVec2 targetBaseSize = shape->baseSize;
+                        targetBaseSize.x += multiDeltaSize[0];
+                        targetBaseSize.y += multiDeltaSize[1];
+
+
+                        targetBaseSize.x = std::max(shape->minSize.x, std::min(targetBaseSize.x, shape->maxSize.x));
+                        targetBaseSize.y = std::max(shape->minSize.y, std::min(targetBaseSize.y, shape->maxSize.y));
+
+
+                        shape->baseSize = targetBaseSize;
+
+                    }
+                    MarkSceneUpdated();
+
+                    multiDeltaSize[0] = multiDeltaSize[1] = 0.0f;
+                }
+                else if (multiDeltaSize[0] == 0.0f && multiDeltaSize[1] == 0.0f) {
+
+                }
+            }
+            ImGui::PopID();
+
+
+
+            static bool lastMultiRotOffsetMode = multiRotOffsetMode;
+            if (ImGui::Checkbox("Offset Mode (Rotation)", &multiRotOffsetMode)) {
+                if (!multiRotOffsetMode && lastMultiRotOffsetMode) { needsRotationSample = true; }
+                lastMultiRotOffsetMode = multiRotOffsetMode;
+            }
+
+            if (!multiRotOffsetMode) {
+                if (needsRotationSample && !selectedShapes.empty()) {
+                    ShapeItem* firstValidShape = nullptr;
+                    for (auto* s : selectedShapes) { if (s && !s->locked && !anyLocked) { firstValidShape = s; break; } }
+                    if (firstValidShape) { multiRotation = firstValidShape->baseRotation * (180.0f / IM_PI); }
+                    else { multiRotation = 0.0f; }
+                    needsRotationSample = false;
+                }
+                ImGui::PushID("MultiRotAbs");
+                if (ImGui::DragFloat("Set Rotation", &multiRotation, 1.0f, -720, 720, "%.1f deg")) {
+                    float rotationInRadians = multiRotation * (IM_PI / 180.0f);
+                    for (auto* shape : selectedShapes) { if (shape && !shape->locked && !anyLocked) { shape->baseRotation = rotationInRadians; shape->rotation = rotationInRadians; } }
+                    MarkSceneUpdated();
+                    needsRotationSample = false;
+                }
+                ImGui::PopID();
+            }
+            else {
+                ImGui::PushID("MultiRotDelta");
+                if (ImGui::DragFloat("Delta Rotation", &multiDeltaRot, 1.0f, -360.0f, 360.0f, "%+.1f deg")) {
+                    if (ImGui::IsItemActivated()) {
+                        isDraggingRot = true; multiDeltaRotAccum = 0.0f; initialBaseRotations.clear();
+                        for (auto* shape : selectedShapes) { initialBaseRotations.push_back((shape && !shape->locked && !anyLocked) ? shape->baseRotation : NAN); }
+                    }
+                    if (isDraggingRot && fabs(multiDeltaRot) > 1e-6) {
+                        multiDeltaRotAccum += multiDeltaRot * (IM_PI / 180.0f);
+                        for (size_t i = 0; i < selectedShapes.size(); ++i) { if (i < initialBaseRotations.size() && selectedShapes[i] && !isnan(initialBaseRotations[i])) { selectedShapes[i]->rotation = initialBaseRotations[i] + multiDeltaRotAccum; } }
+                        MarkSceneUpdated();
+                    }
+                    multiDeltaRot = 0.0f;
+                }
+                else if (isDraggingRot && !ImGui::IsItemActive()) {
+                    isDraggingRot = false;
+                    for (size_t i = 0; i < selectedShapes.size(); ++i) { if (i < initialBaseRotations.size() && selectedShapes[i] && !isnan(initialBaseRotations[i])) { selectedShapes[i]->baseRotation = initialBaseRotations[i] + multiDeltaRotAccum; selectedShapes[i]->rotation = selectedShapes[i]->baseRotation; } }
+                    multiDeltaRotAccum = 0.0f; multiDeltaRot = 0.0f; initialBaseRotations.clear(); MarkSceneUpdated();
+                }
+                ImGui::PopID();
+            }
+
+
+
+            static bool lastMultiColOffsetMode = multiColOffsetMode;
+            if (ImGui::Checkbox("Offset Mode (Fill Color)", &multiColOffsetMode)) {
+                if (!multiColOffsetMode && lastMultiColOffsetMode) { needsColorSample = true; }
+                lastMultiColOffsetMode = multiColOffsetMode;
+            }
+
+            if (!multiColOffsetMode) {
+                if (needsColorSample && !selectedShapes.empty()) {
+                    ShapeItem* firstValidShape = nullptr;
+                    for (auto* s : selectedShapes) { if (s && !s->locked && !anyLocked) { firstValidShape = s; break; } }
+                    if (firstValidShape) { multiFillColor = firstValidShape->fillColor; }
+                    else { multiFillColor = ImVec4(1, 1, 1, 1); }
+                    needsColorSample = false;
+                }
+                ImGui::PushID("MultiColorAbs");
+                if (ImGui::ColorEdit4("Set Fill Color", (float*)&multiFillColor, ImGuiColorEditFlags_AlphaBar)) {
+                    for (auto* shape : selectedShapes) { if (shape && !shape->locked && !anyLocked) { shape->fillColor = multiFillColor; } }
+                    MarkSceneUpdated();
+                    needsColorSample = false;
+                }
+                ImGui::PopID();
+            }
+            else {
+                ImGui::PushID("MultiColorDelta");
+                if (ImGui::DragFloat4("Delta Fill Color", multiDeltaColor, 0.01f, -1.0f, 1.0f)) {
+                    if (ImGui::IsItemActivated()) {
+                        isDraggingCol = true; for (int k = 0; k < 4; ++k) multiDeltaColAccum[k] = 0.0f; initialColors.clear();
+                        for (auto* shape : selectedShapes) { initialColors.push_back((shape && !shape->locked && !anyLocked) ? shape->fillColor : ImVec4(NAN, NAN, NAN, NAN)); }
+                    }
+                    bool changed = false; for (int i = 0; i < 4; ++i) { if (fabs(multiDeltaColor[i]) > 1e-6) { changed = true; break; } }
+                    if (isDraggingCol && changed) {
+                        for (int k = 0; k < 4; ++k) multiDeltaColAccum[k] += multiDeltaColor[k];
+                        for (size_t i = 0; i < selectedShapes.size(); ++i) {
+                            if (i < initialColors.size() && selectedShapes[i] && !isnan(initialColors[i].x)) {
+                                selectedShapes[i]->fillColor.x = std::max(0.0f, std::min(1.0f, initialColors[i].x + multiDeltaColAccum[0]));
+                                selectedShapes[i]->fillColor.y = std::max(0.0f, std::min(1.0f, initialColors[i].y + multiDeltaColAccum[1]));
+                                selectedShapes[i]->fillColor.z = std::max(0.0f, std::min(1.0f, initialColors[i].z + multiDeltaColAccum[2]));
+                                selectedShapes[i]->fillColor.w = std::max(0.0f, std::min(1.0f, initialColors[i].w + multiDeltaColAccum[3]));
                             }
-                            ImGui::TreePop();
                         }
+                        MarkSceneUpdated();
                     }
-                    ImGui::TreePop();
+                    multiDeltaColor[0] = multiDeltaColor[1] = multiDeltaColor[2] = multiDeltaColor[3] = 0.0f;
                 }
+                else if (isDraggingCol && !ImGui::IsItemActive()) {
+                    isDraggingCol = false; multiDeltaColAccum[0] = multiDeltaColAccum[1] = multiDeltaColAccum[2] = multiDeltaColAccum[3] = 0.0f;
+                    multiDeltaColor[0] = multiDeltaColor[1] = multiDeltaColor[2] = multiDeltaColor[3] = 0.0f; initialColors.clear();
+                }
+                ImGui::PopID();
             }
-            ImGui::EndChild();
 
-            ImGui::SetCursorPosY(ImGui::GetWindowHeight() - buttonAreaHeight + 80);
-            ImGui::BeginChild("Buttons", ImVec2(0, buttonAreaHeight), true);
-            {
-                if (ImGui::Button("Set Parent") && DesignManager::selectedShapes.size() >= 2)
-                {
-                    ShapeItem* parent = DesignManager::selectedShapes.back();
-                    for (ShapeItem* child : DesignManager::selectedShapes)
-                    {
-                        if (child != parent)
-                            SetParent(child, parent);
-                    }
-                }
-                if (ImGui::Button("Unparent") && !DesignManager::selectedShapes.empty())
-                {
-                    for (ShapeItem* child : DesignManager::selectedShapes)
-                    {
-                        if (child->parent != nullptr)
-                            RemoveParent(child);
-                    }
-                }
-                if (ImGui::Button("Unparent (Keep Transform)") && !DesignManager::selectedShapes.empty())
-                {
-                    for (ShapeItem* child : DesignManager::selectedShapes)
-                    {
-                        if (child->parent != nullptr)
-                            RemoveParentKeepTransform(child);
-                    }
-                }
+
+
+            ImGui::SeparatorText("Layout & Constraints (Multi-Edit)");
+
+
+            ShapeItem::AnchorMode firstAnchor = ShapeItem::AnchorMode::None; bool foundFirst = false;
+            bool mixedAnchor = false;
+            const char* anchorModes[] = { "None", "TopLeft", "Top", "TopRight", "Left", "Center", "Right", "BottomLeft", "Bottom", "BottomRight" };
+            int currentAnchorIndex = mixedAnchor ? -1 : static_cast<int>(firstAnchor);
+            const char* previewText = mixedAnchor ? "[Mixed]" : ((currentAnchorIndex >= 0 && currentAnchorIndex < IM_ARRAYSIZE(anchorModes)) ? anchorModes[currentAnchorIndex] : "[Error]");
+            ImGui::PushItemWidth(-FLT_MIN * 0.6f);
+            if (ImGui::BeginCombo("Set Anchor", previewText, ImGuiComboFlags_None)) {
+                for (int n = 0; n < IM_ARRAYSIZE(anchorModes); n++) {
+                    bool is_selected = (!mixedAnchor && n == currentAnchorIndex); if (ImGui::Selectable(anchorModes[n], is_selected)) {
+                        ShapeItem::AnchorMode newAnchor = static_cast<ShapeItem::AnchorMode>(n);
+                        for (auto* shape : selectedShapes) { if (shape && !shape->locked && !anyLocked) { shape->anchorMode = newAnchor; if (newAnchor != ShapeItem::AnchorMode::None) shape->usePercentagePos = false; } }
+                        MarkSceneUpdated();
+                    } if (is_selected) ImGui::SetItemDefaultFocus();
+                } ImGui::EndCombo();
+            } ImGui::PopItemWidth();
+
+
+
+            if (needsMinMaxSizeSample && !selectedShapes.empty()) {
+                ShapeItem* firstValidShape = nullptr; for (auto* s : selectedShapes) { if (s && !s->locked && !anyLocked) { firstValidShape = s; break; } }
+                if (firstValidShape) { multiMinSize = firstValidShape->minSize; multiMaxSize = firstValidShape->maxSize; }
+                else { multiMinSize = ImVec2(0, 0); multiMaxSize = ImVec2(99999, 99999); }
+                needsMinMaxSizeSample = false;
             }
-            ImGui::EndChild();
+            bool minChanged = false; bool maxChanged = false;
+            ImGui::PushItemWidth(-FLT_MIN * 0.6f);
+            if (ImGui::DragFloat2("Set Min Size", (float*)&multiMinSize, 1.0f, 0.0f, 99999.0f, "%.0f")) {
+                multiMinSize.x = std::max(0.f, multiMinSize.x); multiMinSize.y = std::max(0.f, multiMinSize.y); multiMaxSize.x = std::max(multiMinSize.x, multiMaxSize.x); multiMaxSize.y = std::max(multiMinSize.y, multiMaxSize.y);
+                minChanged = true; needsMinMaxSizeSample = false;
+            }
+            if (ImGui::DragFloat2("Set Max Size", (float*)&multiMaxSize, 1.0f, 0.0f, 99999.0f, "%.0f")) {
+                multiMaxSize.x = std::max(0.f, multiMaxSize.x); multiMaxSize.y = std::max(0.f, multiMaxSize.y); multiMaxSize.x = std::max(multiMinSize.x, multiMaxSize.x); multiMaxSize.y = std::max(multiMinSize.y, multiMaxSize.y);
+                maxChanged = true; needsMinMaxSizeSample = false;
+            }
+            ImGui::PopItemWidth();
+            if (minChanged || maxChanged) {
+                for (auto* shape : selectedShapes) { if (!shape || shape->locked || anyLocked) continue; if (minChanged) shape->minSize = multiMinSize; if (maxChanged) shape->maxSize = multiMaxSize; shape->maxSize.x = std::max(shape->minSize.x, shape->maxSize.x); shape->maxSize.y = std::max(shape->minSize.y, shape->maxSize.y); shape->size.x = std::max(shape->minSize.x, std::min(shape->size.x, shape->maxSize.x)); shape->size.y = std::max(shape->minSize.y, std::min(shape->size.y, shape->maxSize.y)); shape->baseSize.x = std::max(shape->minSize.x, std::min(shape->baseSize.x, shape->maxSize.x)); shape->baseSize.y = std::max(shape->minSize.y, std::min(shape->baseSize.y, shape->maxSize.y)); }
+                MarkSceneUpdated();
+            }
+
+            ImGui::EndDisabled();
+
         }
-        ImGui::End();
+        else
+        {
+            ImGui::TextUnformatted("Select a layer or shape to see properties.");
+        }
+
+        ImGui::EndChild();
     }
 
+
+    inline void ShowUI_CodeGenerationPanel() {
+        ImGui::BeginChild("CodeGenerationPanel");
+
+        ImGui::Text("Code Generation");
+        ImGui::Separator();
+
+        if (ImGui::Button(("Generate Code for Window: " + selectedGuiWindow).c_str())) {
+            generatedCodeForWindow = GenerateCodeForWindow(selectedGuiWindow);
+        }
+        if (!generatedCodeForWindow.empty()) {
+            ImGui::InputTextMultiline("##WindowCode", &generatedCodeForWindow[0], generatedCodeForWindow.size() + 1,
+                ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 10), ImGuiInputTextFlags_ReadOnly);
+            if (ImGui::Button("Copy Window Code")) {
+                CopyToClipboard(generatedCodeForWindow);
+            }
+        }
+
+        ImGui::Separator();
+
+        ImGui::BeginDisabled(selectedShapes.size() != 1);
+        if (ImGui::Button("Generate Code for Selected Shape")) {
+            if (selectedShapes.size() == 1) {
+                generatedCodeForSingleShape = GenerateSingleShapeCode(*selectedShapes[0]);
+            }
+        }
+        ImGui::EndDisabled();
+        if (!generatedCodeForSingleShape.empty()) {
+            ImGui::InputTextMultiline("##ShapeCode", &generatedCodeForSingleShape[0], generatedCodeForSingleShape.size() + 1,
+                ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 8), ImGuiInputTextFlags_ReadOnly);
+            if (ImGui::Button("Copy Shape Code")) {
+                CopyToClipboard(generatedCodeForSingleShape);
+            }
+        }
+
+        ImGui::Separator();
+
+        ImGui::BeginDisabled(!(selectedShapes.size() == 1 && selectedShapes[0]->isButton));
+        if (ImGui::Button("Generate Code for Selected Button (.h/.cpp)")) {
+            if (selectedShapes.size() == 1 && selectedShapes[0]->isButton) {
+                generatedCodeForButton = GenerateCodeForSingleButton(*selectedShapes[0]);
+            }
+        }
+        ImGui::EndDisabled();
+        if (!generatedCodeForButton.empty()) {
+            ImGui::InputTextMultiline("##ButtonCode", &generatedCodeForButton[0], generatedCodeForButton.size() + 1,
+                ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 10), ImGuiInputTextFlags_ReadOnly);
+            if (ImGui::Button("Copy Button Code")) {
+                CopyToClipboard(generatedCodeForButton);
+            }
+        }
+
+
+        ImGui::EndChild();
+    }
+
+
+
+    inline void ShowUI_ComponentPanel() {
+        ImGui::BeginChild("ComponentPanel");
+        ImGui::Text("Component Management");
+        ImGui::Separator();
+
+        static char newComponentNameBuffer[128] = "";
+        ImGui::InputText("Component Name##New", newComponentNameBuffer, sizeof(newComponentNameBuffer));
+        ImGui::SameLine();
+        ImGui::BeginDisabled(selectedShapes.empty() || strlen(newComponentNameBuffer) == 0);
+        if (ImGui::Button("Save Selection as Component")) {
+            if (g_componentDefinitions.find(newComponentNameBuffer) == g_componentDefinitions.end()) {
+                ComponentDefinition newComp;
+                newComp.name = newComponentNameBuffer;
+                ImVec2 minPos = ImVec2(FLT_MAX, FLT_MAX);
+                std::set<int> selectedShapeIds;
+                for (const auto* shapePtr : selectedShapes) {
+                    minPos.x = std::min(minPos.x, shapePtr->position.x);
+                    minPos.y = std::min(minPos.y, shapePtr->position.y);
+                    selectedShapeIds.insert(shapePtr->id);
+                }
+                for (const auto* shapePtr : selectedShapes) {
+                    ComponentShapeTemplate shapeTemplate;
+                    shapeTemplate.item = *shapePtr;
+                    shapeTemplate.originalId = shapePtr->id;
+                    shapeTemplate.item.position = shapePtr->position - minPos;
+                    shapeTemplate.item.basePosition = shapeTemplate.item.position;
+                    if (shapePtr->parent != nullptr && selectedShapeIds.count(shapePtr->parent->id)) {
+                        shapeTemplate.originalParentId = shapePtr->parent->id;
+                    }
+                    else {
+                        shapeTemplate.originalParentId = -1;
+                    }
+                    shapeTemplate.item.parent = nullptr;
+                    shapeTemplate.item.children.clear();
+                    shapeTemplate.item.isPressed = false;
+                    shapeTemplate.item.isHeld = false;
+                    shapeTemplate.item.isAnimating = false;
+                    shapeTemplate.item.currentAnimation = nullptr;
+                    shapeTemplate.item.id = -1;
+
+
+                    newComp.shapeTemplates.push_back(shapeTemplate);
+                }
+                g_componentDefinitions[newComp.name] = newComp;
+                strncpy(newComponentNameBuffer, "", sizeof(newComponentNameBuffer));
+            }
+            else {
+                ImGui::OpenPopup("Component Name Exists");
+            }
+        }
+        ImGui::EndDisabled();
+
+        if (ImGui::BeginPopupModal("Component Name Exists", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("A component with this name already exists.\nPlease choose a different name.");
+            if (ImGui::Button("OK")) { ImGui::CloseCurrentPopup(); }
+            ImGui::EndPopup();
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Defined Components (Drag to Hierarchy):");
+        if (g_componentDefinitions.empty()) {
+            ImGui::TextDisabled("No components defined yet.");
+        }
+        else {
+            float listHeight = ImGui::GetTextLineHeightWithSpacing() * std::min<float>((float)g_componentDefinitions.size() + 1.0f, 8.0f);
+            if (ImGui::BeginListBox("##ComponentList", ImVec2(-FLT_MIN, listHeight))) {
+                std::string componentToDelete = "";
+                int comp_idx = 0;
+                for (auto it = g_componentDefinitions.begin(); it != g_componentDefinitions.end(); ) {
+                    const auto& name = it->first;
+                    ImGui::PushID(comp_idx);
+                    ImGui::Selectable(name.c_str(), false, ImGuiSelectableFlags_AllowItemOverlap);
+
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                        const char* componentNameCStr = name.c_str();
+                        ImGui::SetDragDropPayload("DESIGNER_COMPONENT", componentNameCStr, strlen(componentNameCStr) + 1);
+                        ImGui::Text("Component: %s", name.c_str());
+                        ImGui::EndDragDropSource();
+                    }
+
+                    float deleteButtonWidth = ImGui::GetFrameHeight();
+                    ImGui::SameLine(ImGui::GetContentRegionAvail().x - deleteButtonWidth);
+                    if (ImGui::Button(("[X]##DelComp" + std::to_string(comp_idx)).c_str(), ImVec2(deleteButtonWidth, deleteButtonWidth))) {
+                        componentToDelete = name;
+                    }
+
+                    ImGui::PopID();
+                    comp_idx++;
+                    if (componentToDelete != name) {
+                        ++it;
+                    }
+                    else {
+                        it = g_componentDefinitions.erase(it);
+                        componentToDelete = "";
+                    }
+                }
+                ImGui::EndListBox();
+            }
+        }
+        ImGui::EndChild();
+    }
     inline void ShowUI_LayerShapeManager_ChildWindowMappings()
     {
         if (ImGui::CollapsingHeader("Child Window Mappings", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::SetCursorPosX(10);
+            ImGui::SeparatorText("Define how buttons control child window visibility");
+            int mapping_to_delete = -1;
             int mappingIndex = 0;
+
             for (auto& mapping : g_combinedChildWindowMappings)
             {
                 ImGui::PushID(mappingIndex);
+                ImGui::Separator();
+
                 std::vector<ShapeItem*> allShapes = GetAllShapes();
-                int currentShapeIndex = 0;
+                int currentShapeIndex = -1;
                 for (int i = 0; i < (int)allShapes.size(); i++) {
                     if (allShapes[i]->id == mapping.shapeId) {
                         currentShapeIndex = i;
@@ -3590,22 +6181,29 @@ namespace DesignManager
                     }
                 }
 
-                // Combo genişliğini pencereye göre ayarla
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 20);
-                if (ImGui::Combo("Shape", &currentShapeIndex, [](void* data, int idx, const char** out_text) -> bool {
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
+                if (ImGui::Combo("Container Shape", &currentShapeIndex, [](void* data, int idx, const char** out_text) -> bool {
                     auto* vec = static_cast<std::vector<ShapeItem*>*>(data);
-                    if (idx < (int)vec->size()) {
+                    if (idx >= 0 && idx < (int)vec->size()) {
                         *out_text = (*vec)[idx]->name.c_str();
                         return true;
                     }
+                    *out_text = "[Invalid Index]";
                     return false;
                     }, static_cast<void*>(&allShapes), (int)allShapes.size()))
                 {
-                    mapping.shapeId = allShapes[currentShapeIndex]->id;
-                    allShapes[currentShapeIndex]->isChildWindow = true;
+                    if (currentShapeIndex >= 0) {
+                        mapping.shapeId = allShapes[currentShapeIndex]->id;
+                        allShapes[currentShapeIndex]->isChildWindow = true;
+                        MarkSceneUpdated();
+                    }
+                }
+                ImGui::SameLine();
+                if (ImGui::Button(("[X]##DelMap" + std::to_string(mappingIndex)).c_str())) {
+                    mapping_to_delete = mappingIndex;
                 }
 
-                // Operator combo
+
                 const char* opOptions[] = { "None", "AND", "OR", "XOR", "NAND", "IF_THEN", "IFF" };
                 int opCount = IM_ARRAYSIZE(opOptions);
                 int currentOpIndex = 0;
@@ -3615,1079 +6213,364 @@ namespace DesignManager
                         break;
                     }
                 }
-                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 20);
-                if (ImGui::Combo("Operator", &currentOpIndex, opOptions, opCount))
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
+                if (ImGui::Combo("Logic Operator", &currentOpIndex, opOptions, opCount)) {
                     mapping.logicOp = opOptions[currentOpIndex];
+                    MarkSceneUpdated();
+                }
 
-                int pairIndex = 0;
+                ImGui::Text("Button -> Window Pairs:");
+                ImGui::Indent();
+                int pair_to_delete = -1;
                 for (size_t j = 0; j < mapping.buttonIds.size(); j++)
                 {
-                    ImGui::PushID(pairIndex);
+                    ImGui::PushID((int)j);
                     std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
+                    availableButtons.insert(availableButtons.begin(), nullptr);
 
-                    // Button combo’sunda ilk seçenek null (None) olacak şekilde ayarlıyoruz.
                     int currentButtonIndex = 0;
                     if (mapping.buttonIds[j] != -1) {
-                        for (int i = 0; i < (int)availableButtons.size(); i++) {
-                            if (availableButtons[i]->id == mapping.buttonIds[j]) {
-                                currentButtonIndex = i + 1; // 0 index, null için ayrılmıştır.
+                        for (int i = 1; i < (int)availableButtons.size(); i++) {
+                            if (availableButtons[i] && availableButtons[i]->id == mapping.buttonIds[j]) {
+                                currentButtonIndex = i;
                                 break;
                             }
                         }
                     }
 
-                    // Button ve Window combo'ları aynı satırda, toplam genişliğin yarısını kullanacak şekilde ayarlandı.
-                    float totalWidth = ImGui::GetContentRegionAvail().x - 20; // biraz boşluk bırakılıyor
-                    float comboWidth = totalWidth * 0.45f;
-                    ImGui::SetNextItemWidth(comboWidth);
-                    if (ImGui::Combo("Button", &currentButtonIndex, [](void* data, int idx, const char** out_text) -> bool {
+                    float pairComboWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x * 2) * 0.5f - 5;
+
+                    ImGui::SetNextItemWidth(pairComboWidth);
+                    if (ImGui::Combo("Button##Pair", &currentButtonIndex, [](void* data, int idx, const char** out_text) -> bool {
                         auto* vec = static_cast<std::vector<ShapeItem*>*>(data);
                         if (idx == 0) {
-                            *out_text = "None";
-                            return true;
+                            *out_text = "None (Always Active)"; return true;
                         }
-                        int index = idx - 1;
-                        if (index < (int)vec->size()) {
-                            *out_text = (*vec)[index]->name.c_str();
-                            return true;
+                        if (idx > 0 && idx < (int)vec->size() && (*vec)[idx]) {
+                            *out_text = (*vec)[idx]->name.c_str(); return true;
                         }
-                        return false;
-                        }, static_cast<void*>(&availableButtons), (int)availableButtons.size() + 1))
+                        *out_text = "[Invalid Button]"; return false;
+                        }, static_cast<void*>(&availableButtons), (int)availableButtons.size()))
                     {
-                        if (currentButtonIndex == 0) {
-                            mapping.buttonIds[j] = -1; // "None" seçildi.
-                            // "None" seçildiğinde ilgili child window'ı zorla açıyoruz
-                            SetWindowOpen(mapping.childWindowKeys[j], true);
+                        mapping.buttonIds[j] = (currentButtonIndex == 0) ? -1 : availableButtons[currentButtonIndex]->id;
+                        if (mapping.buttonIds[j] == -1) {
+                            if (j < mapping.childWindowKeys.size()) {
+                                SetWindowOpen(mapping.childWindowKeys[j], true);
+                            }
                         }
-                        else {
-                            mapping.buttonIds[j] = availableButtons[currentButtonIndex - 1]->id;
-                        }
-
+                        MarkSceneUpdated();
                     }
                     ImGui::SameLine();
 
                     std::vector<std::string> availableChildWindows;
-                    for (auto& [key, winData] : g_windowsMap)
-                        availableChildWindows.push_back(key);
+                    for (auto& [key, winData] : g_windowsMap) availableChildWindows.push_back(key);
                     for (auto sh : GetAllShapes()) {
-                        if (std::find(availableChildWindows.begin(), availableChildWindows.end(), sh->name) == availableChildWindows.end())
-                            availableChildWindows.push_back(sh->name);
-                    }
-                    int currentChildIndex = 0;
-                    for (int i = 0; i < (int)availableChildWindows.size(); i++) {
-                        if (availableChildWindows[i] == mapping.childWindowKeys[j]) {
-                            currentChildIndex = i;
-                            break;
+                        if (std::find(availableChildWindows.begin(), availableChildWindows.end(), sh->name) == availableChildWindows.end()) {
                         }
                     }
-                    ImGui::SetNextItemWidth(comboWidth);
-                    if (ImGui::Combo("Window", &currentChildIndex, [](void* data, int idx, const char** out_text) -> bool {
+                    std::sort(availableChildWindows.begin(), availableChildWindows.end());
+
+
+                    int currentChildIndex = -1;
+                    if (j < mapping.childWindowKeys.size()) {
+                        for (int i = 0; i < (int)availableChildWindows.size(); i++) {
+                            if (availableChildWindows[i] == mapping.childWindowKeys[j]) {
+                                currentChildIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    ImGui::SetNextItemWidth(pairComboWidth);
+                    if (ImGui::Combo("Window##Pair", &currentChildIndex, [](void* data, int idx, const char** out_text) -> bool {
                         auto* vec = static_cast<std::vector<std::string>*>(data);
-                        if (idx < (int)vec->size()) {
+                        if (idx >= 0 && idx < (int)vec->size()) {
                             *out_text = (*vec)[idx].c_str();
                             return true;
                         }
+                        *out_text = "[Invalid Window]";
                         return false;
                         }, static_cast<void*>(&availableChildWindows), (int)availableChildWindows.size()))
                     {
-                        mapping.childWindowKeys[j] = availableChildWindows[currentChildIndex];
-                    }
-                    ImGui::SameLine();
-                    if (ImGui::Button("Remove Pair"))
-                    {
-                        mapping.buttonIds.erase(mapping.buttonIds.begin() + j);
-                        mapping.childWindowKeys.erase(mapping.childWindowKeys.begin() + j);
-                        ImGui::PopID();
-                        break;
-                    }
-                    ImGui::PopID();
-                    pairIndex++;
-                }
-                if (ImGui::Button("Add Button Mapping"))
-                {
-                    std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
-                    // Varsayılan olarak null seçeneğini (yani -1) atıyoruz, eğer availableButtons boş değilse ilk butonun id'sini de kullanabilirsiniz.
-                    int defaultButtonId = -1;
-                    if (!availableButtons.empty())
-                        defaultButtonId = availableButtons[0]->id;
-                    std::vector<std::string> availableChildWindows;
-                    for (auto& [key, winData] : g_windowsMap)
-                        availableChildWindows.push_back(key);
-                    for (auto sh : GetAllShapes()) {
-                        if (std::find(availableChildWindows.begin(), availableChildWindows.end(), sh->name) == availableChildWindows.end())
-                            availableChildWindows.push_back(sh->name);
-                    }
-                    std::string defaultChild = (!availableChildWindows.empty()) ? availableChildWindows[0] : "";
-                    mapping.buttonIds.push_back(defaultButtonId);
-                    mapping.childWindowKeys.push_back(defaultChild);
-                }
-                if (ImGui::Button("Remove Mapping"))
-                {
-                    g_combinedChildWindowMappings.erase(g_combinedChildWindowMappings.begin() + mappingIndex);
-                    ImGui::PopID();
-                    break;
-                }
-                ImGui::Separator();
-                ImGui::PopID();
-                mappingIndex++;
-            }
-            if (ImGui::Button("Add New Mapping"))
-            {
-                std::vector<ShapeItem*> allShapes = GetAllShapes();
-                int defaultShapeId = (!allShapes.empty()) ? allShapes[0]->id : 0;
-                std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
-                int defaultButtonId = -1;
-                if (!availableButtons.empty())
-                    defaultButtonId = availableButtons[0]->id;
-                std::vector<std::string> availableChildWindows;
-                for (auto& [key, winData] : g_windowsMap)
-                    availableChildWindows.push_back(key);
-                for (auto sh : GetAllShapes()) {
-                    if (std::find(availableChildWindows.begin(), availableChildWindows.end(), sh->name) == availableChildWindows.end())
-                        availableChildWindows.push_back(sh->name);
-                }
-                std::string defaultChild = (!availableChildWindows.empty()) ? availableChildWindows[0] : "";
-                CombinedMapping newMapping;
-                newMapping.shapeId = defaultShapeId;
-                newMapping.logicOp = "AND";
-                newMapping.buttonIds.push_back(defaultButtonId);
-                newMapping.childWindowKeys.push_back(defaultChild);
-                if (!allShapes.empty()) allShapes[0]->isChildWindow = true;
-                g_combinedChildWindowMappings.push_back(newMapping);
-            }
-        }
-    }
-
-
-    inline void ShowUI_LayerShapeManager_LayerList(WindowData& windowData, int& selectedLayerIndex, int& selectedShapeIndex)
-    {
-        ImGui::Separator();
-        ImGui::Separator();
-
-        if (ImGui::BeginCombo("Selected ImGui Window", DesignManager::selectedGuiWindow.c_str()))
-        {
-            for (auto const& [windowName, winData] : g_windowsMap)
-            {
-                bool is_selected = (DesignManager::selectedGuiWindow == windowName);
-                if (ImGui::Selectable(windowName.c_str(), is_selected))
-                {
-                    DesignManager::selectedGuiWindow = windowName;
-                    MarkSceneUpdated();
-                }
-                if (is_selected)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
-        }
-
-        if (ImGui::Button("Add New Layer"))
-        {
-            std::string newLayerName = "Layer " + std::to_string(windowData.layers.size());
-            windowData.layers.emplace_back(newLayerName);
-            RefreshLayerIDs();
-            windowData.layers.back().zOrder = (int)windowData.layers.size() - 1;
-            selectedLayerIndex = (int)windowData.layers.size() - 1;
-            selectedShapeIndex = -1;
-            MarkSceneUpdated();
-        }
-        ImGui::Separator();
-
-        for (int i = 0; i < (int)windowData.layers.size(); i++)
-        {
-            ImGui::PushID(i);
-            if (ImGui::Button(("Up##" + std::to_string(i)).c_str()))
-            {
-                if (i > 0)
-                {
-                    std::swap(windowData.layers[i], windowData.layers[i - 1]);
-                    std::swap(windowData.layers[i].zOrder, windowData.layers[i - 1].zOrder);
-                    MarkSceneUpdated();
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(("Down##" + std::to_string(i)).c_str()))
-            {
-                if (i < (int)windowData.layers.size() - 1)
-                {
-                    std::swap(windowData.layers[i], windowData.layers[i + 1]);
-                    std::swap(windowData.layers[i].zOrder, windowData.layers[i + 1].zOrder);
-                    MarkSceneUpdated();
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(("Delete##" + std::to_string(i)).c_str()))
-            {
-                windowData.layers.erase(windowData.layers.begin() + i);
-                RefreshLayerIDs();
-                if (windowData.layers.empty())
-                    selectedLayerIndex = -1;
-                else if (selectedLayerIndex >= (int)windowData.layers.size())
-                    selectedLayerIndex = (int)windowData.layers.size() - 1;
-                MarkSceneUpdated();
-                ImGui::PopID();
-                i--;
-                continue;
-            }
-            ImGui::SameLine();
-            if (ImGui::IsItemClicked())
-            {
-                selectedLayerIndex = i;
-                selectedShapeIndex = -1;
-                DesignManager::selectedShapes.clear();
-            }
-            if (ImGui::Button(("Rename Layer##" + std::to_string(i)).c_str()))
-            {
-                static char renameLayerBuffer[128];
-                strncpy(renameLayerBuffer, windowData.layers[i].name.c_str(), 128);
-                renameLayerBuffer[127] = '\0';
-                ImGui::OpenPopup(("RenameLayerPopup##" + DesignManager::selectedGuiWindow + std::to_string(i)).c_str());
-            }
-            if (ImGui::BeginPopupModal(("RenameLayerPopup##" + DesignManager::selectedGuiWindow + std::to_string(i)).c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize))
-            {
-                static char renameLayerBuffer2[128];
-                ImGui::Text("Enter new layer name:");
-                ImGui::InputText("##NewLayerName", renameLayerBuffer2, IM_ARRAYSIZE(renameLayerBuffer2));
-                if (ImGui::Button("OK"))
-                {
-                    windowData.layers[i].name = renameLayerBuffer2;
-                    ImGui::CloseCurrentPopup();
-                    MarkSceneUpdated();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel"))
-                    ImGui::CloseCurrentPopup();
-                ImGui::EndPopup();
-            }
-            if (ImGui::Checkbox(("Visible##" + std::to_string(i)).c_str(), &windowData.layers[i].visible))
-            {
-                MarkSceneUpdated();
-            }
-            ImGui::SameLine();
-            ImGui::Checkbox(("Locked##" + std::to_string(i)).c_str(), &windowData.layers[i].locked);
-            ImGui::PushItemWidth(100);
-            ImGui::SameLine();
-            if (ImGui::DragInt(("Layer Z-Order##" + std::to_string(i)).c_str(), &windowData.layers[i].zOrder, 0.1f))
-            {
-                for (int j = 0; j < (int)windowData.layers.size(); j++)
-                {
-                    if (j != i && windowData.layers[j].zOrder == windowData.layers[i].zOrder)
-                        windowData.layers[j].zOrder += (windowData.layers[i].zOrder > windowData.layers[j].zOrder ? 1 : -1);
-                }
-                MarkSceneUpdated();
-            }
-            ImGui::PopItemWidth();
-
-            if (ImGui::TreeNodeEx((windowData.layers[i].name + "##" + DesignManager::selectedGuiWindow + std::to_string(windowData.layers[i].id)).c_str(),
-                (selectedLayerIndex == i ? ImGuiTreeNodeFlags_Selected : 0) | ImGuiTreeNodeFlags_OpenOnArrow))
-            {
-                Layer& L = windowData.layers[i];
-                for (int j = 0; j < (int)L.shapes.size(); j++)
-                {
-                    ImGui::PushID(j + 1000);
-                    bool isSelected = (std::find(DesignManager::selectedShapes.begin(), DesignManager::selectedShapes.end(), &L.shapes[j]) != DesignManager::selectedShapes.end());
-                    if (ImGui::Selectable((L.shapes[j].name + "##" + std::to_string(j)).c_str(), isSelected))
-                    {
-                        ImGuiIO& io = ImGui::GetIO();
-                        if (!io.KeyCtrl && !io.KeyShift)
-                        {
-                            DesignManager::selectedShapes.clear();
-                            DesignManager::selectedShapes.push_back(&L.shapes[j]);
-                            lastSelectedLayerIndex = i;
-                            lastSelectedShapeIndex = j;
-                        }
-                        else if (io.KeyCtrl)
-                        {
-                            auto it = std::find(DesignManager::selectedShapes.begin(), DesignManager::selectedShapes.end(), &L.shapes[j]);
-                            if (it != DesignManager::selectedShapes.end())
-                                DesignManager::selectedShapes.erase(it);
-                            else
-                                DesignManager::selectedShapes.push_back(&L.shapes[j]);
-                            lastSelectedLayerIndex = i;
-                            lastSelectedShapeIndex = j;
-                        }
-                        else if (io.KeyShift)
-                        {
-                            if (lastSelectedLayerIndex == i && lastSelectedShapeIndex != -1)
-                            {
-                                int start = std::min(lastSelectedShapeIndex, j);
-                                int end = std::max(lastSelectedShapeIndex, j);
-                                DesignManager::selectedShapes.clear();
-                                for (int k = start; k <= end; k++)
-                                    DesignManager::selectedShapes.push_back(&L.shapes[k]);
-                            }
-                            else
-                            {
-                                DesignManager::selectedShapes.push_back(&L.shapes[j]);
-                                lastSelectedLayerIndex = i;
-                                lastSelectedShapeIndex = j;
-                            }
-                        }
-                        selectedLayerIndex = i;
-                        selectedShapeIndex = j;
-                    }
-                    ImGui::PopID();
-                }
-                if (ImGui::Button(("Add New Shape##" + std::to_string(i)).c_str()))
-                {
-                    static int newShapeCount = 0;
-                    std::string newShapeName;
-                    while (true)
-                    {
-                        newShapeName = "Shape " + std::to_string(newShapeCount);
-                        bool alreadyExists = false;
-                        for (auto& lay : windowData.layers)
-                        {
-                            for (auto& shp : lay.shapes)
-                            {
-                                if (shp.name == newShapeName)
-                                {
-                                    alreadyExists = true;
-                                    break;
-                                }
-                            }
-                            if (alreadyExists) break;
-                        }
-                        if (!alreadyExists) break;
-                        newShapeCount++;
-                    }
-                    newShapeCount++;
-
-                    ShapeItem s;
-                    s.name = newShapeName;
-                    s.zOrder = 0;
-                    s.ownerWindow = DesignManager::selectedGuiWindow;
-                    s.id = DesignManager::nextShapeID++;
-                    s.sizeThresholds.emplace_back(ImVec2(800.0f, 600.0f), ShapeItem::Transformation{ ImVec2(100.0f, 100.0f), ImVec2(200.0f, 150.0f), 45.0f, 1.0f });
-                    L.shapes.push_back(s);
-                    selectedShapeIndex = (int)L.shapes.size() - 1;
-                    selectedLayerIndex = i;
-                    MarkSceneUpdated();
-                }
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-        }
-    }
-    inline void ShowUI_EventHandlers(ShapeItem& shape) {
-        if (ImGui::CollapsingHeader("Event Handlers", ImGuiTreeNodeFlags_DefaultOpen)) {
-            // Display existing handlers
-            for (int i = 0; i < shape.eventHandlers.size(); i++) {
-                ImGui::PushID(i);
-                auto& handler = shape.eventHandlers[i];
-                ImGui::Text("%s: %s", handler.eventType.c_str(), handler.name.c_str());
-                if (ImGui::Button("Remove")) {
-                    shape.eventHandlers.erase(shape.eventHandlers.begin() + i);
-                    i--;
-                }
-                ImGui::PopID();
-            }
-            
-            // Add new handler
-            static char eventTypeBuffer[128] = "onClick";
-            static char nameBuffer[128] = "handleEvent";
-            ImGui::InputText("Event Type", eventTypeBuffer, sizeof(eventTypeBuffer));
-            ImGui::InputText("Handler Name", nameBuffer, sizeof(nameBuffer));
-            if (ImGui::Button("Add Handler")) {
-                shape.eventHandlers.push_back({eventTypeBuffer, nameBuffer, [](ShapeItem&) {}});
-            }
-        }
-    }
-    inline void ShowUI_LayerShapeManager_ShapeProperties(WindowData& windowData, int& selectedLayerIndex, int& selectedShapeIndex)
-    {
-        if (DesignManager::selectedShapes.size() == 1 && selectedLayerIndex >= 0 && selectedShapeIndex >= 0 && selectedShapeIndex < (int)windowData.layers[selectedLayerIndex].shapes.size())
-        {
-            ImGui::Separator();
-            ShapeItem& s = windowData.layers[selectedLayerIndex].shapes[selectedShapeIndex];
-    
-            // --- START OF NEW CONTAINER SETTINGS UI ---
-            if (ImGui::CollapsingHeader("Container Settings", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                // Make options mutually exclusive in the UI
-                bool is_child_win = s.isChildWindow;
-                if (ImGui::Checkbox("Is Registered Child Window Container", &is_child_win)) {
-                    if (is_child_win) {
-                        s.isChildWindow = true;
-                        s.isImGuiContainer = false; // Turn off the other mode
-                    }
-                    else {
-                        s.isChildWindow = false;
-                    }
-                    MarkSceneUpdated();
-                }
-                ImGui::BeginDisabled(s.isImGuiContainer); // Disable if ImGui container is active
-                if (s.isChildWindow) {
-                    ImGui::Indent();
-                    // --- Paste Existing Child Window Settings UI Here ---
-                    if (ImGui::Checkbox("Sync with Shape", &s.childWindowSync)) MarkSceneUpdated();
-                    if (ImGui::Checkbox("Toggle Child Window On Click", &s.toggleChildWindow)) MarkSceneUpdated();
-                    // ... (Add the rest of your specific child window UI: Assigned Windows, Group ID etc.)
-                  // Example placeholder for brevity:
-                    ImGui::Text("Child Window specific options...");
-                    // --- End of Pasted Child Window Settings ---
-                    ImGui::Unindent();
-                }
-                ImGui::EndDisabled();
-    
-    
-                bool is_imgui_cont = s.isImGuiContainer;
-                if (ImGui::Checkbox("Is Direct ImGui Content Container", &is_imgui_cont)) {
-                    if (is_imgui_cont) {
-                        s.isImGuiContainer = true;
-                        s.isChildWindow = false; // Turn off the other mode
-                        //s.openWindow = false;    // Also turn off deprecated flag
-                    }
-                    else {
-                        s.isImGuiContainer = false;
-                    }
-                    MarkSceneUpdated();
-                }
-                ImGui::BeginDisabled(s.isChildWindow); // Disable if Child window container is active
-                if (s.isImGuiContainer) {
-                    ImGui::Indent();
-                    ImGui::TextDisabled("Note: Set 'renderImGuiContent' function programmatically.");
-                    ImGui::TextColored(ImVec4(1, 1, 0, 1), "Rotation may not render content correctly.");
-                    // Option: Disable rotation slider when this is checked?
-                    // ImGui::BeginDisabled(true); ImGui::DragFloat("Rotation", ...); ImGui::EndDisabled();
-                    ImGui::Unindent();
-                }
-                ImGui::EndDisabled();
-    
-            }
-            ImGui::Separator();
-    
-            if (ImGui::Button("Delete Shape"))
-            {
-                windowData.layers[selectedLayerIndex].shapes.erase(windowData.layers[selectedLayerIndex].shapes.begin() + selectedShapeIndex);
-                selectedShapeIndex = -1;
-                DesignManager::selectedShapes.clear();
-                MarkSceneUpdated();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Duplicate Shape"))
-            {
-                ShapeItem duplicatedShape = s;
-                duplicatedShape.id = DesignManager::nextShapeID++;
-                duplicatedShape.name += " Copy";
-                duplicatedShape.ownerWindow = s.ownerWindow;
-                windowData.layers[selectedLayerIndex].shapes.push_back(duplicatedShape);
-                selectedShapeIndex = (int)windowData.layers[selectedLayerIndex].shapes.size() - 1;
-                DesignManager::selectedShapes.clear();
-                DesignManager::selectedShapes.push_back(&windowData.layers[selectedLayerIndex].shapes.back());
-                MarkSceneUpdated();
-            }
-            ImGui::SameLine();
-            static char renameBuffer[128];
-            if (ImGui::Button("Rename Shape"))
-            {
-                strncpy(renameBuffer, s.name.c_str(), 128);
-                renameBuffer[127] = '\0';
-                ImGui::OpenPopup("RenameShapePopup");
-            }
-            if (ImGui::BeginPopupModal("RenameShapePopup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-            {
-                ImGui::InputText("New Name", renameBuffer, IM_ARRAYSIZE(renameBuffer));
-                if (ImGui::Button("OK"))
-                {
-                    s.name = renameBuffer;
-                    ImGui::CloseCurrentPopup();
-                    MarkSceneUpdated();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel"))
-                    ImGui::CloseCurrentPopup();
-                ImGui::EndPopup();
-            }
-            if (ImGui::Checkbox("Glass Effect", &s.useGlass))
-                MarkSceneUpdated();
-            if (s.useGlass)
-            {
-                ImGui::SliderFloat("Glass Blur", &s.glassBlur, 1.0f, 100.0f);
-                ImGui::SliderFloat("Glass Alpha", &s.glassAlpha, 0.0f, 1.0f);
-                ImGui::ColorEdit4("Glass Tint Color", (float*)&s.glassColor);
-                MarkSceneUpdated();
-            }
-            if (ImGui::TreeNode("Move to Layer"))
-            {
-                for (int li = 0; li < (int)windowData.layers.size(); li++)
-                {
-                    if (li == selectedLayerIndex)
-                        continue;
-                    if (ImGui::Button(windowData.layers[li].name.c_str()))
-                    {
-                        windowData.layers[li].shapes.push_back(s);
-                        windowData.layers[selectedLayerIndex].shapes.erase(windowData.layers[selectedLayerIndex].shapes.begin() + selectedShapeIndex);
-                        selectedShapeIndex = -1;
-                        DesignManager::selectedShapes.clear();
-                        MarkSceneUpdated();
-                        break;
-                    }
-                }
-                ImGui::TreePop();
-            }
-            ImGui::Separator();
-            if (ImGui::CollapsingHeader("Child Window Settings", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                if (ImGui::Checkbox("Is Child Window", &s.isChildWindow))
-                {
-                    if (!s.isChildWindow)
-                    {
-                        s.childWindowSync = false;
-                        s.toggleChildWindow = false;
-                        s.childWindowGroupId = 0;
-                    }
-                    MarkSceneUpdated();
-                }
-                if (s.isChildWindow)
-                {
-                    /*   ///deprecated ///
-                    if (ImGui::Checkbox("Sync with Shape", &s.childWindowSync))
-                        MarkSceneUpdated();
-                    if (ImGui::Checkbox("Toggle Child Window On Click", &s.toggleChildWindow))
-                        MarkSceneUpdated();
-    
-                    if (ImGui::CollapsingHeader("Assigned Child Windows", ImGuiTreeNodeFlags_DefaultOpen))
-                    {
-                        int index = 0;
-                        for (auto& childKey : s.assignedChildWindows)
-                        {
-                            ImGui::Text("Child Window %d: %s", index, childKey.c_str());
-                            ImGui::SameLine();
-                            std::string removeLabel = "Remove##" + std::to_string(index);
-                            if (ImGui::Button(removeLabel.c_str()))
-                            {
-                                s.assignedChildWindows.erase(s.assignedChildWindows.begin() + index);
-                                MarkSceneUpdated();
-                                break;
-                            }
-                            index++;
-                        }
-                        std::vector<std::string> availableChildWindows;
-                        for (auto& [key, windowData] : g_windowsMap)
-                            availableChildWindows.push_back(key);
-                        if (!availableChildWindows.empty())
-                        {
-                            static int selectedChildIndex = 0;
-                            if (ImGui::Combo("Add Child Window", &selectedChildIndex, [](void* data, int idx, const char** out_text) -> bool {
-                                auto& vec = *static_cast<std::vector<std::string>*>(data);
-                                if (idx >= 0 && idx < vec.size()) {
-                                    *out_text = vec[idx].c_str();
-                                    return true;
-                                }
-                                return false;
-                                }, static_cast<void*>(&availableChildWindows), availableChildWindows.size()))
-                            {
-                                if (std::find(s.assignedChildWindows.begin(), s.assignedChildWindows.end(), availableChildWindows[selectedChildIndex]) == s.assignedChildWindows.end())
-                                {
-                                    s.assignedChildWindows.push_back(availableChildWindows[selectedChildIndex]);
-                                    MarkSceneUpdated();
-                                }
-                            }
-                        }
-                        if (!s.assignedChildWindows.empty())
-                        {
-                            if (ImGui::Combo("Active Child Window", &s.selectedChildWindowIndex, [](void* data, int idx, const char** out_text) -> bool {
-                                auto& vec = *static_cast<std::vector<std::string>*>(data);
-                                if (idx >= 0 && idx < vec.size()) {
-                                    *out_text = vec[idx].c_str();
-                                    return true;
-                                }
-                                return false;
-                                }, static_cast<void*>(&s.assignedChildWindows), s.assignedChildWindows.size()))
-                            {
-                                MarkSceneUpdated();
-                            }
-                        }
-                    }
-                    
-                    if (s.toggleChildWindow)
-                    {
-                        const char* toggle_behaviors[] = { "Window Only", "Shape and Window" };
-                        int current_behavior = static_cast<int>(s.toggleBehavior);
-                        if (ImGui::Combo("Toggle Behavior", &current_behavior, toggle_behaviors, IM_ARRAYSIZE(toggle_behaviors)))
-                        {
-                            s.toggleBehavior = static_cast<ChildWindowToggleBehavior>(current_behavior);
+                        if (currentChildIndex >= 0 && j < mapping.childWindowKeys.size()) {
+                            mapping.childWindowKeys[j] = availableChildWindows[currentChildIndex];
                             MarkSceneUpdated();
                         }
                     }
-                    
-                    */
-                    int groupId = s.childWindowGroupId;
-                    if (ImGui::InputInt("Child Window Group ID", &groupId))
-                    {
-                        s.childWindowGroupId = groupId;
-                        MarkSceneUpdated();
-                    }
-                    if (s.childWindowSync)
-                    {
-                        std::vector<ShapeItem*> buttonShapes = GetAllButtonShapes();
-                        if (!buttonShapes.empty())
-                        {
-                            std::vector<std::string> buttonNames;
-                            int currentButtonIndex = -1;
-                            for (size_t i = 0; i < buttonShapes.size(); i++)
-                            {
-                                buttonNames.push_back(buttonShapes[i]->name + " (ID: " + std::to_string(buttonShapes[i]->id) + ")");
-                                if (buttonShapes[i]->id == s.targetShapeID)
-                                    currentButtonIndex = static_cast<int>(i);
-                            }
-                            buttonNames.insert(buttonNames.begin(), "None");
-                            if (s.targetShapeID == 0)
-                                currentButtonIndex = 0;
-                            else
-                                currentButtonIndex++;
-                            /*
-                            if (ImGui::Combo("Toggle Button", &currentButtonIndex, [](void* data, int idx, const char** out_text) -> bool {
-                                auto& names = *static_cast<std::vector<std::string>*>(data);
-                                if (idx >= 0 && idx < static_cast<int>(names.size()))
-                                {
-                                    *out_text = names[idx].c_str();
-                                    return true;
-                                }
-                                return false;
-                                }, &buttonNames, static_cast<int>(buttonNames.size())))
-                            {
-                                if (currentButtonIndex == 0)
-                                    s.targetShapeID = 0;
-                                else
-                                    s.targetShapeID = buttonShapes[currentButtonIndex - 1]->id;
-                                MarkSceneUpdated();
-                            }
-                            */
-                        }
-                        else
-                        {
-                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "No buttons available");
-                        }
-                    }
-                    /*
-                    if (ImGui::Button("Toggle Child Window"))
-                    {
-                        std::string targetWindowKey;
-                        if (!s.assignedChildWindows.empty())
-                        {
-                            int idx = s.selectedChildWindowIndex;
-                            if (idx < 0 || idx >= static_cast<int>(s.assignedChildWindows.size()))
-                                idx = 0;
-                            targetWindowKey = s.assignedChildWindows[idx];
-                        }
-                        else
-                        {
-                            std::vector<std::string> globalChildWindows;
-                            for (auto& [key, windowData] : g_windowsMap)
-                            {
-                                if (windowData.isChildWindow || key.find("ChildWindow_") != std::string::npos)
-                                    globalChildWindows.push_back(key);
-                            }
-                            if (!globalChildWindows.empty())
-                            {
-                                targetWindowKey = globalChildWindows[0];
-                                s.assignedChildWindows.push_back(targetWindowKey);
-                                s.selectedChildWindowIndex = 0;
-                                MarkSceneUpdated();
-                            }
-                        }
-                        bool newState = !IsWindowOpen(targetWindowKey);
-                        if (newState && DesignManager::exclusiveChildWindowMode && s.childWindowGroupId > 0)
-                        {
-                            for (const auto& otherKey : s.assignedChildWindows)
-                            {
-                                if (otherKey != targetWindowKey)
-                                    SetWindowOpen(otherKey, false);
-                            }
-                        }
-                        SetWindowOpen(targetWindowKey, newState);
-                        MarkSceneUpdated();
-                    }
-                    */
-                }
-                if (ImGui::Checkbox("Exclusive Child Window Mode", &DesignManager::exclusiveChildWindowMode))
-                    MarkSceneUpdated();
-            }
-            ImGui::Separator();
-            if (ImGui::InputInt("Group Id", &s.groupId))
-                MarkSceneUpdated();
-            ImGui::Separator();
-            if (ImGui::Checkbox("Has Embedded Image", &s.hasEmbeddedImage))
-                MarkSceneUpdated();
-            if (s.hasEmbeddedImage)
-            {
-                if (ImGui::Combo("Embedded Image", &s.embeddedImageIndex, g_embeddedImageFunctions, g_embeddedImageFunctionsCount))
-                {
-                    MarkSceneUpdated();
-                }
-                if (s.embeddedImageIndex >= 0)
-                {
-                    ImGui::TextWrapped("Embedded Image from function: %s", g_embeddedImageFunctions[s.embeddedImageIndex]);
-                }
-                else
-                {
-                    ImGui::TextWrapped("No global embedded image selected. (Inline bin2c output...)");
-                }
-            }
-            if (ImGui::Checkbox("Is Button", &s.isButton))
-                MarkSceneUpdated();
-            ImGui::Checkbox("Allow Item Overlap", &s.allowItemOverlap);
-            ImGui::BeginDisabled(!s.allowItemOverlap);
-            ImGui::Checkbox("Force Overlay (Foreground)", &s.forceOverlap);
-            if (!s.allowItemOverlap && ImGui::IsItemHovered())
-                ImGui::SetTooltip("Enable 'Allow Item Overlap' to activate Force Overlay");
-            ImGui::EndDisabled();
-            ImGui::Checkbox("Block Underlying Items", &s.blockUnderlying);
-            if (s.isButton)
-            {
-                if (ImGui::ColorEdit4("Hover Color", (float*)&s.hoverColor))
-                    MarkSceneUpdated();
-                if (ImGui::ColorEdit4("Click Color", (float*)&s.clickedColor))
-                    MarkSceneUpdated();
-                const char* buttonBehaviors[] = { "SingleClick", "Toggle", "Hold" };
-                int currentBehavior = static_cast<int>(s.buttonBehavior);
-                if (ImGui::Combo("Button Behavior", &currentBehavior, buttonBehaviors, IM_ARRAYSIZE(buttonBehaviors)))
-                {
-                    s.buttonBehavior = (ShapeItem::ButtonBehavior)currentBehavior;
-                    MarkSceneUpdated();
-                }
-                bool oldUseOnClick = s.useOnClick;
-                if (ImGui::Checkbox("Use OnClick", &s.useOnClick))
-                {
-                    if (!oldUseOnClick && s.useOnClick)
-                    {
-                        if (!s.storedOnClick)
-                            s.onClick = [&]() {};
-                        else
-                            s.onClick = s.storedOnClick;
-                    }
-                    else if (oldUseOnClick && !s.useOnClick)
-                    {
-                        s.storedOnClick = s.onClick;
-                        s.onClick = nullptr;
-                    }
-                    MarkSceneUpdated();
-                }
-                if (ImGui::Button("Generate Code For This Button"))
-                {
-                    DesignManager::generatedCodeForButton = GenerateCodeForSingleButton(s);
-                }
-                if (!DesignManager::generatedCodeForButton.empty())
-                {
-                    ImGui::Separator();
-                    ImGui::TextUnformatted("Auto-Generated Button Code (.h + .cpp):");
-                    ImGui::BeginChild("ButtonCodeChild", ImVec2(-FLT_MIN, 120.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
-                    ImGui::TextUnformatted(DesignManager::generatedCodeForButton.c_str());
-                    ImGui::EndChild();
-                    if (ImGui::Button("Copy Button Code"))
-                    {
-                        ImGui::SetClipboardText(DesignManager::generatedCodeForButton.c_str());
-                    }
-                }
-            }
-            ImGui::BeginDisabled(s.isImGuiContainer); // Disable rotation editing
-            if (ImGui::CollapsingHeader("Original (Base) Transform", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                // ... (Base Position, Base Size) ...
-                float baseRotDeg = s.baseRotation * (180.0f / IM_PI);
-                if (ImGui::DragFloat("Base Rotation (deg)", &baseRotDeg, 1.0f, 0.0f, 360.0f))
-                {
-                    s.baseRotation = baseRotDeg * (IM_PI / 180.0f);
-                    MarkSceneUpdated();
-                }
-            }
-            ImGui::EndDisabled();
-            if (s.isImGuiContainer && ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("Rotation disabled for ImGui Content Containers");
-            }
-    
-            if (ImGui::Checkbox("Has Text", &s.hasText))
-                MarkSceneUpdated();
-            ImGui::BeginDisabled(s.isImGuiContainer || s.isChildWindow); // Disable text editing if it's any container
-            if (s.hasText)
-            {
-                static char textBuffer[1024];
-                strncpy(textBuffer, s.text.c_str(), sizeof(textBuffer) - 1);
-                textBuffer[sizeof(textBuffer) - 1] = '\0';
-                if (ImGui::InputTextMultiline("Text", textBuffer, sizeof(textBuffer), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3)))
-                {
-                    s.text = textBuffer;
-                    MarkSceneUpdated();
-                }
-                if (ImGui::ColorEdit4("Text Color", (float*)&s.textColor))
-                    MarkSceneUpdated();
-                if (ImGui::DragFloat("Text Size", &s.textSize, 0.1f, 6.0f, 64.0f))
-                    MarkSceneUpdated();
-                if (ImGui::DragFloat2("Text Position", (float*)&s.textPosition, 1.0f))
-                    MarkSceneUpdated();
-                if (ImGui::DragFloat("Text Rotation (deg)", &s.textRotation, 1.0f, 0.0f, 360.0f))
-                {
-                    MarkSceneUpdated();
-                }
-                static const char* items[] = { "Default", "SmallFont", "LargeFont", "SmallFont2", "TinyFont", "PaneuropaFont", "PaneuropaFont_tiny" };
-                int font_idx = s.textFont;
-                if (ImGui::Combo("Font", &font_idx, items, IM_ARRAYSIZE(items)))
-                {
-                    s.textFont = font_idx;
-                    MarkSceneUpdated();
-                }
-                if (ImGui::Checkbox("Dynamic Text Size", &s.dynamicTextSize))
-                    MarkSceneUpdated();
-                const char* alignItems[] = { "Left", "Center", "Right" };
-                int textAlign = s.textAlignment;
-                if (ImGui::Combo("Text Alignment", &textAlign, alignItems, IM_ARRAYSIZE(alignItems)))
-                {
-                    s.textAlignment = textAlign;
-                    MarkSceneUpdated();
-                }
-            }
-            ImGui::EndDisabled();
-            if ((s.isImGuiContainer || s.isChildWindow) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                ImGui::SetTooltip("Shape text disabled for containers");
-            }
-            if (ImGui::DragFloat("Corner Radius", &s.cornerRadius, 0.5f, 0.0f, 200.0f))
-                MarkSceneUpdated();
-            if (ImGui::DragFloat("Border Thickness", &s.borderThickness, 0.1f, 0.0f, 20.0f))
-                MarkSceneUpdated();
-            if (ImGui::ColorEdit4("Fill Color", (float*)&s.fillColor))
-                MarkSceneUpdated();
-            if (ImGui::ColorEdit4("Border Color", (float*)&s.borderColor))
-                MarkSceneUpdated();
-            if (ImGui::ColorEdit4("Shadow Color", (float*)&s.shadowColor))
-                MarkSceneUpdated();
-            if (ImGui::DragFloat4("Shadow Spread", (float*)&s.shadowSpread, 0.1f, 0.0f, 100.0f))
-                MarkSceneUpdated();
-            float so[2] = { s.shadowOffset.x, s.shadowOffset.y };
-            if (ImGui::DragFloat2("Shadow Offset", so, 0.5f, -100, 100))
-            {
-                s.shadowOffset.x = so[0];
-                s.shadowOffset.y = so[1];
-                MarkSceneUpdated();
-            }
-            if (ImGui::Checkbox("Shadow Use Corner Radius", &s.shadowUseCornerRadius))
-                MarkSceneUpdated();
-            int st = (int)s.type;
-            if (ImGui::Combo("Type", &st, "Rectangle\0Circle\0"))
-            {
-                s.type = (ShapeType)st;
-                MarkSceneUpdated();
-            }
-            float shadow_rd = s.shadowRotation * (180.0f / 3.1415926535f);
-            if (ImGui::DragFloat("Shadow Rotation (deg)", &shadow_rd, 1.0f, 0.0f, 360.0f))
-            {
-                s.shadowRotation = shadow_rd * (3.1415926535f / 180.0f);
-                MarkSceneUpdated();
-            }
-            if (ImGui::DragFloat("Blur Amount", &s.blurAmount, 0.1f, 0.0f, 20.0f))
-                MarkSceneUpdated();
-            if (ImGui::Checkbox("Visible", &s.visible))
-                MarkSceneUpdated();
-            ImGui::Checkbox("Locked", &s.locked);
-            if (ImGui::DragInt("Shape Z-Order", &s.zOrder, 0.1f))
-                MarkSceneUpdated();
-            if (ImGui::Checkbox("Use Gradient", &s.useGradient))
-                MarkSceneUpdated();
-            if (s.useGradient)
-            {
-                float gradr = s.gradientRotation;
-                if (ImGui::DragFloat("Gradient Rotation (deg)", &gradr, 1.0f, 0.0f, 360.0f))
-                {
-                    s.gradientRotation = gradr;
-                    MarkSceneUpdated();
-                }
-                int interpolation_type = (int)s.gradientInterpolation;
-                const char* interpItems[] = { "Linear", "Ease", "Constant", "Cardinal", "BSpline" };
-                if (ImGui::Combo("Interpolation", &interpolation_type, interpItems, IM_ARRAYSIZE(interpItems)))
-                {
-                    s.gradientInterpolation = (ShapeItem::GradientInterpolation)interpolation_type;
-                    MarkSceneUpdated();
-                }
-                ImGui::Text("Color Ramp");
-                for (int ci = 0; ci < (int)s.colorRamp.size(); ci++)
-                {
-                    ImGui::PushID(ci + 3000);
-                    if (ImGui::SliderFloat(("Pos##" + std::to_string(ci)).c_str(), &s.colorRamp[ci].first, 0.0f, 1.0f, "%.3f"))
-                    {
-                        MarkSceneUpdated();
-                    }
-                    if (ImGui::ColorEdit4(("Color##" + std::to_string(ci)).c_str(), (float*)&s.colorRamp[ci].second))
-                    {
-                        MarkSceneUpdated();
-                    }
                     ImGui::SameLine();
-                    if (ImGui::Button(("Delete##" + std::to_string(ci)).c_str()) && s.colorRamp.size() > 1)
+                    if (ImGui::Button("X##DelPair"))
                     {
-                        s.colorRamp.erase(s.colorRamp.begin() + ci);
-                        ci--;
-                        MarkSceneUpdated();
+                        pair_to_delete = j;
                     }
                     ImGui::PopID();
                 }
-                if (ImGui::Button("Add Color"))
-                {
-                    s.colorRamp.emplace_back(0.5f, ImVec4(1, 1, 1, 1));
+
+                if (pair_to_delete != -1) {
+                    if (pair_to_delete < mapping.buttonIds.size()) mapping.buttonIds.erase(mapping.buttonIds.begin() + pair_to_delete);
+                    if (pair_to_delete < mapping.childWindowKeys.size()) mapping.childWindowKeys.erase(mapping.childWindowKeys.begin() + pair_to_delete);
                     MarkSceneUpdated();
                 }
-            }
-            ShowUI_EventHandlers(s);
-        }
-    }
 
-
-    inline void ShowUI_LayerShapeManager_MultiShapeEdit()
-    {
-        if (DesignManager::selectedShapes.size() > 1)
-        {
-            ImGui::Separator();
-            ImGui::Text("Multiple shapes selected.");
-
-            static bool rotOffsetMode = false;
-            static bool colOffsetMode = false;
-
-            static float deltaPos[2] = { 0.0f, 0.0f };
-            if (ImGui::DragFloat2("Delta Position", deltaPos, 1.0f))
-            {
-                for (ShapeItem* shape : DesignManager::selectedShapes)
+                if (ImGui::Button("+ Add Button/Window Pair##Map"))
                 {
-                    shape->basePosition.x += deltaPos[0];
-                    shape->basePosition.y += deltaPos[1];
+                    std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
+                    int defaultButtonId = -1;
+                    std::vector<std::string> availableChildWindows;
+                    for (auto& [key, winData] : g_windowsMap) availableChildWindows.push_back(key);
+                    std::string defaultChild = (!availableChildWindows.empty()) ? availableChildWindows[0] : "";
+
+                    mapping.buttonIds.push_back(defaultButtonId);
+                    mapping.childWindowKeys.push_back(defaultChild);
+                    MarkSceneUpdated();
                 }
-                deltaPos[0] = deltaPos[1] = 0.0f;
+                ImGui::Unindent();
+
+                ImGui::PopID();
+            }
+
+            if (mapping_to_delete != -1) {
+                g_combinedChildWindowMappings.erase(g_combinedChildWindowMappings.begin() + mapping_to_delete);
                 MarkSceneUpdated();
             }
 
-            ImGui::Checkbox("Offset Mode (Rotation)", &rotOffsetMode);
-            if (!rotOffsetMode)
+            if (ImGui::Button("+ Add New Mapping Rule"))
             {
-                ShapeItem* first = DesignManager::selectedShapes.front();
-                float rot = first->baseRotation * (180.0f / IM_PI);
-                if (ImGui::DragFloat("Rotation", &rot, 1.0f, 0.0f, 360.0f))
-                {
-                    for (ShapeItem* shape : DesignManager::selectedShapes)
-                    {
-                        shape->baseRotation = rot * (IM_PI / 180.0f);
-                    }
-                    MarkSceneUpdated();
-                }
-            }
-            else
-            {
-                static float deltaRot = 0.0f;
-                if (ImGui::DragFloat("Delta Rotation", &deltaRot, 1.0f, -360.0f, 360.0f))
-                {
-                    for (ShapeItem* shape : DesignManager::selectedShapes)
-                    {
-                        shape->baseRotation += (deltaRot * (IM_PI / 180.0f));
-                    }
-                    deltaRot = 0.0f;
-                    MarkSceneUpdated();
-                }
-            }
+                std::vector<ShapeItem*> allShapes = GetAllShapes();
+                int defaultShapeId = (!allShapes.empty()) ? allShapes[0]->id : 0;
+                if (!allShapes.empty()) allShapes[0]->isChildWindow = true;
 
-            ImGui::Checkbox("Offset Mode (Fill Color)", &colOffsetMode);
-            if (!colOffsetMode)
-            {
-                ShapeItem* first = DesignManager::selectedShapes.front();
-                float col[4] = { first->fillColor.x, first->fillColor.y, first->fillColor.z, first->fillColor.w };
-                if (ImGui::ColorEdit4("Fill Color", col))
-                {
-                    for (ShapeItem* shape : DesignManager::selectedShapes)
-                    {
-                        shape->fillColor = ImVec4(col[0], col[1], col[2], col[3]);
-                    }
-                    MarkSceneUpdated();
-                }
-            }
-            else
-            {
-                float deltaCol[4] = { 0, 0, 0, 0 };
-                if (ImGui::DragFloat4("Delta Fill Color", deltaCol, 0.01f))
-                {
-                    for (ShapeItem* shape : DesignManager::selectedShapes)
-                    {
-                        shape->fillColor.x += deltaCol[0];
-                        shape->fillColor.y += deltaCol[1];
-                        shape->fillColor.z += deltaCol[2];
-                        shape->fillColor.w += deltaCol[3];
-                    }
-                    MarkSceneUpdated();
-                }
+                std::vector<ShapeItem*> availableButtons = GetAllButtonShapes();
+                int defaultButtonId = -1;
+
+                std::vector<std::string> availableChildWindows;
+                for (auto& [key, winData] : g_windowsMap) availableChildWindows.push_back(key);
+                std::string defaultChild = (!availableChildWindows.empty()) ? availableChildWindows[0] : "";
+
+                CombinedMapping newMapping;
+                newMapping.shapeId = defaultShapeId;
+                newMapping.logicOp = "None";
+                newMapping.buttonIds.push_back(defaultButtonId);
+                newMapping.childWindowKeys.push_back(defaultChild);
+
+                g_combinedChildWindowMappings.push_back(newMapping);
+                MarkSceneUpdated();
             }
         }
     }
 
-    inline void ShowUI_LayerShapeManager_CodeGeneration(WindowData& windowData, int selectedLayerIndex, int selectedShapeIndex)
+    static bool VerticalSplitter(const char* str_id, float thickness, float height, float* size_left, float* size_right, float min_left, float min_right)
     {
-        ImGui::Separator();
-        if (ImGui::Button("Generate Code for Selected Shape"))
+        using namespace ImGui;
+        ImGuiWindow* window = GetCurrentWindow();
+        ImGuiID id = window->GetID(str_id);
+        ImRect bb;
+        bb.Min = window->DC.CursorPos;
+
+
+        ImVec2 splitter_size = ImVec2(thickness, height);
+        bb.Max = bb.Min + splitter_size;
+
+
+        InvisibleButton(str_id, splitter_size);
+
+        bool changed = false;
+        if (IsItemActive() && IsMouseDragging(ImGuiMouseButton_Left))
         {
-            if (DesignManager::selectedShapes.size() == 1 && selectedLayerIndex >= 0 && selectedShapeIndex >= 0 && selectedShapeIndex < (int)windowData.layers[selectedLayerIndex].shapes.size())
+            float mouse_delta_x = GetMouseDragDelta(ImGuiMouseButton_Left).x;
+
+
+            if (std::abs(mouse_delta_x) > 0.1f)
             {
-                ShapeItem& shape = windowData.layers[selectedLayerIndex].shapes[selectedShapeIndex];
-                generatedCodeForSingleShape = GenerateSingleShapeCode(shape);
+
+                float new_size_left = *size_left + mouse_delta_x;
+                float new_size_right = *size_right - mouse_delta_x;
+
+
+                float actual_delta = mouse_delta_x;
+
+
+                if (new_size_left < min_left) {
+                    actual_delta = min_left - *size_left;
+                }
+
+                if (new_size_right < min_right) {
+
+                    if (mouse_delta_x < 0) {
+                        actual_delta = *size_right - min_right;
+                    }
+
+                    else {
+                        actual_delta = *size_right - min_right;
+                    }
+                }
+
+
+
+
+
+                if (std::abs(actual_delta) > 0.1f) {
+                    *size_left += actual_delta;
+                    *size_right -= actual_delta;
+                    changed = true;
+
+
+                    ResetMouseDragDelta(ImGuiMouseButton_Left);
+                }
+                else {
+
+
+                }
+
             }
         }
-        if (!generatedCodeForSingleShape.empty())
-        {
-            ImGui::Separator();
-            ImGui::TextUnformatted("Single Shape Code:");
-            ImGui::BeginChild("SingleShapeCode", ImVec2(-FLT_MIN, 100.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
-            ImGui::TextUnformatted(generatedCodeForSingleShape.c_str());
-            ImGui::EndChild();
-            if (ImGui::Button("Copy Single Shape Code"))
-                ImGui::SetClipboardText(generatedCodeForSingleShape.c_str());
+
+
+        ImDrawList* draw_list = GetWindowDrawList();
+        ImU32 col = GetColorU32(IsItemActive() ? ImGuiCol_ButtonActive : IsItemHovered() ? ImGuiCol_ButtonHovered : ImGuiCol_Separator);
+        draw_list->AddRectFilled(bb.Min, bb.Max, col, 0.0f);
+
+
+        if (IsItemHovered()) {
+            SetMouseCursor(ImGuiMouseCursor_ResizeEW);
         }
 
-        if (ImGui::Button(("Generate Code for " + DesignManager::selectedGuiWindow).c_str()))
-            generatedCodeForWindow = GenerateCodeForWindow(DesignManager::selectedGuiWindow);
-        ImGui::SameLine();
-        if (ImGui::Button("Copy Code"))
-        {
-            if (!generatedCodeForWindow.empty())
-                CopyToClipboard(generatedCodeForWindow);
+        return changed;
+    }
+
+
+
+
+
+    inline void ShowUI(GLFWwindow* window) {
+        EnsureMainWindowExists();
+        WindowData& currentWindowData = g_windowsMap.at(selectedGuiWindow);
+
+        if (currentWindowData.layers.empty()) { selectedLayerIndex = -1; }
+        else if (selectedLayerIndex < 0 || selectedLayerIndex >= currentWindowData.layers.size()) { selectedLayerIndex = 0; }
+
+        ImGui::SetNextWindowSize(ImVec2(1000, 700), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Design Editor");
+
+        float minPaneWidth = 100.0f;
+        float splitterWidth = 6.0f;
+
+
+        static float leftPaneWidth = 250.0f;
+        static float middlePaneWidth = 350.0f;
+
+
+        ImVec2 availableSize = ImGui::GetContentRegionAvail();
+        float availableWidth = availableSize.x;
+        float availableHeight = availableSize.y;
+
+
+
+        float totalMinWidth = minPaneWidth * 3 + splitterWidth * 2;
+
+
+        leftPaneWidth = std::max(minPaneWidth, leftPaneWidth);
+        middlePaneWidth = std::max(minPaneWidth, middlePaneWidth);
+
+
+        float maxLeftMiddleSum = availableWidth - minPaneWidth - splitterWidth * 2;
+        if (leftPaneWidth + middlePaneWidth > maxLeftMiddleSum) {
+
+
+            float excess = (leftPaneWidth + middlePaneWidth) - maxLeftMiddleSum;
+            float middleReduction = std::min(excess, std::max(0.0f, middlePaneWidth - minPaneWidth));
+            middlePaneWidth -= middleReduction;
+            excess -= middleReduction;
+            if (excess > 0) {
+                float leftReduction = std::min(excess, std::max(0.0f, leftPaneWidth - minPaneWidth));
+                leftPaneWidth -= leftReduction;
+            }
+
+            leftPaneWidth = std::max(minPaneWidth, leftPaneWidth);
+            middlePaneWidth = std::max(minPaneWidth, middlePaneWidth);
         }
-        ImGui::BeginChild("GeneratedCodeWindow", ImVec2(-FLT_MIN, 200.0f), true, ImGuiWindowFlags_HorizontalScrollbar);
-        ImGui::TextUnformatted(generatedCodeForWindow.c_str());
+
+
+
+
+        float rightPaneWidth = availableWidth - leftPaneWidth - middlePaneWidth - splitterWidth * 2;
+        rightPaneWidth = std::max(minPaneWidth, rightPaneWidth);
+
+
+
+        float currentTotal = leftPaneWidth + middlePaneWidth + rightPaneWidth + splitterWidth * 2;
+        if (currentTotal > availableWidth) {
+            float excess = currentTotal - availableWidth;
+
+            float middleReduction = std::min(excess, std::max(0.0f, middlePaneWidth - minPaneWidth));
+            middlePaneWidth -= middleReduction;
+            excess -= middleReduction;
+            if (excess > 0) {
+                float leftReduction = std::min(excess, std::max(0.0f, leftPaneWidth - minPaneWidth));
+                leftPaneWidth -= leftReduction;
+            }
+
+            rightPaneWidth = availableWidth - leftPaneWidth - middlePaneWidth - splitterWidth * 2;
+        }
+
+
+
+
+
+        ImGui::BeginChild("LeftPane", ImVec2(leftPaneWidth, availableHeight), true);
+        ShowUI_HierarchyPanel(currentWindowData, selectedLayerIndex, selectedShapes);
         ImGui::EndChild();
-    }
 
 
-    inline void ShowUI(GLFWwindow* window)
-    {
-        auto& windowData = g_windowsMap[DesignManager::selectedGuiWindow];
+        ImGui::SameLine(0.0f, 0.0f);
 
-        if (selectedLayerIndex >= windowData.layers.size())
-            selectedLayerIndex = windowData.layers.empty() ? -1 : 0;
-        if (selectedLayerIndex != -1 && selectedShapeIndex >= windowData.layers[selectedLayerIndex].shapes.size())
+        if (VerticalSplitter("##Splitter1", splitterWidth, availableHeight, &leftPaneWidth, &middlePaneWidth, minPaneWidth, minPaneWidth))
         {
-            selectedShapeIndex = windowData.layers[selectedLayerIndex].shapes.empty() ? -1 : 0;
-        }
 
-        ImGui::Begin("Shape Key & Layer Manager");
+
+            rightPaneWidth = availableWidth - leftPaneWidth - middlePaneWidth - splitterWidth * 2;
+
+
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+
+
+
+        ImGui::BeginChild("MiddlePane", ImVec2(middlePaneWidth, availableHeight), true);
+        ShowUI_PropertiesPanel(currentWindowData, selectedLayerIndex, selectedShapes);
+        ImGui::EndChild();
+
+
+        ImGui::SameLine(0.0f, 0.0f);
+
+        if (VerticalSplitter("##Splitter2", splitterWidth, availableHeight, &middlePaneWidth, &rightPaneWidth, minPaneWidth, minPaneWidth))
         {
-            ShowUI_WindowSelectionAndGroupSettings(windowData);
-        }
-        ImGui::Separator();
 
-        if (!g_windowsMap.empty() && g_windowsMap.find(DesignManager::selectedGuiWindow) != g_windowsMap.end())
-        {
-            ShowUI_LayerManagement(windowData, selectedLayerIndex, selectedShapeIndex);
-        }
 
-        ImGui::Separator();
-        ShowUI_ShapeDetails(windowData, selectedLayerIndex, selectedShapeIndex);
+
+
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+
+
+
+
+
+        ImGui::BeginChild("RightPane", ImVec2(std::max(0.0f, rightPaneWidth), availableHeight), true);
+        if (ImGui::BeginTabBar("ExtraTabs")) {
+            if (ImGui::BeginTabItem("Code")) { ShowUI_CodeGenerationPanel(); ImGui::EndTabItem(); }
+            if (ImGui::BeginTabItem("Components")) { ShowUI_ComponentPanel(); ImGui::EndTabItem(); }
+            if (ImGui::BeginTabItem("Mappings")) { ShowUI_LayerShapeManager_ChildWindowMappings(); ImGui::EndTabItem(); }
+            ImGui::EndTabBar();
+        }
+        ImGui::EndChild();
+
+
+
 
         ImGui::End();
 
-        ShowUI_ParentTreeWindow();
-
-        ImGui::Begin("Layer & Shape Manager");
-        {
-            ShowUI_LayerShapeManager_ChildWindowMappings();
-            ShowUI_LayerShapeManager_LayerList(windowData, selectedLayerIndex, selectedShapeIndex);
-            ShowUI_LayerShapeManager_ShapeProperties(windowData, selectedLayerIndex, selectedShapeIndex);
-            ShowUI_LayerShapeManager_MultiShapeEdit();
-            ShowUI_LayerShapeManager_CodeGeneration(windowData, selectedLayerIndex, selectedShapeIndex);
-
-            DesignManager::RenderTemporaryWindows();
-            RenderAllRegisteredWindows();
-        }
-        ImGui::End();
+        RenderTemporaryWindows();
+        RenderAllRegisteredWindows();
     }
 
     inline std::string SaveConfiguration() {
@@ -4695,7 +6578,7 @@ namespace DesignManager
     }
 
 
-    // 2. DrawAllForWindow function (if applicable; here it takes a single layer as parameter):
+
     inline void DrawAllForWindow(const std::string& windowName, const Layer& layer) {
         if (windowName == ImGui::GetCurrentWindow()->Name) {
             std::vector<Layer> sortedLayers = { layer };
@@ -4712,7 +6595,6 @@ namespace DesignManager
         }
     }
 
-
     inline void RenderChildWindowForShape1()
     {
         ImGui::Text("Child Window for Shape 1");
@@ -4721,7 +6603,7 @@ namespace DesignManager
 
         if (ImGui::Button("Example Button"))
         {
-            // Button processing code...
+
         }
 
         static float sliderValue = 0.5f;
@@ -4736,7 +6618,7 @@ namespace DesignManager
 
         if (ImGui::Button("Example Button"))
         {
-            // Button processing code...
+
         }
 
         static float sliderValue = 0.5f;
@@ -4750,77 +6632,81 @@ namespace DesignManager
 
         if (ImGui::Button("Example Button"))
         {
-            // Button processing code...
+
         }
 
         static float sliderValue = 0.5f;
         ImGui::SliderFloat("Example Slider", &sliderValue, 0.0f, 1.0f);
     }
-    // 3. Init function:
+
     inline void Init(int width, int height, GLFWwindow* window) {
-    // Initialize global variables appropriately:
-        selectedLayerIndex = 0; // Start with potentially valid index
+
+        selectedLayerIndex = 0;
         selectedShapeIndex = -1;
-    
+
         if (black_texture_id) {
             glDeleteTextures(1, (GLuint*)&black_texture_id);
-            black_texture_id = 0; // Use 0 for OpenGL handle
+            black_texture_id = 0;
         }
-        ClearGradientTextureCache(); // Assuming this function exists
-    
-        // Add "Main" window if it doesn't exist - crucial for the editor
+        ClearGradientTextureCache();
+
+
         if (g_windowsMap.find("Main") == g_windowsMap.end()) {
-            g_windowsMap["Main"] = {}; // Create default WindowData
-            // Optionally add a default layer if needed immediately by editor logic
-            // g_windowsMap["Main"].layers.emplace_back("Default Layer");
+            g_windowsMap["Main"] = {};
+
+
         }
-    
-        // Ensure selectedGuiWindow is valid, default to "Main" if not
+
+
         if (DesignManager::selectedGuiWindow.empty() || g_windowsMap.find(DesignManager::selectedGuiWindow) == g_windowsMap.end()) {
             DesignManager::selectedGuiWindow = "Main";
         }
 
+
         ImGuiIO& io = ImGui::GetIO();
         io.Fonts->AddFontDefault();
 
-        // Register windows:
-        RegisterWindow("ChildWindow_1", RenderChildWindowForShape1);
-        RegisterWindow("ChildWindow_2", RenderChildWindowForShape2);
-        // Call the function that contains the generated code to populate shapes/layers
-        // This should happen *after* windows are registered so OwnerWindow is valid.
-        //GeneratedCode(); // Assuming this function now correctly uses the updated ShapeBuilder
 
-        // Now that windows and potentially layers/shapes are loaded, validate selected indices
+
+        RegisterWindow("ChildWindow_1", RenderChildWindowForShape1);
+
+
+
+
+
+
+
+
         auto it = g_windowsMap.find(DesignManager::selectedGuiWindow);
-        if (it != g_windowsMap.end()) { // Check if selected window exists
+        if (it != g_windowsMap.end()) {
             if (it->second.layers.empty()) {
-                // If the selected window has no layers after loading, add one (optional)
-                // it->second.layers.emplace_back("Layer 1");
-                selectedLayerIndex = -1; // Or set to -1 if no layers
+
+
+                selectedLayerIndex = -1;
             }
             else {
-                // Ensure selectedLayerIndex is within bounds
+
                 selectedLayerIndex = std::max(0, std::min(selectedLayerIndex, (int)it->second.layers.size() - 1));
             }
         }
         else {
-            // This case should ideally not happen due to defaulting to "Main", but handle it
+
             selectedLayerIndex = -1;
         }
-        selectedShapeIndex = -1; // Always reset shape index on init
+        selectedShapeIndex = -1;
 
-        // Other initializations (e.g., window size tracking)
-        // glfwGetWindowSize(window, &oldWindowWidth, &oldWindowHeight);
-        // initialWindowSize = ImVec2(oldWindowWidth, oldWindowHeight);
-        // UpdateGlobalScaleFactor(oldWindowWidth, oldWindowHeight); // Assuming this exists
 
-        MarkSceneUpdated(); // Mark for redraw after init
+
+
+
+
+        MarkSceneUpdated();
     }
 
 
-    // --------------------------------------------------------------------------------
-// Macro Definitions (For builder classes with two parameters: Method Name, Actual Member)
-// --------------------------------------------------------------------------------
+
+
+
 #define DEFINE_ANIM_SETTER(METHOD, MEMBER) \
         AnimationBuilder& set##METHOD(const decltype(anim.MEMBER)& value) { \
             anim.MEMBER = value; \
@@ -4839,11 +6725,11 @@ namespace DesignManager
             return *this; \
         }
 
-// --------------------------------------------------------------------------------
-// Builder Classes
-// --------------------------------------------------------------------------------
 
-// AnimationBuilder
+
+
+
+
     class AnimationBuilder {
     public:
         ButtonAnimation anim;
@@ -4865,7 +6751,7 @@ namespace DesignManager
         }
     };
 
-    // ShapeKeyBuilder
+
     class ShapeKeyBuilder {
     public:
         ShapeKey key;
@@ -4885,26 +6771,27 @@ namespace DesignManager
         }
     };
 
-    // Extended ShapeBuilder
+
+
     class ShapeBuilder {
     public:
-        ShapeItem shape; // Assumes ShapeItem definition is visible (and openWindow is removed there too)
-    
-        // Basic properties
+        ShapeItem shape;
+
+
         DEFINE_SETTER(Id, id)
             DEFINE_SETTER(Name, name)
             DEFINE_SETTER(OwnerWindow, ownerWindow)
-            DEFINE_SETTER(GroupId, groupId) // For button groups etc.
+            DEFINE_SETTER(GroupId, groupId)
             DEFINE_SETTER(Position, position)
             DEFINE_SETTER(Size, size)
             DEFINE_SETTER(Rotation, rotation)
-    
-            // Base transform properties
+
+
             DEFINE_SETTER(BasePosition, basePosition)
             DEFINE_SETTER(BaseSize, baseSize)
             DEFINE_SETTER(BaseRotation, baseRotation)
-    
-            // Appearance and style settings
+
+
             DEFINE_SETTER(CornerRadius, cornerRadius)
             DEFINE_SETTER(BorderThickness, borderThickness)
             DEFINE_SETTER(FillColor, fillColor)
@@ -4916,31 +6803,31 @@ namespace DesignManager
             DEFINE_SETTER(Visible, visible)
             DEFINE_SETTER(Locked, locked)
             DEFINE_SETTER(ColorRamp, colorRamp)
-            // Separate function to add a ramp entry
+
             ShapeBuilder& addColorRampEntry(float pos, const ImVec4& color) {
             shape.colorRamp.emplace_back(pos, color);
             return *this;
         }
-    
-        // Glass effect
+
+
         DEFINE_SETTER(UseGlass, useGlass)
             DEFINE_SETTER(GlassBlur, glassBlur)
             DEFINE_SETTER(GlassAlpha, glassAlpha)
             DEFINE_SETTER(GlassColor, glassColor)
-    
-            // Button properties
+
+
             DEFINE_SETTER(IsButton, isButton)
             DEFINE_SETTER(ButtonBehavior, buttonBehavior)
             DEFINE_SETTER(HoverColor, hoverColor)
             DEFINE_SETTER(ClickedColor, clickedColor)
             DEFINE_SETTER(UseOnClick, useOnClick)
-            // To add OnClick Animations
+
             ShapeBuilder& addOnClickAnimation(const ButtonAnimation& anim) {
             shape.onClickAnimations.push_back(anim);
             return *this;
         }
-    
-        // Text properties
+
+
         DEFINE_SETTER(HasText, hasText)
             DEFINE_SETTER(Text, text)
             DEFINE_SETTER(TextColor, textColor)
@@ -4950,36 +6837,46 @@ namespace DesignManager
             DEFINE_SETTER(TextRotation, textRotation)
             DEFINE_SETTER(TextAlignment, textAlignment)
             DEFINE_SETTER(DynamicTextSize, dynamicTextSize)
-    
-            // Z-order and gradient settings
+
+
             DEFINE_SETTER(ZOrder, zOrder)
             DEFINE_SETTER(UseGradient, useGradient)
             DEFINE_SETTER(GradientRotation, gradientRotation)
             DEFINE_SETTER(GradientInterpolation, gradientInterpolation)
-    
-            // To add Shape Keys
+
+
             ShapeBuilder& addShapeKey(const ShapeKey& key) {
             shape.shapeKeys.push_back(key);
             return *this;
         }
-    
-        // Child Window (Registered Window Container) settings
+
+
         DEFINE_SETTER(IsChildWindow, isChildWindow)
             DEFINE_SETTER(ChildWindowSync, childWindowSync)
             DEFINE_SETTER(ChildWindowGroupId, childWindowGroupId)
             DEFINE_SETTER(ToggleChildWindow, toggleChildWindow)
-            DEFINE_SETTER(TargetShapeID, targetShapeID) // Used by buttons or for sync
-    
-            // Direct ImGui Content Container settings (NEW)
+            DEFINE_SETTER(TargetShapeID, targetShapeID)
+
+
             DEFINE_SETTER(IsImGuiContainer, isImGuiContainer)
-            // Method to set the render callback function (NEW)
+
             ShapeBuilder& setRenderImGuiContent(const std::function<void()>& func) {
             shape.renderImGuiContent = func;
             return *this;
         }
-    
-        // Additional properties:
-        DEFINE_SETTER(UpdateAnimBaseOnResize, updateAnimBaseOnResize)
+
+
+        DEFINE_SETTER(AnchorMode, anchorMode)
+            DEFINE_SETTER(AnchorMargin, anchorMargin)
+            DEFINE_SETTER(UsePercentagePos, usePercentagePos)
+            DEFINE_SETTER(PercentagePos, percentagePos)
+            DEFINE_SETTER(UsePercentageSize, usePercentageSize)
+            DEFINE_SETTER(PercentageSize, percentageSize)
+            DEFINE_SETTER(MinSize, minSize)
+            DEFINE_SETTER(MaxSize, maxSize)
+
+
+            DEFINE_SETTER(UpdateAnimBaseOnResize, updateAnimBaseOnResize)
             DEFINE_SETTER(HasEmbeddedImage, hasEmbeddedImage)
             DEFINE_SETTER(EmbeddedImageIndex, embeddedImageIndex)
             DEFINE_SETTER(AllowItemOverlap, allowItemOverlap)
@@ -4988,54 +6885,124 @@ namespace DesignManager
             DEFINE_SETTER(ShadowRotation, shadowRotation)
             DEFINE_SETTER(BlurAmount, blurAmount)
             DEFINE_SETTER(Type, type)
-    
-    
-            // Helper: Return an AnimationBuilder for chained usage
-            // Ensure AnimationBuilder is defined or forward-declared
+
+
+
+
             AnimationBuilder createAnimation() {
             return AnimationBuilder();
         }
-        // Helper: Return a ShapeKeyBuilder
-        // Ensure ShapeKeyBuilder is defined or forward-declared
+
+
         static ShapeKeyBuilder createShapeKey() {
             return ShapeKeyBuilder();
         }
-    
-        // Add event handler
+
+
         ShapeBuilder& addEventHandler(const std::string& eventType, const std::string& name, const std::function<void(ShapeItem&)>& handler) {
             shape.eventHandlers.push_back({ eventType, name, handler });
             return *this;
         }
-    
-        // Returns the ShapeItem when all settings are complete.
+
+        ShapeBuilder& setIsLayoutContainer(bool value) {
+            shape.isLayoutContainer = value;
+
+
+
+
+
+            return *this;
+        }
+
+
+        ShapeBuilder& setLayoutManager(LayoutManager* manager) {
+
+
+            shape.layoutManager = manager;
+
+
+            return *this;
+        }
+
+
+
+
+        ShapeBuilder& setStretchFactor(float factor) {
+            shape.stretchFactor = std::max(0.0f, factor);
+            return *this;
+        }
+
+        ShapeBuilder& setHorizontalAlignment(HAlignment alignment) {
+            shape.horizontalAlignment = alignment;
+            return *this;
+        }
+
+        ShapeBuilder& setVerticalAlignment(VAlignment alignment) {
+            shape.verticalAlignment = alignment;
+            return *this;
+        }
+
+
+
+
+
         ShapeItem build() {
-            // Ensure container modes are mutually exclusive when building
+
+
+            if (shape.basePosition == ImVec2(0, 0) && shape.position != ImVec2(0, 0)) shape.basePosition = shape.position;
+            if (shape.baseSize == ImVec2(0, 0) && shape.size != ImVec2(0, 0)) shape.baseSize = shape.size;
+            if (shape.baseRotation == 0.0f && shape.rotation != 0.0f) shape.baseRotation = shape.rotation;
+
+
+            shape.maxSize.x = std::max(shape.minSize.x, shape.maxSize.x);
+            shape.maxSize.y = std::max(shape.minSize.y, shape.maxSize.y);
+
+            shape.size.x = std::max(shape.minSize.x, std::min(shape.size.x, shape.maxSize.x));
+            shape.size.y = std::max(shape.minSize.y, std::min(shape.size.y, shape.maxSize.y));
+
+            shape.baseSize.x = std::max(shape.minSize.x, std::min(shape.baseSize.x, shape.maxSize.x));
+            shape.baseSize.y = std::max(shape.minSize.y, std::min(shape.baseSize.y, shape.maxSize.y));
+
+
+
+            if (shape.anchorMode != ShapeItem::AnchorMode::None) {
+                shape.usePercentagePos = false;
+            }
+
             if (shape.isImGuiContainer) {
-                shape.isChildWindow = false; // Ensure other mode is off
-                // Optionally disable shape's own text if it's a container
-                // shape.hasText = false;
-            }
-            else if (shape.isChildWindow) {
-                shape.isImGuiContainer = false; // Ensure other mode is off
-                // Optionally disable shape's own text if it's a container
-                // shape.hasText = false;
-            }
-            else {
-                // If neither container type, ensure flags are off
-                shape.isImGuiContainer = false;
                 shape.isChildWindow = false;
             }
-    
-            // Optionally: Clamp values, set defaults if unset, perform validation
-    
+            else if (shape.isChildWindow) {
+                shape.isImGuiContainer = false;
+            }
+
+            if (!shape.isChildWindow && !shape.isImGuiContainer) {
+                shape.isChildWindow = false;
+                shape.isImGuiContainer = false;
+            }
+
+
+
+            if (!shape.isLayoutContainer && shape.layoutManager != nullptr) {
+
+                shape.layoutManager = nullptr;
+            }
+
+
+
+
+
+
             return shape;
         }
     };
 
-    // Undefine the macros (optional)
+
 #undef DEFINE_ANIM_SETTER
 #undef DEFINE_SHAPEKEY_SETTER
 #undef DEFINE_SETTER
+
+
 
 
 
