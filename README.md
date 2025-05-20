@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- Add other relevant badges here, e.g., build status, version -->
 
-**ImGui Visual Design Manager is a single-header C++ library that adds a visual design workflow to Dear ImGui.**
+**ImGui Visual Design Manager is a single-header(cpp - h) C++ library that adds a visual design workflow to Dear ImGui.**
 
 **It lets you build and arrange UI components interactively—similar to tools like Figma—directly within your ImGui-based application. Designed components can be exported and used as standard ImGui elements with minimal code changes.**
 
