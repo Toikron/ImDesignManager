@@ -860,19 +860,7 @@ namespace DesignManager
 
     void RenderChildWindowForShape1();
     void RenderChildWindowForShape2();
-    void RenderChildWindowForShape3();
 
-    void RenderDersler_ButtonShapeWindow();
-    void RenderDerslikler_ButtonShapeWindow();
-    void RenderSiniflar_ButtonShapeWindow();
-    void RenderOgretmenler_ButtonShapeWindow();
-    void RenderGunlukDersSayilari_ButtonShapeWindow();
-    void RenderSiniflardaOkutulanDersler_ButtonShapeWindow();
-    void RenderDersliklereDersAtanmasi_ButtonShapeWindow();
-    void RenderOgretmenlereDersAtanmasi_ButtonShapeWindow();
-    void RenderOgretmenlerinDersProgrami_ButtonShapeWindow();
-    void RenderSiniflarinDersProgrami_ButtonShapeWindow();
-    void RenderDersliklerinDersProgrami_ButtonShapeWindow();
 
     void Init(int width, int height, GLFWwindow* window);
 
