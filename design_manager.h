@@ -26,7 +26,8 @@
 #include <limits>
 #include <numeric>
 #include <iomanip>
-#include <memory> // Added for std::unique_ptr
+#include <memory> 
+#include <type_traits>
 
 #include "Images_BINARY.h"
 #include "GeneratedButtons.h"
@@ -181,6 +182,9 @@ struct ShapeKeyAnimation
 
 namespace DesignManager
 {
+
+    
+
     enum class ShapeKeyType
     {
         SizeX,
@@ -299,7 +303,9 @@ namespace DesignManager
     };
 
     struct ShapeItem;
-    class LayoutManager;
+    struct Layer;
+    struct WindowData;
+    class LayoutManager; 
 
     enum class HAlignment { Fill, Left, Center, Right };
     enum class VAlignment { Fill, Top, Center, Bottom };
@@ -310,7 +316,7 @@ namespace DesignManager
         virtual ~LayoutManager() = default;
         virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) = 0;
         virtual const char* getTypeName() const = 0;
-        virtual std::unique_ptr<LayoutManager> Clone() const = 0; // Added
+        virtual std::unique_ptr<LayoutManager> Clone() const = 0; 
     };
 
     class VerticalLayout : public LayoutManager {
@@ -318,7 +324,7 @@ namespace DesignManager
         virtual ~VerticalLayout() override = default;
         virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) override;
         virtual const char* getTypeName() const override;
-        virtual std::unique_ptr<LayoutManager> Clone() const override; // Added
+        virtual std::unique_ptr<LayoutManager> Clone() const override; 
     };
 
     class HorizontalLayout : public LayoutManager {
@@ -326,7 +332,7 @@ namespace DesignManager
         virtual ~HorizontalLayout() override = default;
         virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) override;
         virtual const char* getTypeName() const override;
-        virtual std::unique_ptr<LayoutManager> Clone() const override; // Added
+        virtual std::unique_ptr<LayoutManager> Clone() const override; 
     };
 
     enum class PositioningMode { Relative, Absolute };
@@ -411,7 +417,7 @@ namespace DesignManager
         virtual ~FlexLayout() override = default;
         virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) override;
         virtual const char* getTypeName() const override { return "FlexLayout"; }
-        virtual std::unique_ptr<LayoutManager> Clone() const override; // Added
+        virtual std::unique_ptr<LayoutManager> Clone() const override; 
     };
 
     class GridLayout : public LayoutManager {
@@ -431,7 +437,7 @@ namespace DesignManager
         virtual ~GridLayout() override = default;
         virtual void doLayout(ShapeItem& container, const ImVec2& availableSize) override;
         virtual const char* getTypeName() const override { return "GridLayout"; }
-        virtual std::unique_ptr<LayoutManager> Clone() const override; // Added
+        virtual std::unique_ptr<LayoutManager> Clone() const override; 
         GridLayout();
     };
 
@@ -439,6 +445,8 @@ namespace DesignManager
     {
         int id;
         ShapeType type;
+        bool isPolygon = false; 
+        std::vector<ImVec2> polygonVertices; 
         std::string name;
         ImVec2 position, size;
         ImVec2 basePosition = position;
@@ -486,9 +494,17 @@ namespace DesignManager
         ImVec2 baseKeySizeOffset = ImVec2(0, 0);
         float baseKeyRotationOffset = 0.0f;
         float cornerRadius, borderThickness;
+        bool usePerSideBorderThicknesses = false; 
+        float borderSideThicknesses[4];
+
         ImVec4 fillColor, borderColor, shadowColor, shadowSpread;
+        
+        bool usePerSideBorderColors = false;
+        ImVec4 borderSideColors[4];
+
         ImVec2 shadowOffset;
         bool shadowUseCornerRadius;
+        bool shadowInset = false;
         float blurAmount;
         bool visible, locked, useGradient;
         float gradientRotation;
@@ -561,7 +577,7 @@ namespace DesignManager
         bool usePercentageSize = false;
         ImVec2 percentageSize = ImVec2(10, 10);
         bool isLayoutContainer = false;
-        std::unique_ptr<LayoutManager> layoutManager; // Changed
+        std::unique_ptr<LayoutManager> layoutManager; 
         float stretchFactor = 0.0f;
         HAlignment horizontalAlignment = HAlignment::Fill;
         VAlignment verticalAlignment = VAlignment::Fill;
@@ -584,11 +600,11 @@ namespace DesignManager
         ImVec4 margin = ImVec4(0, 0, 0, 0);
 
         enum class BoxSizing {
-            BorderBox,  // Kenarlık içe doğru (CSS border-box equivalent)
-            ContentBox, // Kenarlık dışa doğru (CSS content-box equivalent for border placement)
-            StrokeBox   // Kenarlık ortalanmış (current default behavior)
+            BorderBox,  
+            ContentBox, 
+            StrokeBox   
         };
-        BoxSizing boxSizing = BoxSizing::StrokeBox; // Default to current behavior
+        BoxSizing boxSizing = BoxSizing::StrokeBox; 
 
         ShapeItem();
         ShapeItem(const ShapeItem& other);
@@ -643,12 +659,12 @@ namespace DesignManager
     {
         int id;
         std::string name;
-        std::vector<std::unique_ptr<ShapeItem>> shapes; // Changed
+        std::vector<std::unique_ptr<ShapeItem>> shapes; 
         bool visible, locked;
         int zOrder;
 
         Layer(const std::string& n);
-        // Add these:
+        
         Layer(const Layer& other);
         Layer& operator=(const Layer& other);
         Layer(Layer&& other) noexcept;
@@ -713,6 +729,87 @@ namespace DesignManager
     };
 
     inline std::map<std::string, WindowData> g_windowsMap;
+
+
+
+
+    
+    struct ButtonState {
+        float lastMoveTime = 0.0f;
+        int targetPositionIndex = 0;
+        std::vector<ImVec2> waypoints;
+        ImVec2 currentAnimatedPos;
+        float moveProgress = 1.0f;
+        int moveCycleCount = 0;
+        bool layerChanged = false;
+        bool layoutChanged = false;
+        float lastRelativeMoveTime = 0.0f;
+        bool nextIsPercentageMove = false;
+    };
+
+    struct PanelState {
+        float lastTextChangeTime = 0.0f;
+        int textVariant = 0;
+        float lastBorderAnimTime = 0.0f;
+        int animationCompletionCount = 0;
+        bool isFadingOut = false;
+        float fadeProgress = 0.0f;
+    };
+
+    
+    extern std::map<int, ButtonState> g_buttonStates;
+    extern std::map<int, PanelState> g_panelStates;
+
+    
+    template <typename T>
+    inline T& GetOrCreatePerItemState(int shapeId) {
+        if constexpr (std::is_same_v<T, ButtonState>) {
+            auto it = g_buttonStates.find(shapeId);
+            if (it == g_buttonStates.end()) {
+                it = g_buttonStates.emplace(shapeId, ButtonState{}).first;
+            }
+            return it->second;
+        }
+        else if constexpr (std::is_same_v<T, PanelState>) {
+            auto it = g_panelStates.find(shapeId);
+            if (it == g_panelStates.end()) {
+                it = g_panelStates.emplace(shapeId, PanelState{}).first;
+            }
+            return it->second;
+        }
+        static_assert(std::is_same_v<T, ButtonState> || std::is_same_v<T, PanelState>, "GetOrCreatePerItemState called with an unsupported type.");
+        
+        
+        
+        
+        
+        
+        
+        static T dummy{};
+        return dummy;
+    }
+
+    
+    WindowData& GetOrCreateWindow(const std::string& name, bool isOpen = true);
+    Layer* GetOrCreateLayer(WindowData& window, const std::string& layerName, int zOrder);
+    ShapeItem* GetOrCreateShapeInLayer(Layer& layer, const ShapeItem& templateShape);
+    std::unique_ptr<ShapeItem> RemoveShapeFromLayer(Layer& layer, int shapeId);
+    ShapeItem* AddShapeToLayer(Layer& layer, std::unique_ptr<ShapeItem> shape_uptr);
+
+    
+    bool IsItemClicked(int shapeId, float deltaTime); 
+    namespace Scheduler { 
+        void ProcessTasks(float totalTime);
+    }
+
+    
+    void SetupProgrammaticUI_UltimateFreedom(float deltaTime, float totalTime);
+
+
+
+
+
+
     std::vector<ShapeItem*> GetAllShapes();
     std::vector<ShapeItem*> GetAllButtonShapes();
 
@@ -765,10 +862,10 @@ namespace DesignManager
     void DispatchEvent(ShapeItem& shape, const std::string& eventType);
     void DrawShape_ProcessButtonLogic(ImDrawList* dlEffective, ShapeItem& s, float scaleFactor, ImVec2 wp, ImVec4& drawColor);
     void DrawShape_FillWithGradient(ImDrawList* dlEffective, const std::vector<ImVec2>& poly,
-        const ShapeItem& shape, // shape reference for gradient properties
-        const ImVec2& fillActualPosPx_World, // World space top-left of the fill area (wp + fillPosPx)
-        const ImVec2& fillActualSizePx,      // Scaled size of the fill area (fillSizePx)
-        const ImVec2& fillActualCenterPx_World // World space center of the fill area (c_fill)
+        const ShapeItem& shape, 
+        const ImVec2& fillActualPosPx_World, 
+        const ImVec2& fillActualSizePx,      
+        const ImVec2& fillActualCenterPx_World 
     );
     void DrawShape_Fill(ImDrawList* dlEffective, ShapeItem& s, const std::vector<ImVec2>& poly,
         const ImVec2& fillActualPosPx_World, const ImVec2& fillActualSizePx,
@@ -858,8 +955,10 @@ namespace DesignManager
     std::string SaveConfiguration();
     void DrawAllForWindow(const std::string& windowName, const Layer& layer);
 
+
     void RenderChildWindowForShape1();
-    void RenderChildWindowForShape2();
+
+
 
 
     void Init(int width, int height, GLFWwindow* window);
@@ -938,8 +1037,12 @@ namespace DesignManager
             DEFINE_SETTER(BaseRotation, baseRotation)
             DEFINE_SETTER(CornerRadius, cornerRadius)
             DEFINE_SETTER(BorderThickness, borderThickness)
+
+            DEFINE_SETTER(UsePerSideBorderThicknesses, usePerSideBorderThicknesses) 
+
             DEFINE_SETTER(FillColor, fillColor)
             DEFINE_SETTER(BorderColor, borderColor)
+            DEFINE_SETTER(UsePerSideBorderColors, usePerSideBorderColors)
             DEFINE_SETTER(Visible, visible)
             DEFINE_SETTER(Locked, locked)
             DEFINE_SETTER(ShadowColor, shadowColor)
@@ -947,6 +1050,7 @@ namespace DesignManager
             DEFINE_SETTER(ShadowOffset, shadowOffset)
             DEFINE_SETTER(ShadowUseCornerRadius, shadowUseCornerRadius)
             DEFINE_SETTER(ShadowRotation, shadowRotation)
+            DEFINE_SETTER(ShadowInset, shadowInset)
             DEFINE_SETTER(BlurAmount, blurAmount)
             DEFINE_SETTER(UseGradient, useGradient)
             DEFINE_SETTER(GradientRotation, gradientRotation)
@@ -1017,7 +1121,9 @@ namespace DesignManager
             DEFINE_SETTER(StretchFactor, stretchFactor)
             DEFINE_SETTER(HorizontalAlignment, horizontalAlignment)
             DEFINE_SETTER(VerticalAlignment, verticalAlignment)
-            DEFINE_SETTER(BoxSizing, boxSizing) // Added
+            DEFINE_SETTER(BoxSizing, boxSizing) 
+            DEFINE_SETTER(IsPolygon, isPolygon) 
+            DEFINE_SETTER(PolygonVertices, polygonVertices) 
 
         ShapeBuilder& addColorRampEntry(float pos, const ImVec4& color) {
             shape.colorRamp.emplace_back(pos, color);
@@ -1043,7 +1149,7 @@ namespace DesignManager
             shape.constraints.push_back(constraint);
             return *this;
         }
-        ShapeBuilder& setLayoutManager(std::unique_ptr<LayoutManager> manager) { // Changed
+        ShapeBuilder& setLayoutManager(std::unique_ptr<LayoutManager> manager) { 
             shape.layoutManager = std::move(manager);
             return *this;
         }
@@ -1055,7 +1161,37 @@ namespace DesignManager
             shape.margin = value;
             return *this;
         }
+        ShapeBuilder& setBorderSideColor(int side, const ImVec4& color) { 
+            if (side >= 0 && side < 4) {
+                shape.borderSideColors[side] = color;
+                shape.usePerSideBorderColors = true; 
+            }
+            return *this;
+        }
+        ShapeBuilder& setBorderSideThickness(int side, float thickness) { 
+            if (side >= 0 && side < 4) {
+                shape.borderSideThicknesses[side] = std::max(0.0f, thickness);
+                shape.usePerSideBorderThicknesses = true; 
+            }
+            return *this;
+        }
 
+        ShapeBuilder& setBorderSidesThickness(float top, float right, float bottom, float left) { 
+            shape.borderSideThicknesses[0] = std::max(0.0f, top);
+            shape.borderSideThicknesses[1] = std::max(0.0f, right);
+            shape.borderSideThicknesses[2] = std::max(0.0f, bottom);
+            shape.borderSideThicknesses[3] = std::max(0.0f, left);
+            shape.usePerSideBorderThicknesses = true; 
+            return *this;
+        }
+        ShapeBuilder& setBorderSidesColor(const ImVec4& top, const ImVec4& right, const ImVec4& bottom, const ImVec4& left) { 
+            shape.borderSideColors[0] = top;
+            shape.borderSideColors[1] = right;
+            shape.borderSideColors[2] = bottom;
+            shape.borderSideColors[3] = left;
+            shape.usePerSideBorderColors = true; 
+            return *this;
+        }
         static AnimationBuilder createAnimation() {
             return AnimationBuilder();
         }
