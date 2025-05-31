@@ -1,4 +1,4 @@
-// design_manager.cpp
+
 #include "design_manager.h"
 
 namespace DesignManager {
@@ -18,6 +18,183 @@ namespace DesignManager {
     std::unique_ptr<LayoutManager> GridLayout::Clone() const {
         return std::make_unique<GridLayout>(*this);
     }
+
+
+
+
+
+
+
+
+    std::map<int, ButtonState> g_buttonStates;
+    std::map<int, PanelState> g_panelStates;
+
+    
+    WindowData& GetOrCreateWindow(const std::string& name, bool isOpen) {
+        auto it = g_windowsMap.find(name);
+        if (it == g_windowsMap.end()) {
+            WindowData newWindow;
+            newWindow.isOpen = isOpen;
+            
+            if (newWindow.layers.empty()) {
+                Layer defaultLayer("Default Layer"); 
+                defaultLayer.id = GetUniqueLayerID(); 
+                defaultLayer.zOrder = 0;
+                newWindow.layers.push_back(std::move(defaultLayer));
+            }
+            it = g_windowsMap.emplace(name, std::move(newWindow)).first;
+        }
+        else {
+            it->second.isOpen = isOpen; 
+        }
+        return it->second;
+    }
+
+    Layer* GetOrCreateLayer(WindowData& window, const std::string& layerName, int zOrder) {
+        auto it = std::find_if(window.layers.begin(), window.layers.end(),
+            [&](const Layer& layer) { return layer.name == layerName; });
+        if (it == window.layers.end()) {
+            Layer newLayer(layerName); 
+            newLayer.id = GetUniqueLayerID(); 
+            newLayer.zOrder = zOrder;
+            newLayer.visible = true;
+            newLayer.locked = false;
+            window.layers.push_back(std::move(newLayer));
+
+            std::stable_sort(window.layers.begin(), window.layers.end(), CompareLayersByZOrder); 
+
+            
+            
+            auto sorted_it = std::find_if(window.layers.begin(), window.layers.end(),
+                [&](const Layer& layer) { return layer.name == layerName; });
+            if (sorted_it != window.layers.end()) {
+                return &(*sorted_it);
+            }
+            return nullptr; 
+        }
+        else {
+            bool resort = false;
+            if (it->zOrder != zOrder) {
+                it->zOrder = zOrder;
+                resort = true;
+            }
+            
+            
+            if (resort) {
+                std::stable_sort(window.layers.begin(), window.layers.end(), CompareLayersByZOrder);
+                
+                auto sorted_it = std::find_if(window.layers.begin(), window.layers.end(),
+                    [&](const Layer& layer) { return layer.name == layerName; });
+                if (sorted_it != window.layers.end()) {
+                    return &(*sorted_it);
+                }
+                return nullptr; 
+            }
+            return &(*it);
+        }
+    }
+
+    ShapeItem* GetOrCreateShapeInLayer(Layer& layer, const ShapeItem& templateShape) {
+        auto it = std::find_if(layer.shapes.begin(), layer.shapes.end(),
+            [&](const std::unique_ptr<ShapeItem>& s_ptr) {
+                return s_ptr && s_ptr->id == templateShape.id;
+            });
+        if (it != layer.shapes.end()) {
+            
+            
+            
+            
+            return it->get();
+        }
+        else {
+            
+            
+            
+            auto newShape = std::make_unique<ShapeItem>(templateShape);
+            ShapeItem* raw_ptr = newShape.get(); 
+            layer.shapes.push_back(std::move(newShape));
+
+            
+            std::stable_sort(layer.shapes.begin(), layer.shapes.end(),
+                [](const std::unique_ptr<ShapeItem>& a, const std::unique_ptr<ShapeItem>& b) {
+                    if (!a || !b) return false; 
+                    return a->zOrder < b->zOrder; 
+                });
+            return raw_ptr; 
+        }
+    }
+
+    std::unique_ptr<ShapeItem> RemoveShapeFromLayer(Layer& layer, int shapeId) {
+        auto it = std::find_if(layer.shapes.begin(), layer.shapes.end(),
+            [&](const std::unique_ptr<ShapeItem>& s_ptr) {
+                return s_ptr && s_ptr->id == shapeId;
+            });
+        if (it != layer.shapes.end()) {
+            std::unique_ptr<ShapeItem> shape_uptr = std::move(*it);
+            layer.shapes.erase(it);
+            if (shape_uptr) {
+                shape_uptr->parent = nullptr; 
+            }
+            return shape_uptr;
+        }
+        return nullptr; 
+    }
+
+    ShapeItem* AddShapeToLayer(Layer& layer, std::unique_ptr<ShapeItem> shape_uptr) {
+        if (!shape_uptr) return nullptr;
+        ShapeItem* raw_ptr = shape_uptr.get(); 
+        layer.shapes.push_back(std::move(shape_uptr));
+
+        
+        std::stable_sort(layer.shapes.begin(), layer.shapes.end(),
+            [](const std::unique_ptr<ShapeItem>& a, const std::unique_ptr<ShapeItem>& b) {
+                if (!a || !b) return false;
+                return a->zOrder < b->zOrder;
+            });
+        return raw_ptr; 
+    }
+
+    
+    
+    
+    
+    
+    
+    bool IsItemClicked(int shapeId, float deltaTime) {
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        ShapeItem* shape = FindShapeByID(shapeId); 
+        if (shape) {
+            
+            
+            
+            
+            
+            if (shape->isClicked) { 
+                
+                
+            }
+        }
+        return false;
+    }
+
+    namespace Scheduler {
+        void ProcessTasks(float totalTime) {
+            
+            
+        }
+    } 
+
+
+
+
 
 
     
@@ -65,12 +242,15 @@ namespace DesignManager {
         maxSize(ImVec2(99999, 99999)),
         cornerRadius(10),
         borderThickness(2),
+        usePerSideBorderThicknesses(false), 
         fillColor(ImVec4(0.932f, 0.932f, 0.932f, 1)),
         borderColor(ImVec4(0, 0, 0, 0.8f)),
+        usePerSideBorderColors(false),
         shadowColor(ImVec4(0, 0, 0, 0.2f)),
         shadowSpread(ImVec4(2, 2, 2, 2)),
         shadowOffset(ImVec2(2, 2)),
         shadowUseCornerRadius(true),
+        shadowInset(false), 
         rotation(0),
         blurAmount(0),
         visible(true),
@@ -115,7 +295,14 @@ namespace DesignManager {
         margin(ImVec4(0.0f, 0.0f, 0.0f, 0.0f)),
         boxSizing(BoxSizing::StrokeBox)
 
+
     {
+        for (int i = 0; i < 4; ++i) { 
+            borderSideColors[i] = borderColor;
+        }
+        for (int i = 0; i < 4; ++i) { 
+            borderSideThicknesses[i] = borderThickness; 
+        }
         colorRamp.emplace_back(0.0f, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         colorRamp.emplace_back(1.0f, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
         basePosition = position;
@@ -124,7 +311,7 @@ namespace DesignManager {
     }
 
     ShapeItem::ShapeItem(const ShapeItem& other)
-        : id(other.id), // For duplication, ID will be reset by caller
+        : id(other.id), 
         type(other.type),
         name(other.name),
         position(other.position),
@@ -164,24 +351,27 @@ namespace DesignManager {
         shapeKeyValue(other.shapeKeyValue),
         onClickAnimations(other.onClickAnimations),
         chainAnimation(other.chainAnimation),
-        isPressed(false), // Runtime state
+        isPressed(false), 
         groupId(other.groupId),
-        currentAnimation(nullptr), // Runtime state
+        currentAnimation(nullptr), 
         updateAnimBaseOnResize(other.updateAnimBaseOnResize),
-        isHeld(false), // Runtime state
-        isAnimating(false), // Runtime state
-        animationProgress(0.0f), // Runtime state
+        isHeld(false), 
+        isAnimating(false), 
+        animationProgress(0.0f), 
         baseKeyOffset(other.baseKeyOffset),
         baseKeySizeOffset(other.baseKeySizeOffset),
         baseKeyRotationOffset(other.baseKeyRotationOffset),
         cornerRadius(other.cornerRadius),
         borderThickness(other.borderThickness),
+        usePerSideBorderThicknesses(other.usePerSideBorderThicknesses), 
         fillColor(other.fillColor),
         borderColor(other.borderColor),
+        usePerSideBorderColors(other.usePerSideBorderColors),
         shadowColor(other.shadowColor),
         shadowSpread(other.shadowSpread),
         shadowOffset(other.shadowOffset),
         shadowUseCornerRadius(other.shadowUseCornerRadius),
+        shadowInset(other.shadowInset),
         blurAmount(other.blurAmount),
         visible(other.visible),
         locked(other.locked),
@@ -200,19 +390,19 @@ namespace DesignManager {
         selectedChildWindowIndex(other.selectedChildWindowIndex),
         logicExpression(other.logicExpression),
         logicAction(other.logicAction),
-        clickCounter(0), // Runtime state
+        clickCounter(0), 
         buttonBehavior(other.buttonBehavior),
-        triggerEvent(false), // Runtime state
-        buttonState(false), // Runtime state
-        shouldCallOnClick(false), // Runtime state
-        isClicked(false), // Runtime state
+        triggerEvent(false), 
+        buttonState(false), 
+        shouldCallOnClick(false), 
+        isClicked(false), 
         hoverColor(other.hoverColor),
         clickedColor(other.clickedColor),
         useOnClick(other.useOnClick),
         onClick(other.onClick),
         storedOnClick(other.storedOnClick),
-        parent(nullptr), // Parent/child relationships must be reconstructed by caller
-        // children is intentionally empty, must be reconstructed by caller if deep copy of hierarchy needed
+        parent(nullptr), 
+        
         originalPosition(other.originalPosition),
         originalRotation(other.originalRotation),
         originalSize(other.originalSize),
@@ -227,8 +417,8 @@ namespace DesignManager {
         embeddedImageHeight(other.embeddedImageHeight),
         embeddedImageChannels(other.embeddedImageChannels),
         embeddedImageIndex(other.embeddedImageIndex),
-        embeddedImageTexture(0), // Will be reloaded
-        imageDirty(true),        // Mark as dirty
+        embeddedImageTexture(0), 
+        imageDirty(true),        
         eventHandlers(other.eventHandlers),
         anchorMode(other.anchorMode),
         anchorMargin(other.anchorMargin),
@@ -237,7 +427,7 @@ namespace DesignManager {
         usePercentageSize(other.usePercentageSize),
         percentageSize(other.percentageSize),
         isLayoutContainer(other.isLayoutContainer),
-        layoutManager(nullptr), // Will be cloned below
+        layoutManager(nullptr), 
         stretchFactor(other.stretchFactor),
         horizontalAlignment(other.horizontalAlignment),
         verticalAlignment(other.verticalAlignment),
@@ -257,25 +447,34 @@ namespace DesignManager {
         alignSelfGrid(other.alignSelfGrid),
         padding(other.padding),
         margin(other.margin),
-        boxSizing(other.boxSizing)
+        boxSizing(other.boxSizing),
+        isPolygon(other.isPolygon), 
+        polygonVertices(other.polygonVertices) 
 
     {
+        for (int i = 0; i < 4; ++i) { 
+            borderSideColors[i] = other.borderSideColors[i];
+        }
+        for (int i = 0; i < 4; ++i) { 
+            borderSideThicknesses[i] = other.borderSideThicknesses[i];
+        }
+
         if (other.layoutManager) {
             layoutManager = other.layoutManager->Clone();
         }
-        // Reset GL FBOs - they should not be copied
+        
         for (int i = 0; i < 2; ++i) {
             glassBlurFBO[i] = 0;
             glassBlurTex[i] = 0;
         }
     }
 
-    // Implement ShapeItem copy assignment operator
+    
     ShapeItem& ShapeItem::operator=(const ShapeItem& other) {
         if (this == &other) return *this;
 
-        // Use copy-and-swap idiom or manually copy all members
-        // For brevity, let's assume manual copy similar to constructor
+        
+        
         id = other.id;
         type = other.type;
         name = other.name;
@@ -328,12 +527,21 @@ namespace DesignManager {
         baseKeyRotationOffset = other.baseKeyRotationOffset;
         cornerRadius = other.cornerRadius;
         borderThickness = other.borderThickness;
+        usePerSideBorderThicknesses = other.usePerSideBorderThicknesses; 
+        for (int i = 0; i < 4; ++i) { 
+            borderSideThicknesses[i] = other.borderSideThicknesses[i];
+        }
         fillColor = other.fillColor;
         borderColor = other.borderColor;
+        usePerSideBorderColors = other.usePerSideBorderColors;
+        for (int i = 0; i < 4; ++i) { 
+            borderSideColors[i] = other.borderSideColors[i];
+        }
         shadowColor = other.shadowColor;
         shadowSpread = other.shadowSpread;
         shadowOffset = other.shadowOffset;
         shadowUseCornerRadius = other.shadowUseCornerRadius;
+        shadowInset = other.shadowInset;
         blurAmount = other.blurAmount;
         visible = other.visible;
         locked = other.locked;
@@ -409,6 +617,8 @@ namespace DesignManager {
         padding = other.padding;
         margin = other.margin;
         boxSizing = other.boxSizing;
+        isPolygon = other.isPolygon; 
+        polygonVertices = other.polygonVertices; 
 
         layoutManager.reset();
         if (other.layoutManager) {
@@ -421,7 +631,7 @@ namespace DesignManager {
         return *this;
     }
 
-    // Implement ShapeItem move constructor
+    
     ShapeItem::ShapeItem(ShapeItem&& other) noexcept
         : id(other.id),
         type(other.type),
@@ -475,12 +685,15 @@ namespace DesignManager {
         baseKeyRotationOffset(other.baseKeyRotationOffset),
         cornerRadius(other.cornerRadius),
         borderThickness(other.borderThickness),
+        usePerSideBorderThicknesses(other.usePerSideBorderThicknesses), 
         fillColor(other.fillColor),
         borderColor(other.borderColor),
+        usePerSideBorderColors(other.usePerSideBorderColors),
         shadowColor(other.shadowColor),
         shadowSpread(other.shadowSpread),
         shadowOffset(other.shadowOffset),
         shadowUseCornerRadius(other.shadowUseCornerRadius),
+        shadowInset(other.shadowInset),
         blurAmount(other.blurAmount),
         visible(other.visible),
         locked(other.locked),
@@ -556,21 +769,30 @@ namespace DesignManager {
         alignSelfGrid(other.alignSelfGrid),
         padding(other.padding),
         margin(other.margin),
-        boxSizing(other.boxSizing)
+        boxSizing(other.boxSizing),
+        isPolygon(other.isPolygon), 
+        polygonVertices(other.polygonVertices) 
     {
+        for (int i = 0; i < 4; ++i) { 
+            borderSideColors[i] = other.borderSideColors[i]; 
+        }
+        for (int i = 0; i < 4; ++i) { 
+            borderSideThicknesses[i] = other.borderSideThicknesses[i]; 
+        }
         for (int i = 0; i < 2; ++i) {
             glassBlurFBO[i] = other.glassBlurFBO[i];
             glassBlurTex[i] = other.glassBlurTex[i];
-            other.glassBlurFBO[i] = 0; // Nullify in moved-from
+            other.glassBlurFBO[i] = 0; 
             other.glassBlurTex[i] = 0;
         }
+
         other.parent = nullptr;
         other.currentAnimation = nullptr;
         other.embeddedImageTexture = 0;
         other.boxSizing = BoxSizing::StrokeBox;
     }
 
-    // Implement ShapeItem move assignment operator
+    
     ShapeItem& ShapeItem::operator=(ShapeItem&& other) noexcept {
         if (this == &other) return *this;
 
@@ -626,12 +848,21 @@ namespace DesignManager {
         baseKeyRotationOffset = other.baseKeyRotationOffset;
         cornerRadius = other.cornerRadius;
         borderThickness = other.borderThickness;
+        usePerSideBorderThicknesses = other.usePerSideBorderThicknesses; 
+        for (int i = 0; i < 4; ++i) { 
+            borderSideThicknesses[i] = other.borderSideThicknesses[i];
+        }
         fillColor = other.fillColor;
         borderColor = other.borderColor;
+        usePerSideBorderColors = other.usePerSideBorderColors;
+        for (int i = 0; i < 4; ++i) { 
+            borderSideColors[i] = other.borderSideColors[i];
+        }
         shadowColor = other.shadowColor;
         shadowSpread = other.shadowSpread;
         shadowOffset = other.shadowOffset;
         shadowUseCornerRadius = other.shadowUseCornerRadius;
+        shadowInset = other.shadowInset;
         blurAmount = other.blurAmount;
         visible = other.visible;
         locked = other.locked;
@@ -708,6 +939,8 @@ namespace DesignManager {
         padding = other.padding;
         margin = other.margin;
         boxSizing = other.boxSizing;
+        isPolygon = other.isPolygon; 
+        polygonVertices = other.polygonVertices; 
 
         for (int i = 0; i < 2; ++i) {
             glassBlurFBO[i] = other.glassBlurFBO[i];
@@ -727,7 +960,7 @@ namespace DesignManager {
     {
     }
 
-    // Implement Layer copy constructor
+    
     Layer::Layer(const Layer& other)
         : id(other.id),
         name(other.name),
@@ -738,7 +971,7 @@ namespace DesignManager {
         shapes.reserve(other.shapes.size());
         for (const auto& shape_uptr : other.shapes) {
             if (shape_uptr) {
-                shapes.push_back(std::make_unique<ShapeItem>(*shape_uptr)); // Uses ShapeItem's copy constructor
+                shapes.push_back(std::make_unique<ShapeItem>(*shape_uptr)); 
             }
             else {
                 shapes.push_back(nullptr);
@@ -746,7 +979,7 @@ namespace DesignManager {
         }
     }
 
-    // Implement Layer copy assignment operator
+    
     Layer& Layer::operator=(const Layer& other) {
         if (this == &other) return *this;
 
@@ -760,7 +993,7 @@ namespace DesignManager {
         shapes.reserve(other.shapes.size());
         for (const auto& shape_uptr : other.shapes) {
             if (shape_uptr) {
-                shapes.push_back(std::make_unique<ShapeItem>(*shape_uptr)); // Uses ShapeItem's copy constructor
+                shapes.push_back(std::make_unique<ShapeItem>(*shape_uptr)); 
             }
             else {
                 shapes.push_back(nullptr);
@@ -769,7 +1002,7 @@ namespace DesignManager {
         return *this;
     }
 
-    // Implement Layer move constructor
+    
     Layer::Layer(Layer&& other) noexcept
         : id(other.id),
         name(std::move(other.name)),
@@ -784,7 +1017,7 @@ namespace DesignManager {
         other.zOrder = 0;
     }
 
-    // Implement Layer move assignment operator
+    
     Layer& Layer::operator=(Layer&& other) noexcept {
         if (this == &other) return *this;
 
@@ -1350,7 +1583,7 @@ namespace DesignManager {
         std::string childId = "ImGuiContainer_" + std::to_string(s.id);
 
         ImVec2 childPos = actualPos_World; 
-        ImVec2 childSize = actualSizePx;  
+        ImVec2 childSize = actualSizePx;   
 
         ImGui::PushID(childId.c_str());
         ImGui::SetCursorScreenPos(childPos);
@@ -1449,7 +1682,8 @@ namespace DesignManager {
 
     ImTextureID CreateGradientTexture(const ImVec2& size, float gradRotation, const std::vector<std::pair<float, ImVec4>>& colorRamp, DesignManager::ShapeItem::GradientInterpolation interpolationType)
     {
-        int width = (int)size.x, height = (int)size.y;
+        int width = std::max(1, (int)size.x); 
+        int height = std::max(1, (int)size.y);
         unsigned char* pixels = new unsigned char[width * height * 4];
         std::vector<std::pair<float, ImVec4>> sortedRamp = colorRamp;
         std::sort(sortedRamp.begin(), sortedRamp.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
@@ -1662,7 +1896,7 @@ namespace DesignManager {
                 continue;
             std::string tempWinTitle = "TempWindow - " + theShape->name;
             ImGui::Begin(tempWinTitle.c_str(), &kv.second, ImGuiWindowFlags_AlwaysAutoResize);
-            ImGui::Text("Bu pencere, onClick tanÄ±mlanmamÄ±ÅŸ bir butona tÄ±klama sonucu aÃ§Ä±ldÄ±.");
+            ImGui::Text("Bu pencere, onClick tanÃ„Â±mlanmamÃ„Â±Ã…Å¸ bir butona tÃ„Â±klama sonucu aÃƒÂ§Ã„Â±ldÃ„Â±.");
             ImGui::Separator();
             if (ImGui::Button("Bana Kod Ekle (OnClick)"))
             {
@@ -1673,7 +1907,7 @@ namespace DesignManager {
                     };
                 kv.second = false;
             }
-            if (ImGui::Button("Bu geÃ§ici pencereyi kapat"))
+            if (ImGui::Button("Bu geÃƒÂ§ici pencereyi kapat"))
             {
                 kv.second = false;
             }
@@ -1730,27 +1964,138 @@ namespace DesignManager {
     }
 
     void DrawShape_Shadow(ImDrawList* dlEffective, ShapeItem& s, ImVec2 wp, float scaleFactor, ImVec2 c, float totalrot) {
-        float cr = s.shadowUseCornerRadius ? s.cornerRadius * scaleFactor : 0.0f;
-        ImVec2 spos = ImVec2(
-            s.position.x * scaleFactor - s.shadowSpread.x * scaleFactor + s.shadowOffset.x * scaleFactor,
-            s.position.y * scaleFactor - s.shadowSpread.y * scaleFactor + s.shadowOffset.y * scaleFactor
-        );
-        ImVec2 ssize = ImVec2(
-            s.size.x * scaleFactor + s.shadowSpread.x * scaleFactor + s.shadowSpread.z * scaleFactor,
-            s.size.y * scaleFactor + s.shadowSpread.y * scaleFactor + s.shadowSpread.w * scaleFactor
-        );
-        std::vector<ImVec2> shpoly;
-        if (s.type == ShapeType::Rectangle) {
-            BuildRectPoly(shpoly, ImVec2(wp.x + spos.x, wp.y + spos.y), ssize, cr, c, totalrot);
+
+        
+        ImVec2 hostShapeScaledPos = s.position * scaleFactor;
+        ImVec2 hostShapeScaledSize = s.size * scaleFactor;
+        float hostShapeScaledCornerRadius = s.cornerRadius * scaleFactor;
+
+        
+        ImVec2 hostShapeScreenPos_TopLeft = wp + hostShapeScaledPos;
+        ImVec2 hostShapeScreenCenter = wp + hostShapeScaledPos + hostShapeScaledSize * 0.5f;
+
+        if (s.shadowInset) {
+            
+            
+            
+            
+            
+            
+            
+
+            ImVec2 shadowCasterPos = hostShapeScreenPos_TopLeft;
+            ImVec2 shadowCasterSize = hostShapeScaledSize;
+            float shadowCasterCornerRadius = hostShapeScaledCornerRadius;
+
+            
+            
+            
+            
+            shadowCasterPos.x -= s.shadowSpread.x * scaleFactor;
+            shadowCasterPos.y -= s.shadowSpread.y * scaleFactor;
+            shadowCasterSize.x += (s.shadowSpread.x + s.shadowSpread.z) * scaleFactor;
+            shadowCasterSize.y += (s.shadowSpread.y + s.shadowSpread.w) * scaleFactor;
+
+            
+            
+            
+            float spreadEffectOnRadius = std::max({ s.shadowSpread.x, s.shadowSpread.y, s.shadowSpread.z, s.shadowSpread.w }) * scaleFactor;
+            shadowCasterCornerRadius = std::max(0.0f, hostShapeScaledCornerRadius + spreadEffectOnRadius);
+            shadowCasterCornerRadius = std::min({ shadowCasterCornerRadius, shadowCasterSize.x / 2.0f, shadowCasterSize.y / 2.0f });
+
+
+            
+            shadowCasterPos.x += s.shadowOffset.x * scaleFactor;
+            shadowCasterPos.y += s.shadowOffset.y * scaleFactor;
+
+            
+            ImVec2 shadowCasterCenter = shadowCasterPos + shadowCasterSize * 0.5f;
+
+            std::vector<ImVec2> shpoly_caster;
+            if (s.type == ShapeType::Rectangle) {
+                BuildRectPoly(shpoly_caster, shadowCasterPos, shadowCasterSize, shadowCasterCornerRadius, shadowCasterCenter, totalrot);
+            }
+            else { 
+                float rx = shadowCasterSize.x * 0.5f;
+                float ry = shadowCasterSize.y * 0.5f;
+                BuildCirclePoly(shpoly_caster, shadowCasterCenter, rx, ry, totalrot);
+            }
+
+            
+            
+            
+
+            ImRect hostClipRect;
+            if (s.type == ShapeType::Rectangle) {
+                std::vector<ImVec2> hostPolyVerts;
+                BuildRectPoly(hostPolyVerts, hostShapeScreenPos_TopLeft, hostShapeScaledSize, hostShapeScaledCornerRadius, hostShapeScreenCenter, s.rotation); 
+                if (!hostPolyVerts.empty()) {
+                    hostClipRect.Min = hostPolyVerts[0]; hostClipRect.Max = hostPolyVerts[0];
+                    for (size_t k = 1; k < hostPolyVerts.size(); ++k) hostClipRect.Add(hostPolyVerts[k]);
+                }
+                else { 
+                    hostClipRect = ImRect(hostShapeScreenPos_TopLeft, hostShapeScreenPos_TopLeft + hostShapeScaledSize);
+                }
+            }
+            else { 
+                ImVec2 circleCenter = hostShapeScreenCenter;
+                float rMax = std::max(hostShapeScaledSize.x, hostShapeScaledSize.y) * 0.5f;
+                hostClipRect = ImRect(circleCenter - ImVec2(rMax, rMax), circleCenter + ImVec2(rMax, rMax));
+            }
+
+
+            
+            ImVec4 oldClipRect = dlEffective->CmdBuffer.back().ClipRect; 
+
+            
+            ImVec2 newClipMin = ImVec2(std::max(oldClipRect.x, hostClipRect.Min.x), std::max(oldClipRect.y, hostClipRect.Min.y));
+            ImVec2 newClipMax = ImVec2(std::min(oldClipRect.z, hostClipRect.Max.x), std::min(oldClipRect.w, hostClipRect.Max.y));
+
+            if (newClipMax.x > newClipMin.x && newClipMax.y > newClipMin.y) {
+                dlEffective->PushClipRect(newClipMin, newClipMax, true); 
+                if (!shpoly_caster.empty()) {
+                    dlEffective->AddConvexPolyFilled(shpoly_caster.data(), (int)shpoly_caster.size(), ColU32(s.shadowColor));
+                }
+                dlEffective->PopClipRect();
+            }
+
         }
         else {
-            float rx = s.size.x * 0.5f * scaleFactor;
-            float ry = s.size.y * 0.5f * scaleFactor;
-            BuildCirclePoly(shpoly, ImVec2(wp.x + spos.x + rx, wp.y + spos.y + ry), rx, ry, totalrot);
-        }
-        dlEffective->AddConvexPolyFilled(shpoly.data(), (int)shpoly.size(), ColU32(s.shadowColor));
-    }
+            
+            float cr = s.shadowUseCornerRadius ? s.cornerRadius * scaleFactor : 0.0f;
+            
+            ImVec2 spos = ImVec2(
+                s.position.x * scaleFactor - s.shadowSpread.x * scaleFactor + s.shadowOffset.x * scaleFactor,
+                s.position.y * scaleFactor - s.shadowSpread.y * scaleFactor + s.shadowOffset.y * scaleFactor
+            );
+            ImVec2 ssize = ImVec2(
+                s.size.x * scaleFactor + (s.shadowSpread.x + s.shadowSpread.z) * scaleFactor,
+                s.size.y * scaleFactor + (s.shadowSpread.y + s.shadowSpread.w) * scaleFactor
+            );
 
+            std::vector<ImVec2> shpoly;
+            
+            
+            
+            
+            ImVec2 shadowGeomCenter_Screen = wp + spos + ssize * 0.5f;
+            
+            ImVec2 shadowRotationCenter_Screen = c + s.shadowOffset * scaleFactor; 
+
+            if (s.type == ShapeType::Rectangle) {
+                BuildRectPoly(shpoly, wp + spos, ssize, cr, shadowRotationCenter_Screen, totalrot);
+            }
+            else { 
+                float rx = ssize.x * 0.5f;
+                float ry = ssize.y * 0.5f;
+                BuildCirclePoly(shpoly, shadowGeomCenter_Screen, rx, ry, totalrot); 
+            }
+            if (!shpoly.empty()) {
+                dlEffective->AddConvexPolyFilled(shpoly.data(), (int)shpoly.size(), ColU32(s.shadowColor));
+            }
+        }
+        
+    }
     void DrawShape_Blur(ImDrawList* dlEffective, ShapeItem& s, ImVec2 wp, float scaleFactor, ImVec2 c) {
         int blurpasses = (int)floorf(s.blurAmount * scaleFactor);
         float blurAlpha = 0.05f;
@@ -1813,7 +2158,7 @@ namespace DesignManager {
             &w, &h, &ch, 4
         );
         if (!decoded) {
-            std::cerr << "Resim yÃ¼klenemedi: " << item.name << std::endl;
+            std::cerr << "Resim yÃƒÂ¼klenemedi: " << item.name << std::endl;
             return;
         }
 
@@ -2040,29 +2385,29 @@ namespace DesignManager {
     }
 
     void DrawShape_FillWithGradient(ImDrawList* dlEffective, const std::vector<ImVec2>& poly,
-        const ShapeItem& shape, // shape reference for gradient properties
-        const ImVec2& fillActualPosPx_World, // World space top-left of the fill area (wp + fillPosPx)
-        const ImVec2& fillActualSizePx,      // Scaled size of the fill area (fillSizePx)
-        const ImVec2& fillActualCenterPx_World // World space center of the fill area (c_fill)
+        const ShapeItem& shape,
+        const ImVec2& fillActualPosPx_World,
+        const ImVec2& fillActualSizePx,
+        const ImVec2& fillActualCenterPx_World
     )
     {
         size_t n = poly.size();
         if (n < 3) {
-            dlEffective->AddConvexPolyFilled(poly.data(), (int)n, ColU32(shape.fillColor)); // Fallback
+            dlEffective->AddConvexPolyFilled(poly.data(), (int)n, ColU32(shape.fillColor));
             return;
         }
 
-        // Hash for caching. Uses shape's gradient properties and actual fill size.
-        int hashKeyBase = (int)(fillActualSizePx.x * fillActualSizePx.y * (int)(shape.gradientRotation * 100));
-        hashKeyBase = (hashKeyBase * 31 + (int)(shape.gradientInterpolation));
-        for (auto& pair_ : shape.colorRamp) {
-            hashKeyBase = (hashKeyBase * 31 + (int)(pair_.first * 1000)) * 31 + ColU32(pair_.second);
+        int hashKeyBase = (int)(fillActualSizePx.x * 100.0f) ^ (int)(fillActualSizePx.y * 100.0f) ^ (int)(shape.gradientRotation * 100.0f);
+        hashKeyBase = (hashKeyBase * 31 + static_cast<int>(shape.gradientInterpolation));
+        for (const auto& pair_ : shape.colorRamp) {
+            hashKeyBase = (hashKeyBase * 31 + static_cast<int>(pair_.first * 1000.0f)) * 31 + ColU32(pair_.second);
         }
 
         ImTextureID gradient_texture_id;
-        if (gradientTextureCache.find(hashKeyBase) == gradientTextureCache.end()) {
+        auto it = gradientTextureCache.find(hashKeyBase);
+        if (it == gradientTextureCache.end()) {
             gradient_texture_id = CreateGradientTexture(
-                fillActualSizePx, // Use the calculated fill size for the texture
+                fillActualSizePx,
                 shape.gradientRotation,
                 shape.colorRamp,
                 shape.gradientInterpolation
@@ -2070,26 +2415,23 @@ namespace DesignManager {
             if (gradient_texture_id) gradientTextureCache[hashKeyBase] = gradient_texture_id;
         }
         else {
-            gradient_texture_id = gradientTextureCache[hashKeyBase];
+            gradient_texture_id = it->second;
         }
 
         if (!gradient_texture_id) {
-            dlEffective->AddConvexPolyFilled(poly.data(), (int)poly.size(), ColU32(shape.fillColor)); // Fallback
+            dlEffective->AddConvexPolyFilled(poly.data(), (int)poly.size(), ColU32(shape.fillColor));
             return;
         }
 
         dlEffective->PushTextureID(gradient_texture_id);
         std::vector<ImVec2> uvCoords(n);
         for (size_t i = 0; i < n; i++) {
-            // poly[i] is already in world coordinates.
-            // fillActualPosPx_World is the world-space top-left of the fill area.
-            // fillActualCenterPx_World is the world-space center of the fill area.
             uvCoords[i] = UV(
-                poly[i],                       // Current vertex of the polygon (world space)
-                fillActualSizePx,              // Size of the gradient texture
-                fillActualCenterPx_World,      // Center of the gradient texture (world space)
-                fillActualPosPx_World,         // Top-left of the gradient texture (world space)
-                shape.rotation                 // Rotation of the shape
+                poly[i],
+                fillActualSizePx,
+                fillActualCenterPx_World,
+                fillActualPosPx_World,
+                shape.rotation
             );
         }
         for (size_t i = 1; i < n - 1; i++) {
@@ -2137,14 +2479,14 @@ namespace DesignManager {
                                 if (sh_uptr && sh_uptr->isButton && sh_uptr->id == mapping.buttonIds[i])
                                 {
                                     btnState = sh_uptr->buttonState;
-                                    goto found_button_state_none;
+                                    goto found_button_state_none; 
                                 }
                             }
                         }
                     }
                 found_button_state_none:;
                     const std::string& childKey = mapping.childWindowKeys[i];
-                    if (g_windowsMap.count(childKey)) {
+                    if (g_windowsMap.count(childKey)) { 
                         g_windowsMap[childKey].groupId = s.childWindowGroupId;
                         SetWindowOpen(childKey, btnState);
                     }
@@ -2260,13 +2602,14 @@ namespace DesignManager {
                 {
                     if (s.childWindowSync)
                     {
-
+                        
+                        
                         ImGui::SetNextWindowPos(contentActualPos_World);
                         ImGui::SetNextWindowSize(contentActualSizePx);
                     }
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
                     
-                    ImGui::SetCursorScreenPos(contentActualPos_World);
+                    ImGui::SetCursorScreenPos(contentActualPos_World); 
                     ImGui::BeginChild(childKey.c_str(), contentActualSizePx, 
                         false, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBackground);
 
@@ -2275,9 +2618,9 @@ namespace DesignManager {
                         g_windowsMap[childKey].isChildWindow = true;
                         g_windowsMap[childKey].associatedShapeId = s.id;
                         if (g_windowsMap[childKey].renderFunc)
-                            g_windowsMap[childKey].renderFunc();
+                            g_windowsMap[childKey].renderFunc(); 
 
-
+                        
                         auto& childWindowData = g_windowsMap[childKey];
                         std::stable_sort(childWindowData.layers.begin(), childWindowData.layers.end(), CompareLayersByZOrder);
                         for (auto& layer : childWindowData.layers)
@@ -2286,7 +2629,8 @@ namespace DesignManager {
                             std::stable_sort(layer.shapes.begin(), layer.shapes.end(), [](const auto& a, const auto& b) { return (a && b) ? CompareShapesByZOrder(*a, *b) : (a != nullptr); });
                             for (auto& childShape_uptr : layer.shapes)
                             {
-
+                                
+                                
                                 if (childShape_uptr && childShape_uptr->ownerWindow == childKey && childShape_uptr->parent == nullptr)
                                     DrawShape(ImGui::GetWindowDrawList(), *childShape_uptr, ImGui::GetWindowPos());
                             }
@@ -2304,7 +2648,7 @@ namespace DesignManager {
                                 break;
                             }
                         }
-                        if (targetShape)
+                        if (targetShape) 
                             DrawShape(ImGui::GetWindowDrawList(), *targetShape, ImGui::GetWindowPos());
                         else
                             ImGui::Text("Child window content not registered or shape not found.");
@@ -2316,30 +2660,157 @@ namespace DesignManager {
         }
     }
 
-    void DrawShape_DrawBorder(ImDrawList* dlEffective, ShapeItem& s, float scaleFactor, ImVec2 c, ImVec2 wp) {
-        if (s.borderThickness > 0.0f) {
+    void DrawShape_DrawBorder(ImDrawList* dlEffective, ShapeItem& s, float scaleFactor, ImVec2 shapeCenter_World_from_caller, ImVec2 windowTopLeft_wp) {
+        float globalBorderThicknessPx_Scaled = s.borderThickness * scaleFactor;
+
+        float perSideBorderThicknessesPx_Scaled[4];
+        if (s.usePerSideBorderThicknesses) {
+            for (int i = 0; i < 4; ++i) {
+                perSideBorderThicknessesPx_Scaled[i] = s.borderSideThicknesses[i] * scaleFactor;
+            }
+        }
+        else {
+            for (int i = 0; i < 4; ++i) {
+                perSideBorderThicknessesPx_Scaled[i] = globalBorderThicknessPx_Scaled;
+            }
+        }
+
+        float maxVisibleThicknessForPolyline = 0.0f;
+        bool isAnyBorderVisible = false;
+
+        if (s.usePerSideBorderThicknesses) {
+            for (int i = 0; i < 4; ++i) {
+                if (perSideBorderThicknessesPx_Scaled[i] > 0.001f) {
+                    bool colorAllowsDrawing = false;
+                    if (s.usePerSideBorderColors) {
+                        if (s.borderSideColors[i].w > 0.0f) colorAllowsDrawing = true;
+                    }
+                    else {
+                        if (s.borderColor.w > 0.0f) colorAllowsDrawing = true;
+                    }
+                    if (colorAllowsDrawing) {
+                        isAnyBorderVisible = true;
+                        maxVisibleThicknessForPolyline = std::max(maxVisibleThicknessForPolyline, perSideBorderThicknessesPx_Scaled[i]);
+                    }
+                }
+            }
+        }
+        else {
+            if (globalBorderThicknessPx_Scaled > 0.001f && s.borderColor.w > 0.0f) {
+                isAnyBorderVisible = true;
+                maxVisibleThicknessForPolyline = globalBorderThicknessPx_Scaled;
+            }
+        }
+
+        if (!isAnyBorderVisible || maxVisibleThicknessForPolyline <= 0.001f) {
+            return;
+        }
+
+        ImVec2 borderTopLeft_World = ImVec2(windowTopLeft_wp.x + s.position.x * scaleFactor,
+            windowTopLeft_wp.y + s.position.y * scaleFactor);
+        ImVec2 borderSize_Scaled = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);
+        float cornerRadius_Scaled = s.cornerRadius * scaleFactor;
+
+        
+        
+        
+        
+
+        if (borderSize_Scaled.x < 1e-3f || borderSize_Scaled.y < 1e-3f) {
+            return;
+        }
+
+        if (s.type == ShapeType::Rectangle && cornerRadius_Scaled < 0.001f) {
+            ImVec2 p[4];
+            p[0] = borderTopLeft_World;
+            p[1] = ImVec2(borderTopLeft_World.x + borderSize_Scaled.x, borderTopLeft_World.y);
+            p[2] = borderTopLeft_World + borderSize_Scaled;
+            p[3] = ImVec2(borderTopLeft_World.x, borderTopLeft_World.y + borderSize_Scaled.y);
+
+            if (std::abs(s.rotation) > 1e-4f) {
+                for (int i_pt = 0; i_pt < 4; ++i_pt) {
+                    p[i_pt] = RotateP(p[i_pt], shapeCenter_World_from_caller, s.rotation);
+                }
+            }
+
+            float current_thickness_final[4];
+            ImU32 current_color_final[4];
+            bool side_should_be_drawn[4];
+
+            for (int i = 0; i < 4; ++i) {
+                current_thickness_final[i] = s.usePerSideBorderThicknesses ? perSideBorderThicknessesPx_Scaled[i] : globalBorderThicknessPx_Scaled;
+                ImVec4 side_color_v4 = s.usePerSideBorderColors ? s.borderSideColors[i] : s.borderColor;
+                current_color_final[i] = ColU32(side_color_v4);
+                side_should_be_drawn[i] = (current_thickness_final[i] > 0.001f && side_color_v4.w > 0.0f);
+            }
+
+            if (side_should_be_drawn[0])
+                dlEffective->AddLine(p[0], p[1], current_color_final[0], current_thickness_final[0]);
+            if (side_should_be_drawn[1])
+                dlEffective->AddLine(p[1], p[2], current_color_final[1], current_thickness_final[1]);
+            if (side_should_be_drawn[2])
+                dlEffective->AddLine(p[2], p[3], current_color_final[2], current_thickness_final[2]);
+            if (side_should_be_drawn[3])
+                dlEffective->AddLine(p[3], p[0], current_color_final[3], current_thickness_final[3]);
+
+        }
+        else {
+            ImVec2 polyPos_World = borderTopLeft_World;
+            ImVec2 polySize_Scaled = borderSize_Scaled;
+            float polyRadius_Scaled = cornerRadius_Scaled;
+            float polylineThicknessToUse = maxVisibleThicknessForPolyline;
+
+            
+            
+            
+            polyPos_World = ImVec2(borderTopLeft_World.x + polylineThicknessToUse * 0.5f,
+                borderTopLeft_World.y + polylineThicknessToUse * 0.5f);
+            polySize_Scaled = ImVec2(std::max(0.0f, borderSize_Scaled.x - polylineThicknessToUse),
+                std::max(0.0f, borderSize_Scaled.y - polylineThicknessToUse));
+            polyRadius_Scaled = std::max(0.0f, cornerRadius_Scaled - polylineThicknessToUse * 0.5f);
+
+            std::vector<ImVec2> borderPoly_World;
+            
+            
+            
+            ImVec2 centerForPolyBuild = polyPos_World + polySize_Scaled * 0.5f; 
             if (s.type == ShapeType::Rectangle) {
-                std::vector<ImVec2> borderPoly;
-                BuildRectPoly(
-                    borderPoly,
-                    ImVec2(wp.x + s.position.x * scaleFactor, wp.y + s.position.y * scaleFactor),
-                    ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor),
-                    s.cornerRadius * scaleFactor,
-                    c,
-                    s.rotation
-                );
-                dlEffective->AddPolyline(borderPoly.data(), (int)borderPoly.size(), ColU32(s.borderColor), true, s.borderThickness * scaleFactor);
+                BuildRectPoly(borderPoly_World, polyPos_World, polySize_Scaled, polyRadius_Scaled, shapeCenter_World_from_caller, s.rotation);
             }
             else if (s.type == ShapeType::Circle) {
-                float rx = s.size.x * 0.5f * scaleFactor;
-                float ry = s.size.y * 0.5f * scaleFactor;
-                std::vector<ImVec2> borderPoly;
-                BuildCirclePoly(borderPoly, c, rx, ry, s.rotation);
-                dlEffective->AddPolyline(borderPoly.data(), (int)borderPoly.size(), ColU32(s.borderColor), true, s.borderThickness * scaleFactor);
+                
+                BuildCirclePoly(borderPoly_World, shapeCenter_World_from_caller, polySize_Scaled.x * 0.5f, polySize_Scaled.y * 0.5f, s.rotation);
+            }
+
+            if (!borderPoly_World.empty()) {
+                ImU32 polyline_color_u32 = 0;
+                bool polyline_color_is_valid = false;
+
+                if (s.usePerSideBorderColors) {
+                    for (int i = 0; i < 4; ++i) {
+                        bool side_thick_enough_for_color = s.usePerSideBorderThicknesses ?
+                            (perSideBorderThicknessesPx_Scaled[i] > 0.001f) :
+                            (globalBorderThicknessPx_Scaled > 0.001f);
+                        if (s.borderSideColors[i].w > 0.0f && side_thick_enough_for_color) {
+                            polyline_color_u32 = ColU32(s.borderSideColors[i]);
+                            polyline_color_is_valid = true;
+                            break;
+                        }
+                    }
+                }
+                else {
+                    if (s.borderColor.w > 0.0f) {
+                        polyline_color_u32 = ColU32(s.borderColor);
+                        polyline_color_is_valid = true;
+                    }
+                }
+
+                if (polyline_color_is_valid && polylineThicknessToUse > 0.001f) {
+                    dlEffective->AddPolyline(borderPoly_World.data(), (int)borderPoly_World.size(), polyline_color_u32, ImDrawFlags_Closed, polylineThicknessToUse);
+                }
             }
         }
     }
-
     void DrawShape_DrawText(ImDrawList* dlEffective, ShapeItem& s, ImVec2 contentActualPos_World, ImVec2 contentActualSizePx, float scaleFactor) {
         if (s.hasText) {
             float computedTextSize = s.textSize * scaleFactor;
@@ -2347,7 +2818,7 @@ namespace DesignManager {
                 computedTextSize = s.textSize * scaleFactor * (s.size.x / s.baseSize.x);
             }
             ImVec2 textRenderPos = ImVec2(
-                contentActualPos_World.x + s.textPosition.x * scaleFactor, // s.textPosition
+                contentActualPos_World.x + s.textPosition.x * scaleFactor, 
                 contentActualPos_World.y + s.textPosition.y * scaleFactor
             );
             ImFont* font = nullptr;
@@ -2358,15 +2829,15 @@ namespace DesignManager {
             ImVec2 textDimensions;
             if (font) {
                 textDimensions = font->CalcTextSizeA(computedTextSize, FLT_MAX, 0.0f, s.text.c_str());
-                if (s.textAlignment == 1) { // Center
+                if (s.textAlignment == 1) { 
                     textRenderPos.x = contentActualPos_World.x + (contentActualSizePx.x - textDimensions.x) * 0.5f + s.textPosition.x * scaleFactor;
                 }
-                else if (s.textAlignment == 2) { // Right
+                else if (s.textAlignment == 2) { 
                     textRenderPos.x = contentActualPos_World.x + (contentActualSizePx.x - textDimensions.x) + s.textPosition.x * scaleFactor;
                 }
-                // textRenderPos.y
+                
             }
-            float angleRadians = s.textRotation * (IM_PI / 180.0f); // s.textRotation 
+            float angleRadians = s.textRotation * (IM_PI / 180.0f); 
             ImU32 col = ColU32(s.textColor);
             if (font) ImGui::PushFont(font);
             if (fabs(angleRadians) < 1e-4f) {
@@ -2385,291 +2856,473 @@ namespace DesignManager {
             s.shouldCallOnClick = false;
         }
     }
+    inline ImVec2 NormalizeImVec2(const ImVec2& v) {
+        float len = sqrtf(v.x * v.x + v.y * v.y);
+        if (len > 1e-5f) return ImVec2(v.x / len, v.y / len);
+        return ImVec2(0, 0);
+    }
 
-    void DrawShape(ImDrawList* dl, ShapeItem& s, ImVec2 wp) { 
+    
+    void ExpandQuadVertices(ImVec2& v0, ImVec2& v1, ImVec2& v2, ImVec2& v3, float amount) {
+        if (amount == 0.0f) return;
+        ImVec2 centroid = (v0 + v1 + v2 + v3) * 0.25f; 
+        v0 = v0 + NormalizeImVec2(v0 - centroid) * amount;
+        v1 = v1 + NormalizeImVec2(v1 - centroid) * amount;
+        v2 = v2 + NormalizeImVec2(v2 - centroid) * amount;
+        v3 = v3 + NormalizeImVec2(v3 - centroid) * amount;
+    }
+    void DrawShape(ImDrawList* dl, ShapeItem& s, ImVec2 wp) {
         if (!s.visible) return;
 
-        float scaleFactor = globalScaleFactor;
         ImDrawList* dlEffective = (s.forceOverlap && s.allowItemOverlap) ? ImGui::GetForegroundDrawList() : dl;
 
+        if (s.isPolygon && !s.polygonVertices.empty()) {
+            std::vector<ImVec2> absolutePolyVertices;
+            absolutePolyVertices.reserve(s.polygonVertices.size());
+            for (const auto& v_window_relative : s.polygonVertices) {
+                absolutePolyVertices.push_back(ImVec2(wp.x + v_window_relative.x, wp.y + v_window_relative.y));
+            }
 
-        ImVec2 itemBasePosPx = ImVec2(s.position.x * scaleFactor, s.position.y * scaleFactor);
-        ImVec2 itemBaseSizePx = ImVec2(s.size.x * scaleFactor, s.size.y * scaleFactor);   
-        float itemCornerRadiusPx = s.cornerRadius * scaleFactor; 
-        float borderThicknessPx = s.borderThickness * scaleFactor;
+            if (!absolutePolyVertices.empty()) {
+                ImVec4 fillColorToUse = s.fillColor;
 
-        float paddingLeftPx = s.padding.x * scaleFactor;
-        float paddingTopPx = s.padding.y * scaleFactor;
-        float paddingRightPx = s.padding.z * scaleFactor;
-        float paddingBottomPx = s.padding.w * scaleFactor;
-        float totalHorizontalPaddingPx = paddingLeftPx + paddingRightPx;
-        float totalVerticalPaddingPx = paddingTopPx + paddingBottomPx;
+                if (s.isButton && !DesignManager::g_IsInEditMode) {
+                    ImRect polyBoundingBoxAbsScreen;
+                    polyBoundingBoxAbsScreen.Min = absolutePolyVertices[0];
+                    polyBoundingBoxAbsScreen.Max = absolutePolyVertices[0];
+                    for (size_t k_vtx = 1; k_vtx < absolutePolyVertices.size(); ++k_vtx) {
+                        polyBoundingBoxAbsScreen.Add(absolutePolyVertices[k_vtx]);
+                    }
 
+                    ImGui::SetCursorScreenPos(polyBoundingBoxAbsScreen.Min);
+                    std::string button_id_poly = "##button_poly_" + std::to_string(s.id);
+                    ImGui::InvisibleButton(button_id_poly.c_str(), polyBoundingBoxAbsScreen.GetSize());
 
-        ImVec2 contentPos_OffsetPx, contentSizePx;
-        float contentCornerRadiusPx_TL, contentCornerRadiusPx_TR, contentCornerRadiusPx_BL, contentCornerRadiusPx_BR; 
+                    if (ImGui::IsItemHovered()) fillColorToUse = s.hoverColor;
+                    if (ImGui::IsItemActive()) fillColorToUse = s.clickedColor;
+                    if (ImGui::IsItemClicked()) s.shouldCallOnClick = true;
+                }
 
-        ImVec2 paddingBoxPos_OffsetPx, paddingBoxSizePx;
-        float paddingBoxCornerRadiusPx_TL, paddingBoxCornerRadiusPx_TR, paddingBoxCornerRadiusPx_BL, paddingBoxCornerRadiusPx_BR;
+                if (fillColorToUse.w > 0.0f) {
+                    dlEffective->AddConvexPolyFilled(absolutePolyVertices.data(), (int)absolutePolyVertices.size(), ColU32(fillColorToUse));
+                }
 
-        ImVec2 borderBoxPos_OffsetPx, borderBoxSizePx; 
-        float borderBoxCornerRadiusPx_TL, borderBoxCornerRadiusPx_TR, borderBoxCornerRadiusPx_BL, borderBoxCornerRadiusPx_BR; 
+                
+                
+                if (s.borderThickness > 0.0f && s.borderColor.w > 0.0f) {
+                    dlEffective->AddPolyline(absolutePolyVertices.data(), (int)absolutePolyVertices.size(), ColU32(s.borderColor), ImDrawFlags_Closed, s.borderThickness * globalScaleFactor);
+                }
+            }
 
+            if (s.shouldCallOnClick) {
+                DispatchEvent(s, "onClick");
+                if (s.onClick && s.useOnClick) {
+                    s.onClick();
+                }
+                s.shouldCallOnClick = false;
+            }
+            return;
+        }
 
-        ImVec2 fillPolyOrigin_OffsetPx, fillPolySizePx;
-        float fillPolyCornerRadius; 
+        float scaleFactor = globalScaleFactor;
 
+        ImVec2 itemDesignPosPx_Scaled = s.position * scaleFactor;
+        ImVec2 itemDesignSizePx_Scaled = s.size * scaleFactor;
+        float itemDesignCornerRadiusPx_Scaled = s.cornerRadius * scaleFactor;
+        float globalBorderThicknessPx_Scaled = s.borderThickness * scaleFactor; 
 
-        ImVec2 strokePolyOrigin_OffsetPx, strokePolySizePx;
-        float strokePolyCornerRadius;
+        float paddingLeftPx_Scaled = s.padding.x * scaleFactor;
+        float paddingTopPx_Scaled = s.padding.y * scaleFactor;
+        float paddingRightPx_Scaled = s.padding.z * scaleFactor;
+        float paddingBottomPx_Scaled = s.padding.w * scaleFactor;
+        float totalHorizontalPaddingPx_Scaled = paddingLeftPx_Scaled + paddingRightPx_Scaled;
+        float totalVerticalPaddingPx_Scaled = paddingTopPx_Scaled + paddingBottomPx_Scaled;
 
-        ImVec2 interactionOrigin_OffsetPx, interactionSizePx;
+        ImVec2 fillArea_TopLeft_OffsetPx, fillArea_SizePx;
+        float fillArea_CornerRadiusPx;
 
+        ImVec2 borderArea_TopLeft_OffsetPx, borderArea_SizePx;
+        float borderArea_CornerRadiusPx;
 
-        borderBoxCornerRadiusPx_TL = itemCornerRadiusPx; 
+        ImVec2 contentArea_TopLeft_OffsetPx, contentArea_SizePx;
+        float contentArea_CornerRadiusPx;
 
+        ImVec2 interactionArea_TopLeft_OffsetPx, interactionArea_SizePx;
+
+        
+        
+        
+        
+        
+        
 
         if (s.boxSizing == ShapeItem::BoxSizing::ContentBox) {
-            // itemBaseSizePx -> content size
-            // itemBasePosPx  -> content top-left (relative to s.position's scaled value)
-            // s.cornerRadius -> applies to the content box corners
-
-            float contentRadius = s.cornerRadius * scaleFactor;
-
-            contentSizePx = itemBaseSizePx;
-            // contentPos_OffsetPx is the offset of the content box's top-left
-            // from the item's base scaled position (itemBasePosPx).
-            // For ContentBox, the item's position *is* the content's position.
-            contentPos_OffsetPx = ImVec2(0, 0);
-
-            // --- Fill Polygon Calculation (based on content box) ---
-            fillPolyOrigin_OffsetPx = contentPos_OffsetPx;
-            fillPolySizePx = contentSizePx;
-            fillPolyCornerRadius = contentRadius;
-
-            // --- Stroke Polygon Calculation (centerline of the border) ---
-            // The border is drawn *around* the content box, after accounting for padding.
-
-            // 1. Determine the "padding box" which is the content box expanded by padding.
-            //    paddingBoxMin_OffsetPx is relative to itemBasePosPx.
-            ImVec2 paddingBoxMin_OffsetPx = ImVec2(contentPos_OffsetPx.x - paddingLeftPx,
-                contentPos_OffsetPx.y - paddingTopPx);
-            ImVec2 paddingBoxSizePx = ImVec2(contentSizePx.x + totalHorizontalPaddingPx,
-                contentSizePx.y + totalVerticalPaddingPx);
-
-            // 2. Determine the outer radius of this padding box.
-            float paddingBoxOuterRadius = contentRadius;
-            // If there's padding, the radius of the padding box's outer corners increases.
-            // This is a simplification; ideally, corner radii would be (Rx+padX, Ry+padY).
-            // Here, we take the largest padding component to extend the original contentRadius.
-            if (paddingLeftPx > 0 || paddingTopPx > 0 || paddingRightPx > 0 || paddingBottomPx > 0) {
-                float max_padding_for_radius = 0.0f;
-                if (paddingLeftPx > max_padding_for_radius) max_padding_for_radius = paddingLeftPx;
-                if (paddingTopPx > max_padding_for_radius) max_padding_for_radius = paddingTopPx;
-                // Note: For a consistent rounded rectangle shape, opposite paddings should ideally be equal
-                // if affecting the same corner axis. This simplified radius assumes s.cornerRadius
-                // applies to the inner content, and padding simply "pushes" that curve outwards.
-                paddingBoxOuterRadius += max_padding_for_radius;
+            contentArea_SizePx = itemDesignSizePx_Scaled;
+            contentArea_TopLeft_OffsetPx = ImVec2(0, 0);
+            contentArea_CornerRadiusPx = itemDesignCornerRadiusPx_Scaled;
+            fillArea_SizePx = contentArea_SizePx;
+            fillArea_TopLeft_OffsetPx = contentArea_TopLeft_OffsetPx;
+            fillArea_CornerRadiusPx = contentArea_CornerRadiusPx;
+            ImVec2 paddingBox_SizePx = ImVec2(contentArea_SizePx.x + totalHorizontalPaddingPx_Scaled, contentArea_SizePx.y + totalVerticalPaddingPx_Scaled);
+            ImVec2 paddingBox_TopLeft_OffsetPx = ImVec2(contentArea_TopLeft_OffsetPx.x - paddingLeftPx_Scaled, contentArea_TopLeft_OffsetPx.y - paddingTopPx_Scaled);
+            float paddingBox_CornerRadiusPx = contentArea_CornerRadiusPx;
+            if (paddingLeftPx_Scaled > 0 || paddingTopPx_Scaled > 0 || paddingRightPx_Scaled > 0 || paddingBottomPx_Scaled > 0) {
+                paddingBox_CornerRadiusPx = std::max(0.0f, contentArea_CornerRadiusPx + std::max({ paddingLeftPx_Scaled, paddingTopPx_Scaled, paddingRightPx_Scaled, paddingBottomPx_Scaled }));
             }
-
-            // 3. The stroke (border) is drawn around this padding box.
-            //    The centerline of the stroke is half a borderThickness outward from the padding box's perimeter.
-            strokePolyOrigin_OffsetPx = ImVec2(paddingBoxMin_OffsetPx.x - borderThicknessPx / 2.0f,
-                paddingBoxMin_OffsetPx.y - borderThicknessPx / 2.0f);
-            strokePolySizePx = ImVec2(paddingBoxSizePx.x + borderThicknessPx,
-                paddingBoxSizePx.y + borderThicknessPx);
-            strokePolyCornerRadius = paddingBoxOuterRadius + borderThicknessPx / 2.0f;
-            strokePolyCornerRadius = std::max(0.0f, strokePolyCornerRadius); // Ensure radius is not negative
-
-
-            // --- Interaction Area Calculation (outermost extent of the border) ---
-            interactionOrigin_OffsetPx = ImVec2(paddingBoxMin_OffsetPx.x - borderThicknessPx,
-                paddingBoxMin_OffsetPx.y - borderThicknessPx);
-            interactionSizePx = ImVec2(paddingBoxSizePx.x + 2.0f * borderThicknessPx,
-                paddingBoxSizePx.y + 2.0f * borderThicknessPx);
+            borderArea_SizePx = ImVec2(paddingBox_SizePx.x + 2.0f * globalBorderThicknessPx_Scaled, paddingBox_SizePx.y + 2.0f * globalBorderThicknessPx_Scaled);
+            borderArea_TopLeft_OffsetPx = ImVec2(paddingBox_TopLeft_OffsetPx.x - globalBorderThicknessPx_Scaled, paddingBox_TopLeft_OffsetPx.y - globalBorderThicknessPx_Scaled);
+            borderArea_CornerRadiusPx = paddingBox_CornerRadiusPx + globalBorderThicknessPx_Scaled;
+            interactionArea_SizePx = borderArea_SizePx;
+            interactionArea_TopLeft_OffsetPx = borderArea_TopLeft_OffsetPx;
         }
         else if (s.boxSizing == ShapeItem::BoxSizing::BorderBox) {
-
-
-            float borderBoxRadius = s.cornerRadius * scaleFactor;
-
-            borderBoxSizePx = itemBaseSizePx;
-            borderBoxPos_OffsetPx = ImVec2(0, 0);
-
-
-            paddingBoxSizePx = ImVec2(std::max(0.0f, borderBoxSizePx.x - 2.0f * borderThicknessPx),
-                std::max(0.0f, borderBoxSizePx.y - 2.0f * borderThicknessPx));
-            paddingBoxPos_OffsetPx = ImVec2(borderBoxPos_OffsetPx.x + borderThicknessPx,
-                borderBoxPos_OffsetPx.y + borderThicknessPx);
-            float paddingBoxRadius = std::max(0.0f, borderBoxRadius - borderThicknessPx);
-
-
-            contentSizePx = ImVec2(std::max(0.0f, paddingBoxSizePx.x - totalHorizontalPaddingPx),
-                std::max(0.0f, paddingBoxSizePx.y - totalVerticalPaddingPx));
-            contentPos_OffsetPx = ImVec2(paddingBoxPos_OffsetPx.x + paddingLeftPx,
-                paddingBoxPos_OffsetPx.y + paddingTopPx);
-            float contentRadius = std::max(0.0f, paddingBoxRadius - std::max(paddingLeftPx, paddingTopPx)); 
-
-
-            fillPolyOrigin_OffsetPx = contentPos_OffsetPx;
-            fillPolySizePx = contentSizePx;
-            fillPolyCornerRadius = contentRadius;
-
-
-            strokePolyOrigin_OffsetPx = borderBoxPos_OffsetPx;
-            strokePolySizePx = borderBoxSizePx;
-            strokePolyCornerRadius = borderBoxRadius;
-
-
-            interactionOrigin_OffsetPx = borderBoxPos_OffsetPx;
-            interactionSizePx = borderBoxSizePx;
-
+            borderArea_SizePx = itemDesignSizePx_Scaled;
+            borderArea_TopLeft_OffsetPx = ImVec2(0, 0);
+            borderArea_CornerRadiusPx = itemDesignCornerRadiusPx_Scaled;
+            interactionArea_SizePx = borderArea_SizePx;
+            interactionArea_TopLeft_OffsetPx = borderArea_TopLeft_OffsetPx;
+            ImVec2 paddingBox_SizePx = ImVec2(std::max(0.0f, borderArea_SizePx.x - 2.0f * globalBorderThicknessPx_Scaled), std::max(0.0f, borderArea_SizePx.y - 2.0f * globalBorderThicknessPx_Scaled));
+            ImVec2 paddingBox_TopLeft_OffsetPx = ImVec2(borderArea_TopLeft_OffsetPx.x + globalBorderThicknessPx_Scaled, borderArea_TopLeft_OffsetPx.y + globalBorderThicknessPx_Scaled);
+            float paddingBox_CornerRadiusPx = std::max(0.0f, borderArea_CornerRadiusPx - globalBorderThicknessPx_Scaled);
+            contentArea_SizePx = ImVec2(std::max(0.0f, paddingBox_SizePx.x - totalHorizontalPaddingPx_Scaled), std::max(0.0f, paddingBox_SizePx.y - totalVerticalPaddingPx_Scaled));
+            contentArea_TopLeft_OffsetPx = ImVec2(paddingBox_TopLeft_OffsetPx.x + paddingLeftPx_Scaled, paddingBox_TopLeft_OffsetPx.y + paddingTopPx_Scaled);
+            contentArea_CornerRadiusPx = std::max(0.0f, paddingBox_CornerRadiusPx - std::max({ paddingLeftPx_Scaled, paddingTopPx_Scaled, paddingRightPx_Scaled, paddingBottomPx_Scaled }));
+            fillArea_SizePx = contentArea_SizePx;
+            fillArea_TopLeft_OffsetPx = contentArea_TopLeft_OffsetPx;
+            fillArea_CornerRadiusPx = contentArea_CornerRadiusPx;
         }
-        else { // StrokeBox (s.size -> padding box, s.cornerRadius -> padding box radius)
-            float paddingBoxRadius = s.cornerRadius * scaleFactor;
-
-            paddingBoxSizePx = itemBaseSizePx;
-            paddingBoxPos_OffsetPx = ImVec2(0, 0);
-
-            contentSizePx = ImVec2(std::max(0.0f, paddingBoxSizePx.x - totalHorizontalPaddingPx),
-                std::max(0.0f, paddingBoxSizePx.y - totalVerticalPaddingPx));
-            contentPos_OffsetPx = ImVec2(paddingBoxPos_OffsetPx.x + paddingLeftPx,
-                paddingBoxPos_OffsetPx.y + paddingTopPx);
-            float contentRadius = std::max(0.0f, paddingBoxRadius - std::max(paddingLeftPx, paddingTopPx)); 
-
-            fillPolyOrigin_OffsetPx = contentPos_OffsetPx;
-            fillPolySizePx = contentSizePx;
-            fillPolyCornerRadius = contentRadius;
-
-            strokePolyOrigin_OffsetPx = paddingBoxPos_OffsetPx;
-            strokePolySizePx = paddingBoxSizePx;
-            strokePolyCornerRadius = paddingBoxRadius;
-
-            interactionOrigin_OffsetPx = ImVec2(paddingBoxPos_OffsetPx.x - borderThicknessPx * 0.5f,
-                paddingBoxPos_OffsetPx.y - borderThicknessPx * 0.5f);
-            interactionSizePx = ImVec2(paddingBoxSizePx.x + borderThicknessPx,
-                paddingBoxSizePx.y + borderThicknessPx);
+        else { 
+            ImVec2 paddingBox_SizePx = itemDesignSizePx_Scaled;
+            ImVec2 paddingBox_TopLeft_OffsetPx = ImVec2(0, 0);
+            float paddingBox_CornerRadiusPx = itemDesignCornerRadiusPx_Scaled;
+            contentArea_SizePx = ImVec2(std::max(0.0f, paddingBox_SizePx.x - totalHorizontalPaddingPx_Scaled), std::max(0.0f, paddingBox_SizePx.y - totalVerticalPaddingPx_Scaled));
+            contentArea_TopLeft_OffsetPx = ImVec2(paddingBox_TopLeft_OffsetPx.x + paddingLeftPx_Scaled, paddingBox_TopLeft_OffsetPx.y + paddingTopPx_Scaled);
+            contentArea_CornerRadiusPx = std::max(0.0f, paddingBox_CornerRadiusPx - std::max({ paddingLeftPx_Scaled, paddingTopPx_Scaled, paddingRightPx_Scaled, paddingBottomPx_Scaled }));
+            fillArea_SizePx = contentArea_SizePx;
+            fillArea_TopLeft_OffsetPx = contentArea_TopLeft_OffsetPx;
+            fillArea_CornerRadiusPx = contentArea_CornerRadiusPx;
+            borderArea_SizePx = ImVec2(paddingBox_SizePx.x + globalBorderThicknessPx_Scaled, paddingBox_SizePx.y + globalBorderThicknessPx_Scaled);
+            borderArea_TopLeft_OffsetPx = ImVec2(paddingBox_TopLeft_OffsetPx.x - globalBorderThicknessPx_Scaled * 0.5f, paddingBox_TopLeft_OffsetPx.y - globalBorderThicknessPx_Scaled * 0.5f);
+            borderArea_CornerRadiusPx = paddingBox_CornerRadiusPx + globalBorderThicknessPx_Scaled * 0.5f;
+            interactionArea_SizePx = borderArea_SizePx;
+            interactionArea_TopLeft_OffsetPx = borderArea_TopLeft_OffsetPx;
         }
 
-        fillPolySizePx.x = std::max(0.0f, fillPolySizePx.x); fillPolySizePx.y = std::max(0.0f, fillPolySizePx.y);
-        strokePolySizePx.x = std::max(0.0f, strokePolySizePx.x); strokePolySizePx.y = std::max(0.0f, strokePolySizePx.y);
-        interactionSizePx.x = std::max(0.0f, interactionSizePx.x); interactionSizePx.y = std::max(0.0f, interactionSizePx.y);
+        fillArea_SizePx.x = std::max(0.0f, fillArea_SizePx.x); fillArea_SizePx.y = std::max(0.0f, fillArea_SizePx.y);
+        borderArea_SizePx.x = std::max(0.0f, borderArea_SizePx.x); borderArea_SizePx.y = std::max(0.0f, borderArea_SizePx.y);
+        contentArea_SizePx.x = std::max(0.0f, contentArea_SizePx.x); contentArea_SizePx.y = std::max(0.0f, contentArea_SizePx.y);
+        interactionArea_SizePx.x = std::max(0.0f, interactionArea_SizePx.x); interactionArea_SizePx.y = std::max(0.0f, interactionArea_SizePx.y);
+        fillArea_CornerRadiusPx = std::max(0.0f, fillArea_CornerRadiusPx);
+        borderArea_CornerRadiusPx = std::max(0.0f, borderArea_CornerRadiusPx);
+        contentArea_CornerRadiusPx = std::max(0.0f, contentArea_CornerRadiusPx);
 
-        ImVec2 fillActualPos_World = ImVec2(wp.x + itemBasePosPx.x + fillPolyOrigin_OffsetPx.x,
-            wp.y + itemBasePosPx.y + fillPolyOrigin_OffsetPx.y);
-        ImVec2 fillActualCenter_World = ImVec2(fillActualPos_World.x + fillPolySizePx.x * 0.5f,
-            fillActualPos_World.y + fillPolySizePx.y * 0.5f);
+        ImVec2 itemBasePos_World = wp + itemDesignPosPx_Scaled;
+        ImVec2 fillActualPos_World = itemBasePos_World + fillArea_TopLeft_OffsetPx;
+        ImVec2 fillActualSizePx = fillArea_SizePx;
+        ImVec2 fillActualCenter_World = fillActualPos_World + fillActualSizePx * 0.5f;
+        ImVec2 borderActualPos_World = itemBasePos_World + borderArea_TopLeft_OffsetPx;
+        ImVec2 borderActualSizePx = borderArea_SizePx;
+        ImVec2 borderActualCenter_World = borderActualPos_World + borderActualSizePx * 0.5f;
+        ImVec2 contentActualPos_World = itemBasePos_World + contentArea_TopLeft_OffsetPx;
+        ImVec2 contentActualSizePx = contentArea_SizePx;
+        ImVec2 interactionActualPos_World = itemBasePos_World + interactionArea_TopLeft_OffsetPx;
+        ImVec2 interactionActualSizePx = interactionArea_SizePx;
 
-        ImVec2 strokeActualPos_World = ImVec2(wp.x + itemBasePosPx.x + strokePolyOrigin_OffsetPx.x,
-            wp.y + itemBasePosPx.y + strokePolyOrigin_OffsetPx.y);
-        ImVec2 strokeActualCenter_World = ImVec2(strokeActualPos_World.x + strokePolySizePx.x * 0.5f,
-            strokeActualPos_World.y + strokePolySizePx.y * 0.5f);
-
-        ImVec2 interactionActualPos_World = ImVec2(wp.x + itemBasePosPx.x + interactionOrigin_OffsetPx.x,
-            wp.y + itemBasePosPx.y + interactionOrigin_OffsetPx.y);
-
-
-        if (s.shadowColor.w > 0.0f) { 
-
-            ImVec2 shadowPolyPos_World = strokeActualPos_World;
-            ImVec2 shadowPolySizePx = strokePolySizePx;
-            float shadowCornerRadius = strokePolyCornerRadius;
-            ImVec2 shadowPolyCenter_World = strokeActualCenter_World;
-
-
-            ImVec2 c_shadow_compat = ImVec2(wp.x + itemBasePosPx.x + itemBaseSizePx.x * 0.5f,
-                wp.y + itemBasePosPx.y + itemBaseSizePx.y * 0.5f);
-            DrawShape_Shadow(dlEffective, s, wp, scaleFactor, c_shadow_compat, s.rotation + s.shadowRotation); // TODO: Güncelle
-        }
-        if (s.blurAmount > 0.0f) { 
-
-            ImVec2 c_blur_compat = ImVec2(wp.x + itemBasePosPx.x + itemBaseSizePx.x * 0.5f,
-                wp.y + itemBasePosPx.y + itemBaseSizePx.y * 0.5f);
-            DrawShape_Blur(dlEffective, s, wp, scaleFactor, c_blur_compat); 
+        if (s.shadowColor.w > 0.0f && !s.shadowInset && borderActualSizePx.x > 0 && borderActualSizePx.y > 0) {
+            ShapeItem shadowShapeCopy = s;
+            shadowShapeCopy.position = borderActualPos_World - wp;
+            shadowShapeCopy.size = borderActualSizePx;
+            shadowShapeCopy.cornerRadius = borderArea_CornerRadiusPx;
+            shadowShapeCopy.shadowInset = false;
+            DrawShape_Shadow(dlEffective, shadowShapeCopy, wp, 1.0f, borderActualCenter_World, s.rotation + s.shadowRotation);
         }
 
-
+        if (s.blurAmount > 0.0f && borderActualSizePx.x > 0 && borderActualSizePx.y > 0) {
+            ShapeItem blurShapeCopy = s;
+            blurShapeCopy.position = borderActualPos_World - wp;
+            blurShapeCopy.size = borderActualSizePx;
+            blurShapeCopy.cornerRadius = borderArea_CornerRadiusPx;
+            DrawShape_Blur(dlEffective, blurShapeCopy, wp, 1.0f, borderActualCenter_World);
+        }
 
         std::vector<ImVec2> fillPoly_World_Coords;
-        if (fillPolySizePx.x > 1e-3f && fillPolySizePx.y > 1e-3f) {
+        if (fillActualSizePx.x > 1e-3f && fillActualSizePx.y > 1e-3f) {
             if (s.type == ShapeType::Rectangle) {
-                BuildRectPoly(fillPoly_World_Coords, fillActualPos_World, fillPolySizePx, fillPolyCornerRadius, fillActualCenter_World, s.rotation);
+                BuildRectPoly(fillPoly_World_Coords, fillActualPos_World, fillActualSizePx, fillArea_CornerRadiusPx, fillActualCenter_World, s.rotation);
             }
             else {
-                BuildCirclePoly(fillPoly_World_Coords, fillActualCenter_World, fillPolySizePx.x * 0.5f, fillPolySizePx.y * 0.5f, s.rotation);
+                BuildCirclePoly(fillPoly_World_Coords, fillActualCenter_World, fillActualSizePx.x * 0.5f, fillActualSizePx.y * 0.5f, s.rotation);
             }
         }
 
-        ImVec4 currentFillColor = s.fillColor; 
-
-
+        ImVec4 currentFillColor = s.fillColor;
         DrawShape_LoadEmbeddedImageIfNeeded(s);
         if (s.hasEmbeddedImage && s.embeddedImageTexture && !fillPoly_World_Coords.empty()) {
-            if (std::abs(s.rotation) < 1e-4) { 
-                dlEffective->AddImageRounded(s.embeddedImageTexture,
-                    fillActualPos_World,
-                    ImVec2(fillActualPos_World.x + fillPolySizePx.x, fillActualPos_World.y + fillPolySizePx.y),
-                    ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, fillPolyCornerRadius); // fillPolyCornerRadius 
+            dlEffective->PushTextureID(s.embeddedImageTexture);
+            if (std::abs(s.rotation) < 1e-4) {
+                dlEffective->AddImageRounded(s.embeddedImageTexture, fillActualPos_World, ImVec2(fillActualPos_World.x + fillActualSizePx.x, fillActualPos_World.y + fillActualSizePx.y), ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, fillArea_CornerRadiusPx);
             }
             else {
-
-                ImVec2 c_image_compat = ImVec2(wp.x + itemBasePosPx.x + itemBaseSizePx.x * 0.5f,
-                    wp.y + itemBasePosPx.y + itemBaseSizePx.y * 0.5f);
-                DrawShape_DrawEmbeddedImageIfAny(dlEffective, s, scaleFactor, c_image_compat, fillPoly_World_Coords); // TODO: Güncelle
+                std::vector<ImVec2> uvCoords(fillPoly_World_Coords.size());
+                for (size_t i = 0; i < fillPoly_World_Coords.size(); i++) {
+                    uvCoords[i] = UV(fillPoly_World_Coords[i], fillActualSizePx, fillActualCenter_World, fillActualPos_World, s.rotation);
+                }
+                for (size_t i = 1; i < fillPoly_World_Coords.size() - 1; i++) {
+                    dlEffective->PrimReserve(3, 3);
+                    dlEffective->PrimVtx(fillPoly_World_Coords[0], uvCoords[0], IM_COL32_WHITE);
+                    dlEffective->PrimVtx(fillPoly_World_Coords[i], uvCoords[i], IM_COL32_WHITE);
+                    dlEffective->PrimVtx(fillPoly_World_Coords[i + 1], uvCoords[i + 1], IM_COL32_WHITE);
+                }
             }
+            dlEffective->PopTextureID();
         }
-
 
         if (s.isButton) {
+            ImGui::SetCursorScreenPos(interactionActualPos_World);
+            std::string button_id_fixed = "##button_box_" + std::to_string(s.id);
+            ImGui::InvisibleButton(button_id_fixed.c_str(), interactionActualSizePx);
+            bool is_hovered = ImGui::IsItemHovered();
+            bool is_active = ImGui::IsItemActive();
+            if (!s.allowItemOverlap && ImGui::GetHoveredID() != 0 && ImGui::GetHoveredID() != ImGui::GetID(button_id_fixed.c_str())) {
+                is_hovered = false;
+                is_active = false;
+            }
+            else if (s.allowItemOverlap) {
+                ImVec2 mousePosScreen = ImGui::GetIO().MousePos;
+                ImRect buttonRectScreen(interactionActualPos_World, interactionActualPos_World + interactionActualSizePx);
+                if (buttonRectScreen.Contains(mousePosScreen)) {
+                    is_hovered = true;
+                    is_active = ImGui::IsMouseDown(0) && is_hovered;
+                }
+                else {
+                    is_hovered = false;
+                    is_active = false;
+                }
+            }
+            if (s.forceOverlap && s.allowItemOverlap && s.blockUnderlying) {
+                ImGui::SetNextWindowPos(interactionActualPos_World);
+                ImGui::SetNextWindowSize(interactionActualSizePx);
+                std::string overlay_id = "BlockOverlay_" + std::to_string(s.id);
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+                ImGui::BeginChild(overlay_id.c_str(), interactionActualSizePx, false, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
+                ImGui::EndChild();
+                ImGui::PopStyleColor();
+            }
+            currentFillColor = s.fillColor;
+            if (is_hovered && !DesignManager::g_IsInEditMode) {
+                currentFillColor = s.hoverColor;
+            }
+            for (auto& anim : s.onClickAnimations) {
+                if (anim.triggerMode == ButtonAnimation::TriggerMode::OnHover) {}
+            }
+            if (!DesignManager::g_IsInEditMode) {
+                if (s.buttonBehavior == ShapeItem::ButtonBehavior::SingleClick) {
+                    if (ImGui::IsItemClicked()) s.shouldCallOnClick = true;
+                    if (is_active) currentFillColor = s.clickedColor;
+                }
+                else if (s.buttonBehavior == ShapeItem::ButtonBehavior::Toggle) {
+                    if (ImGui::IsItemClicked()) {
+                        bool newState = !s.buttonState;
+                        if (newState && s.groupId > 0) {
+                            auto allButtons = GetAllButtonShapes();
+                            for (auto* otherButton : allButtons) {
+                                if (otherButton && otherButton->id != s.id && otherButton->groupId == s.groupId) {
+                                    otherButton->buttonState = false;
+                                }
+                            }
+                        }
+                        s.buttonState = newState;
+                        s.shouldCallOnClick = true;
+                    }
+                    if (s.buttonState) currentFillColor = s.clickedColor;
+                }
+                else if (s.buttonBehavior == ShapeItem::ButtonBehavior::Hold) {
+                    if (is_active) {
+                        currentFillColor = s.clickedColor;
+                        if (!s.isHeld) { s.shouldCallOnClick = true; }
+                    }
+                    else {
+                        if (s.isHeld) { s.shouldCallOnClick = true; }
+                    }
+                }
+            }
+            s.isHeld = is_active;
+            if (s.shouldCallOnClick && !s.onClickAnimations.empty()) {}
+        }
 
-            DrawShape_ProcessButtonLogic(dlEffective, s, scaleFactor, wp, currentFillColor); // TODO: update
+        DrawShape_Fill(dlEffective, s, fillPoly_World_Coords, fillActualPos_World, fillActualSizePx, fillActualCenter_World, currentFillColor);
+
+        if (s.shadowColor.w > 0.0f && s.shadowInset && fillActualSizePx.x > 0 && fillActualSizePx.y > 0) {
+            ShapeItem shadowShapeCopy = s;
+            shadowShapeCopy.position = fillActualPos_World - wp;
+            shadowShapeCopy.size = fillActualSizePx;
+            shadowShapeCopy.cornerRadius = fillArea_CornerRadiusPx;
+            shadowShapeCopy.shadowInset = true;
+            DrawShape_Shadow(dlEffective, shadowShapeCopy, wp, 1.0f, fillActualCenter_World, s.rotation + s.shadowRotation);
         }
 
 
-        if (!fillPoly_World_Coords.empty()) {
-            DrawShape_Fill(dlEffective, s, fillPoly_World_Coords,
-                fillActualPos_World, fillPolySizePx, 
-                fillActualCenter_World,
-                currentFillColor);
+
+        
+        float per_side_thickness_scaled[4];
+        if (s.usePerSideBorderThicknesses) {
+            for (int i = 0; i < 4; ++i) {
+                per_side_thickness_scaled[i] = s.borderSideThicknesses[i] * scaleFactor;
+            }
         }
-
-
-        if (borderThicknessPx > 0.0f && strokePolySizePx.x > 1e-3f && strokePolySizePx.y > 1e-3f) {
-            std::vector<ImVec2> strokePoly_World_Coords;
-            if (s.type == ShapeType::Rectangle) {
-                BuildRectPoly(strokePoly_World_Coords, strokeActualPos_World, strokePolySizePx, strokePolyCornerRadius, strokeActualCenter_World, s.rotation);
-            }
-            else {
-                BuildCirclePoly(strokePoly_World_Coords, strokeActualCenter_World, strokePolySizePx.x * 0.5f, strokePolySizePx.y * 0.5f, s.rotation);
-            }
-
-            if (!strokePoly_World_Coords.empty()) {
-                dlEffective->AddPolyline(strokePoly_World_Coords.data(), (int)strokePoly_World_Coords.size(), ColU32(s.borderColor), ImDrawFlags_Closed, borderThicknessPx);
+        else {
+            for (int i = 0; i < 4; ++i) {
+                per_side_thickness_scaled[i] = globalBorderThicknessPx_Scaled;
             }
         }
 
+        float max_thickness_for_polyline = 0.0f;
+        bool any_border_visible = false;
 
-        ImVec2 contentActualPos_World = ImVec2(wp.x + itemBasePosPx.x + contentPos_OffsetPx.x,
-            wp.y + itemBasePosPx.y + contentPos_OffsetPx.y);
-        ImVec2 contentActualSizePx = contentSizePx; // Bu zaten ölçekli
+        for (int i = 0; i < 4; ++i) {
+            float current_side_effective_thickness = s.usePerSideBorderThicknesses ? per_side_thickness_scaled[i] : globalBorderThicknessPx_Scaled;
+            ImVec4 current_side_effective_color_v4 = s.usePerSideBorderColors ? s.borderSideColors[i] : s.borderColor;
+
+            if (current_side_effective_thickness > 0.001f && current_side_effective_color_v4.w > 0.0f) {
+                any_border_visible = true;
+                max_thickness_for_polyline = std::max(max_thickness_for_polyline, current_side_effective_thickness);
+            }
+        }
+
+        if (any_border_visible && borderActualSizePx.x > 1e-3f && borderActualSizePx.y > 1e-3f) {
+            if (s.type == ShapeType::Rectangle && s.cornerRadius < 0.001f) {
+                
+
+                ImVec2 outer_tl_unrot = ImVec2(0.0f, 0.0f);
+                ImVec2 outer_tr_unrot = ImVec2(borderActualSizePx.x, 0.0f);
+                ImVec2 outer_br_unrot = ImVec2(borderActualSizePx.x, borderActualSizePx.y);
+                ImVec2 outer_bl_unrot = ImVec2(0.0f, borderActualSizePx.y);
+
+                float current_th[4]; 
+                ImU32 current_col[4];
+                bool current_visible[4];
+
+                for (int i = 0; i < 4; ++i) {
+                    current_th[i] = s.usePerSideBorderThicknesses ? per_side_thickness_scaled[i] : globalBorderThicknessPx_Scaled;
+                    ImVec4 c_v4 = s.usePerSideBorderColors ? s.borderSideColors[i] : s.borderColor;
+                    current_col[i] = ColU32(c_v4);
+                    current_visible[i] = (current_th[i] > 0.001f && c_v4.w > 0.0f);
+                }
+
+                
+                ImVec2 inner_tl_raw = ImVec2(current_th[3], current_th[0]);
+                ImVec2 inner_tr_raw = ImVec2(borderActualSizePx.x - current_th[1], current_th[0]);
+                ImVec2 inner_br_raw = ImVec2(borderActualSizePx.x - current_th[1], borderActualSizePx.y - current_th[2]);
+                ImVec2 inner_bl_raw = ImVec2(current_th[3], borderActualSizePx.y - current_th[2]);
+
+                ImVec2 center_for_rotation = borderActualSizePx * 0.5f;
+                ImVec2 final_pos_offset = borderActualPos_World;
+
+                
+                
+                if (current_visible[0]) { 
+                    ImVec2 q[4] = { outer_tl_unrot, outer_tr_unrot, inner_tr_raw, inner_tl_raw };
+                    if (std::abs(s.rotation) > 1e-4f) { for (int i = 0; i < 4; ++i) q[i] = RotateP(q[i], center_for_rotation, s.rotation); }
+                    dlEffective->AddQuadFilled(final_pos_offset + q[0], final_pos_offset + q[1], final_pos_offset + q[2], final_pos_offset + q[3], current_col[0]);
+                }
+                if (current_visible[1]) { 
+                    ImVec2 q[4] = { outer_tr_unrot, outer_br_unrot, inner_br_raw, inner_tr_raw };
+                    if (std::abs(s.rotation) > 1e-4f) { for (int i = 0; i < 4; ++i) q[i] = RotateP(q[i], center_for_rotation, s.rotation); }
+                    dlEffective->AddQuadFilled(final_pos_offset + q[0], final_pos_offset + q[1], final_pos_offset + q[2], final_pos_offset + q[3], current_col[1]);
+                }
+                if (current_visible[2]) { 
+                    ImVec2 q_inner_br = inner_br_raw;
+                    ImVec2 q_inner_bl = inner_bl_raw;
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+
+                    ImVec2 q[4] = { outer_bl_unrot, outer_br_unrot, q_inner_br, q_inner_bl };
+                    if (std::abs(s.rotation) > 1e-4f) { for (int i = 0; i < 4; ++i) q[i] = RotateP(q[i], center_for_rotation, s.rotation); }
+                    dlEffective->AddQuadFilled(final_pos_offset + q[0], final_pos_offset + q[1], final_pos_offset + q[2], final_pos_offset + q[3], current_col[2]);
+                }
+                if (current_visible[3]) { 
+                    ImVec2 q_inner_bl = inner_bl_raw;
+                    ImVec2 q_inner_tl = inner_tl_raw;
+                    
+                    
+                    
+                    
+                    
+                    
 
 
-        DrawShape_RenderImGuiContent(dl, s, contentActualPos_World, contentActualSizePx, scaleFactor /* scaleFactor */);
+                    ImVec2 q[4] = { outer_tl_unrot, outer_bl_unrot, q_inner_bl, q_inner_tl };
+                    if (std::abs(s.rotation) > 1e-4f) { for (int i = 0; i < 4; ++i) q[i] = RotateP(q[i], center_for_rotation, s.rotation); }
+                    dlEffective->AddQuadFilled(final_pos_offset + q[0], final_pos_offset + q[1], final_pos_offset + q[2], final_pos_offset + q[3], current_col[3]);
+                }
+            }
+            else { 
+                ImVec2 poly_pos = borderActualPos_World;
+                ImVec2 poly_size = borderActualSizePx;
+                float poly_radius = borderArea_CornerRadiusPx;
+                float effective_polyline_thickness = max_thickness_for_polyline;
 
+                if (s.boxSizing == ShapeItem::BoxSizing::BorderBox || s.boxSizing == ShapeItem::BoxSizing::ContentBox || s.boxSizing == ShapeItem::BoxSizing::StrokeBox) {
+                    poly_pos = ImVec2(borderActualPos_World.x + effective_polyline_thickness * 0.5f, borderActualPos_World.y + effective_polyline_thickness * 0.5f);
+                    poly_size = ImVec2(std::max(0.0f, borderActualSizePx.x - effective_polyline_thickness), std::max(0.0f, borderActualSizePx.y - effective_polyline_thickness));
+                    poly_radius = std::max(0.0f, borderArea_CornerRadiusPx - effective_polyline_thickness * 0.5f);
+                }
 
-        if (s.isChildWindow && !s.isImGuiContainer) { // Koşul aynı kalır
+                std::vector<ImVec2> final_border_poly_points;
+                ImVec2 center_for_poly = poly_pos + poly_size * 0.5f;
+
+                if (s.type == ShapeType::Rectangle) {
+                    BuildRectPoly(final_border_poly_points, poly_pos, poly_size, poly_radius, center_for_poly, s.rotation);
+                }
+                else {
+                    BuildCirclePoly(final_border_poly_points, center_for_poly, poly_size.x * 0.5f, poly_size.y * 0.5f, s.rotation);
+                }
+
+                if (!final_border_poly_points.empty()) {
+                    ImU32 polyline_color_u32 = 0;
+                    bool polyline_color_chosen = false;
+
+                    if (s.usePerSideBorderColors) {
+                        for (int i = 0; i < 4; ++i) {
+                            float side_thick = s.usePerSideBorderThicknesses ? per_side_thickness_scaled[i] : globalBorderThicknessPx_Scaled;
+                            if (s.borderSideColors[i].w > 0.0f && side_thick > 0.001f) {
+                                polyline_color_u32 = ColU32(s.borderSideColors[i]);
+                                polyline_color_chosen = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!polyline_color_chosen) {
+                        if (s.borderColor.w > 0.0f && globalBorderThicknessPx_Scaled > 0.001f) {
+                            polyline_color_u32 = ColU32(s.borderColor);
+                            polyline_color_chosen = true;
+                        }
+                    }
+
+                    if (polyline_color_chosen && effective_polyline_thickness > 0.001f) {
+                        dlEffective->AddPolyline(final_border_poly_points.data(), (int)final_border_poly_points.size(), polyline_color_u32, ImDrawFlags_Closed, effective_polyline_thickness);
+                    }
+                }
+            }
+        }
+        
+
+        DrawShape_RenderImGuiContent(dl, s, contentActualPos_World, contentActualSizePx, scaleFactor);
+        if (s.isChildWindow && !s.isImGuiContainer) {
             DrawShape_RenderChildWindow(s, contentActualPos_World, contentActualSizePx);
         }
         else if (!s.isImGuiContainer) {
-            if (s.useGlass) {
-                // TODO:contentActualPos_World  contentActualSizePx
-            }
-
+            if (s.useGlass) {}
             DrawShape_DrawText(dlEffective, s, contentActualPos_World, contentActualSizePx, scaleFactor);
         }
-
         DrawShape_FinalOnClick(s);
-    } // DrawShape sonu
+    }
 
     void RenderAllRegisteredWindows()
     {
@@ -4621,10 +5274,25 @@ namespace DesignManager {
         writeFloatLine("setBorderThickness", shape.borderThickness);
         writeColorLine("setFillColor", shape.fillColor);
         writeColorLine("setBorderColor", shape.borderColor);
+        writeBoolLine("setUsePerSideBorderColors", shape.usePerSideBorderColors); 
+        if (shape.usePerSideBorderColors) { 
+            code << "    .setBorderSidesColor(ImVec4(" << shape.borderSideColors[0].x << "f, " << shape.borderSideColors[0].y << "f, " << shape.borderSideColors[0].z << "f, " << shape.borderSideColors[0].w << "f), "
+                << "ImVec4(" << shape.borderSideColors[1].x << "f, " << shape.borderSideColors[1].y << "f, " << shape.borderSideColors[1].z << "f, " << shape.borderSideColors[1].w << "f), "
+                << "ImVec4(" << shape.borderSideColors[2].x << "f, " << shape.borderSideColors[2].y << "f, " << shape.borderSideColors[2].z << "f, " << shape.borderSideColors[2].w << "f), "
+                << "ImVec4(" << shape.borderSideColors[3].x << "f, " << shape.borderSideColors[3].y << "f, " << shape.borderSideColors[3].z << "f, " << shape.borderSideColors[3].w << "f))\n";
+        } 
+        writeBoolLine("setUsePerSideBorderThicknesses", shape.usePerSideBorderThicknesses); 
+        if (shape.usePerSideBorderThicknesses) { 
+            code << "    .setBorderSidesThickness(" << shape.borderSideThicknesses[0] << "f, "
+                << shape.borderSideThicknesses[1] << "f, "
+                << shape.borderSideThicknesses[2] << "f, "
+                << shape.borderSideThicknesses[3] << "f)\n";
+        } 
         writeColorLine("setShadowColor", shape.shadowColor);
         code << "    .setShadowSpread(ImVec4(" << shape.shadowSpread.x << "f, " << shape.shadowSpread.y << "f, " << shape.shadowSpread.z << "f, " << shape.shadowSpread.w << "f))\n";
         writeVec2Line("setShadowOffset", shape.shadowOffset);
         writeBoolLine("setShadowUseCornerRadius", shape.shadowUseCornerRadius);
+        writeBoolLine("setShadowInset", shape.shadowInset);
         writeFloatLine("setShadowRotation", shape.shadowRotation);
         writeFloatLine("setBlurAmount", shape.blurAmount);
         writeBoolLine("setVisible", shape.visible);
@@ -4782,16 +5450,24 @@ namespace DesignManager {
         case VAlignment::Bottom: code << "Bottom"; break;
         }
         code << ")\n";
-        code << "    .setBoxSizing(DesignManager::ShapeItem::BoxSizing::"; // Added
-        switch (shape.boxSizing) { // Added
-        case ShapeItem::BoxSizing::BorderBox:  code << "BorderBox"; break; // Added
-        case ShapeItem::BoxSizing::ContentBox: code << "ContentBox"; break; // Added
-        case ShapeItem::BoxSizing::StrokeBox:  code << "StrokeBox"; break; // Added
-        default: code << "StrokeBox"; break; // Added
-        } // Added
-        code << ")\n"; // Added
+        code << "    .setBoxSizing(DesignManager::ShapeItem::BoxSizing::"; 
+        switch (shape.boxSizing) { 
+        case ShapeItem::BoxSizing::BorderBox:  code << "BorderBox"; break; 
+        case ShapeItem::BoxSizing::ContentBox: code << "ContentBox"; break; 
+        case ShapeItem::BoxSizing::StrokeBox:  code << "StrokeBox"; break; 
+        default: code << "StrokeBox"; break; 
+        } 
+        code << ")\n"; 
         code << "    .setPadding(ImVec4(" << shape.padding.x << "f, " << shape.padding.y << "f, " << shape.padding.z << "f, " << shape.padding.w << "f))\n";
         code << "    .setMargin(ImVec4(" << shape.margin.x << "f, " << shape.margin.y << "f, " << shape.margin.z << "f, " << shape.margin.w << "f))\n";
+        writeBoolLine("setIsPolygon", shape.isPolygon); 
+        if (shape.isPolygon && !shape.polygonVertices.empty()) { 
+            code << "    .setPolygonVertices({\n"; 
+            for (const auto& v : shape.polygonVertices) { 
+                code << "        ImVec2(" << v.x << "f, " << v.y << "f),\n"; 
+            } 
+            code << "    })\n"; 
+        } 
         code << "    .build()";
         return code.str();
     }
@@ -5010,7 +5686,7 @@ namespace DesignManager {
         std::vector<std::pair<int, int>> parentingLinks;
         std::map<std::string, std::vector<int>> layerVarToShapeIds;
 
-        code << "    \n"; // Reset layout managers before recreating shapes
+        code << "    \n"; 
         code << "    if (DesignManager::g_windowsMap.count(\"" << windowName << "\")) {\n";
         code << "        auto& targetWinData = DesignManager::g_windowsMap.at(\"" << windowName << "\");\n";
         code << "        for (auto& layer : targetWinData.layers) {\n";
@@ -5023,7 +5699,7 @@ namespace DesignManager {
         code << "        targetWinData.layers.clear();\n";
         code << "    }\n\n";
 
-        code << "    \n"; // Create individual shape unique_ptrs
+        code << "    \n"; 
         for (const auto& layer : winData.layers) {
             std::string layerVar = SanitizeVariableName(layer.name);
             if (layerVarToShapeIds.find(layerVar) == layerVarToShapeIds.end()) {
@@ -5046,7 +5722,7 @@ namespace DesignManager {
 
 
                     if (shape.isLayoutContainer && shape.layoutManager) {
-                        code << "    {\n"; // Start layout manager scope
+                        code << "    {\n"; 
                         if (auto* flex = dynamic_cast<FlexLayout*>(shape.layoutManager.get())) {
                             code << "        auto layoutMgr = std::make_unique<DesignManager::FlexLayout>();\n";
                             code << "        layoutMgr->direction = DesignManager::FlexDirection::";
@@ -5178,7 +5854,7 @@ namespace DesignManager {
                             code << "        layoutMgr->spacing = " << horz->spacing << "f;\n";
                             code << "        " << shapeVar << "->layoutManager = std::move(layoutMgr);\n";
                         }
-                        code << "    }\n"; // End layout manager scope
+                        code << "    }\n"; 
                     }
 
                     if (shape.parent != nullptr) {
@@ -5204,7 +5880,7 @@ namespace DesignManager {
         }
         code << "\n";
 
-        code << "    \n"; // Create and populate layers
+        code << "    \n"; 
         for (const auto& layer : winData.layers) {
             std::string layerVar = SanitizeVariableName(layer.name);
             code << "    DesignManager::Layer " << layerVar << "_layer_temp(\"" << layer.name << "\");\n";
@@ -5224,8 +5900,8 @@ namespace DesignManager {
         }
 
         if (!parentingLinks.empty()) {
-            code << "    \n"; // Establish parenting links
-            code << "    {\n"; // Scope for temporary pointers
+            code << "    \n"; 
+            code << "    {\n"; 
             code << "        std::map<int, ShapeItem*> finalShapePtrs_Generated_" << safeWindowName << ";\n";
             code << "        if (DesignManager::g_windowsMap.count(\"" << windowName << "\")) {\n";
             code << "            auto& layers_vec_Generated_" << safeWindowName << " = DesignManager::g_windowsMap.at(\"" << windowName << "\").layers;\n";
@@ -5249,12 +5925,12 @@ namespace DesignManager {
                     code << "        }\n";
                 }
             }
-            code << "    }\n"; // End scope for temporary pointers
+            code << "    }\n"; 
             code << "\n";
         }
 
         if (!g_combinedChildWindowMappings.empty()) {
-            code << "    \n"; // Recreate combined child window mappings
+            code << "    \n"; 
             code << "    g_combinedChildWindowMappings.clear();\n";
             for (const auto& mapping : g_combinedChildWindowMappings) {
                 code << "    g_combinedChildWindowMappings.push_back(CombinedMapping{\n";
@@ -5937,7 +6613,7 @@ namespace DesignManager {
 
                     if (dragged_shape_ptr && !dragged_shape_ptr->locked && originalLayerPtr != nullptr && originalLayerIndex != i)
                     {
-                        ShapeItem movedShape = *dragged_shape_ptr; // Create a copy
+                        ShapeItem movedShape = *dragged_shape_ptr; 
 
                         if (dragged_shape_ptr->parent) {
                             ShapeItem* original_parent_ptr = FindShapeByIdRecursive(dragged_shape_ptr->parent->id);
@@ -6556,7 +7232,7 @@ namespace DesignManager {
                 std::vector<ShapeItem*> childrenToDraw = shape->children;
                 for (ShapeItem* child : childrenToDraw) {
                     if (!child) continue;
-                    int childShapeIndexInLayer = -1; // This might need to be found if relevant
+                    int childShapeIndexInLayer = -1; 
                     DrawShapeTreeNode(child, layer, layerIndex, childShapeIndexInLayer, selectedLayerIndex, selectedShapes, lastClickedShape, lastClickedLayerIndex, layerToSort, needsLayerSort);
                 }
             }
@@ -6716,7 +7392,7 @@ namespace DesignManager {
                         ImVec2 newLocalOffset = RotateP(newWorldOffset, ImVec2(0.0f, 0.0f), -parentRot);
                         s.originalPosition = newLocalOffset;
                     }
-                    s.position = tempAbsPos; // Update actual position
+                    s.position = tempAbsPos; 
                     MarkSceneUpdated();
                 }
                 ImGui::Separator();
@@ -6741,7 +7417,7 @@ namespace DesignManager {
                         s.baseSize = s.baseSize + deltaSize;
                         s.baseSize.x = std::max(s.minSize.x, std::min(s.baseSize.x, s.maxSize.x));
                         s.baseSize.y = std::max(s.minSize.y, std::min(s.baseSize.y, s.maxSize.y));
-                        s.size = tempAbsSize; // Update actual size
+                        s.size = tempAbsSize; 
                         MarkSceneUpdated();
                     }
                 }
@@ -6756,7 +7432,7 @@ namespace DesignManager {
                         else {
                             s.baseRotation = newWorldRotRad;
                         }
-                        s.rotation = newWorldRotRad; // Update actual rotation
+                        s.rotation = newWorldRotRad; 
                         MarkSceneUpdated();
                     }
                 }
@@ -6870,6 +7546,37 @@ namespace DesignManager {
                 ImGui::SeparatorText("Fill & Border");
                 if (ImGui::ColorEdit4("Fill##Color", (float*)&s.fillColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
                 if (ImGui::ColorEdit4("Border##Color", (float*)&s.borderColor, ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                if (ImGui::Checkbox("Use Per-Side Border Colors##Appearance", &s.usePerSideBorderColors)) MarkSceneUpdated();
+                if (s.usePerSideBorderColors) {
+                    ImGui::Indent();
+                    if (ImGui::ColorEdit4("Top##BorderColorSides", (float*)&s.borderSideColors[0], ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    if (ImGui::ColorEdit4("Right##BorderColorSides", (float*)&s.borderSideColors[1], ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    if (ImGui::ColorEdit4("Bottom##BorderColorSides", (float*)&s.borderSideColors[2], ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    if (ImGui::ColorEdit4("Left##BorderColorSides", (float*)&s.borderSideColors[3], ImGuiColorEditFlags_AlphaBar)) MarkSceneUpdated();
+                    if (ImGui::Button("Set All Sides to Main Border Color##Appearance")) {
+                        for (int i = 0; i < 4; ++i) s.borderSideColors[i] = s.borderColor;
+                        MarkSceneUpdated();
+                    }
+                    ImGui::Unindent();
+                }
+                if (ImGui::Checkbox("Use Per-Side Border Thicknesses##Appearance", &s.usePerSideBorderThicknesses)) MarkSceneUpdated();
+                if (s.usePerSideBorderThicknesses) {
+                    ImGui::Indent();
+                    float bst0 = s.borderSideThicknesses[0]; float bst1 = s.borderSideThicknesses[1];
+                    float bst2 = s.borderSideThicknesses[2]; float bst3 = s.borderSideThicknesses[3];
+                    bool changed = false;
+                    if (ImGui::DragFloat("Top##BorderThickSides", &bst0, 0.1f, 0.0f, 200.0f)) { s.borderSideThicknesses[0] = bst0; changed = true; }
+                    if (ImGui::DragFloat("Right##BorderThickSides", &bst1, 0.1f, 0.0f, 200.0f)) { s.borderSideThicknesses[1] = bst1; changed = true; }
+                    if (ImGui::DragFloat("Bottom##BorderThickSides", &bst2, 0.1f, 0.0f, 200.0f)) { s.borderSideThicknesses[2] = bst2; changed = true; }
+                    if (ImGui::DragFloat("Left##BorderThickSides", &bst3, 0.1f, 0.0f, 200.0f)) { s.borderSideThicknesses[3] = bst3; changed = true; }
+                    if (changed) MarkSceneUpdated();
+
+                    if (ImGui::Button("Set All Sides to Main Border Thickness##Appearance")) {
+                        for (int i = 0; i < 4; ++i) s.borderSideThicknesses[i] = s.borderThickness;
+                        MarkSceneUpdated();
+                    }
+                    ImGui::Unindent();
+                }
                 if (ImGui::Checkbox("Use Gradient Fill", &s.useGradient)) { MarkSceneUpdated(); ClearGradientTextureCache(); }
                 ImGui::BeginDisabled(!s.useGradient);
                 if (s.useGradient) {
@@ -6902,9 +7609,9 @@ namespace DesignManager {
                     ImGui::Unindent();
                 }
                 ImGui::EndDisabled();
-
+                
                 ImGui::SeparatorText("Sizing Model");
-                const char* boxSizingModes[] = { "Border Box (Kenarlık İçeride)", "Content Box (Kenarlık Dışarıda)", "Stroke Box (Kenarlık Ortada)" };
+                const char* boxSizingModes[] = { "Border Box (KenarlÄ±k Ä°Ã§eride)", "Content Box (KenarlÄ±k DÄ±ÅŸarÄ±da)", "Stroke Box (KenarlÄ±k Ortada)" };
                 int currentBoxSizing = static_cast<int>(s.boxSizing);
                 if (ImGui::Combo("Box Sizing##Appearance", &currentBoxSizing, boxSizingModes, IM_ARRAYSIZE(boxSizingModes))) {
                     s.boxSizing = static_cast<ShapeItem::BoxSizing>(currentBoxSizing);
@@ -6912,17 +7619,21 @@ namespace DesignManager {
                 }
                 if (ImGui::IsItemHovered()) {
                     ImGui::BeginTooltip();
-                    ImGui::TextUnformatted("Şeklin boyutunu kenarlık ve dolgunun nasıl etkileyeceğini belirler:\n"
-                        "- Border Box: Boyut, kenarlığı ve dolguyu içerir. İçerik küçülür.\n"
+                    ImGui::TextUnformatted("Åeklin boyutunu kenarlÄ±k ve dolgunun nasÄ±l etkileyeceÄŸini belirler:\n"
+                        "- Border Box: Boyut, kenarlÄ±ÄŸÄ± ve dolguyu iÃ§erir. Ä°Ã§erik kÃ¼Ã§Ã¼lÃ¼r.\n"
                         "  (CSS border-box benzeri)\n"
-                        "- Content Box: Boyut sadece içeriği temsil eder. Kenarlık/dolgu dışa doğru genişler.\n"
-                        "  (CSS content-box benzeri, kenarlık yerleşimi için)\n"
-                        "- Stroke Box: Boyut içeriği temsil eder. Kenarlık kenar üzerine ortalanır.\n"
-                        "  (Mevcut varsayılan davranış)");
+                        "- Content Box: Boyut sadece iÃ§eriÄŸi temsil eder. KenarlÄ±k/dolgu dÄ±ÅŸa doÄŸru geniÅŸler.\n"
+                        "  (CSS content-box benzeri, kenarlÄ±k yerleÅŸimi iÃ§in)\n"
+                        "- Stroke Box: Boyut iÃ§eriÄŸi temsil eder. KenarlÄ±k kenar Ã¼zerine ortalanÄ±r.\n"
+                        "  (Mevcut varsayÄ±lan davranÄ±ÅŸ)");
                     ImGui::EndTooltip();
                 }
                 if (ImGui::CollapsingHeader("Padding & Margin##PropsPanel", ImGuiTreeNodeFlags_DefaultOpen))
                 {
+                    
+                    
+                    
+                    
 
                     float padding_arr[4] = { s.padding.x, s.padding.y, s.padding.z, s.padding.w };
                     if (ImGui::DragFloat4("Padding (L,T,R,B)##Shape", padding_arr, 0.5f, 0.0f, 9999.0f, "%.1f")) {
@@ -6936,10 +7647,10 @@ namespace DesignManager {
                     float margin_arr[4] = { s.margin.x, s.margin.y, s.margin.z, s.margin.w };
                     if (ImGui::DragFloat4("Margin (L,T,R,B)##Shape", margin_arr, 0.5f, -9999.0f, 9999.0f, "%.1f")) {
                         s.margin = ImVec4(margin_arr[0], margin_arr[1], margin_arr[2], margin_arr[3]);
-
+                        
                         MarkSceneUpdated();
                     }
-                    // ImGui::EndDisabled();
+                    
                 }
                 ImGui::SeparatorText("Effects");
                 if (ImGui::TreeNodeEx("Shadow##Effects", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_AllowItemOverlap)) {
@@ -7139,20 +7850,20 @@ namespace DesignManager {
             bool showChildSettings = (s.parent != nullptr && s.parent->isLayoutContainer && s.parent->layoutManager != nullptr);
             if (showChildSettings)
             {
-                if (ImGui::CollapsingHeader("Layout Ã‡ocuk AyarlarÄ±", ImGuiTreeNodeFlags_DefaultOpen))
+                if (ImGui::CollapsingHeader("Layout Ãƒâ€¡ocuk AyarlarÃ„Â±", ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    if (ImGui::DragFloat("Esneme FaktÃ¶rÃ¼ (Stretch)##LayoutChild", &s.stretchFactor, 0.1f, 0.0f, 10000.0f)) {
+                    if (ImGui::DragFloat("Esneme FaktÃƒÂ¶rÃƒÂ¼ (Stretch)##LayoutChild", &s.stretchFactor, 0.1f, 0.0f, 10000.0f)) {
                         s.stretchFactor = std::max(0.0f, s.stretchFactor);
                         MarkSceneUpdated();
                     }
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("0: Esneme yok.\n>0: DiÄŸer esneyen elemanlarla orantÄ±lÄ± olarak boÅŸ alanÄ± doldurur.");
-                    const char* hAlignItems[] = { "Doldur (Fill)", "Sol (Left)", "Orta (Center)", "SaÄŸ (Right)" };
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("0: Esneme yok.\n>0: DiÃ„Å¸er esneyen elemanlarla orantÃ„Â±lÃ„Â± olarak boÃ…Å¸ alanÃ„Â± doldurur.");
+                    const char* hAlignItems[] = { "Doldur (Fill)", "Sol (Left)", "Orta (Center)", "SaÃ„Å¸ (Right)" };
                     int currentHAlign = static_cast<int>(s.horizontalAlignment);
                     if (ImGui::Combo("Yatay Hizalama##LayoutChild", &currentHAlign, hAlignItems, IM_ARRAYSIZE(hAlignItems))) {
                         s.horizontalAlignment = static_cast<HAlignment>(currentHAlign);
                         MarkSceneUpdated();
                     }
-                    const char* vAlignItems[] = { "Doldur (Fill)", "Ãœst (Top)", "Orta (Center)", "Alt (Bottom)" };
+                    const char* vAlignItems[] = { "Doldur (Fill)", "ÃƒÅ“st (Top)", "Orta (Center)", "Alt (Bottom)" };
                     int currentVAlign = static_cast<int>(s.verticalAlignment);
                     if (ImGui::Combo("Dikey Hizalama##LayoutChild", &currentVAlign, vAlignItems, IM_ARRAYSIZE(vAlignItems))) {
                         s.verticalAlignment = static_cast<VAlignment>(currentVAlign);
@@ -7267,7 +7978,7 @@ namespace DesignManager {
                     case 4: newManager = std::make_unique<GridLayout>(); break;
                     default: break;
                     }
-                    // Check if newManager is different type than s.layoutManager
+                    
                     bool typeChanged = (!s.layoutManager && newManager) || (s.layoutManager && !newManager) ||
                         (s.layoutManager && newManager && strcmp(s.layoutManager->getTypeName(), newManager->getTypeName()) != 0);
 
@@ -7578,7 +8289,7 @@ namespace DesignManager {
                         if (!shape || shape->locked || anyLocked) continue;
                         shape->basePosition.x += multiDeltaPos[0];
                         shape->basePosition.y += multiDeltaPos[1];
-                        shape->position.x += multiDeltaPos[0]; // Also update live position
+                        shape->position.x += multiDeltaPos[0]; 
                         shape->position.y += multiDeltaPos[1];
                     }
                     MarkSceneUpdated();
@@ -7601,7 +8312,7 @@ namespace DesignManager {
                         targetBaseSize.x = std::max(shape->minSize.x, std::min(targetBaseSize.x, shape->maxSize.x));
                         targetBaseSize.y = std::max(shape->minSize.y, std::min(targetBaseSize.y, shape->maxSize.y));
                         shape->baseSize = targetBaseSize;
-                        shape->size = targetBaseSize; // Also update live size
+                        shape->size = targetBaseSize; 
                     }
                     MarkSceneUpdated();
                     multiDeltaSize[0] = multiDeltaSize[1] = 0.0f;
@@ -8252,6 +8963,17 @@ namespace DesignManager {
         static float sliderValue = 0.5f;
         ImGui::SliderFloat("Example Slider", &sliderValue, 0.0f, 1.0f);
     }
+    void RenderChildWindowForShape3()
+    {
+        ImGui::Text("Child Window for Shape 3");
+        ImGui::Separator();
+        ImGui::Text("Add your child window content here.");
+        if (ImGui::Button("Example Button"))
+        {
+        }
+        static float sliderValue = 0.5f;
+        ImGui::SliderFloat("Example Slider", &sliderValue, 0.0f, 1.0f);
+    }
 
     ShapeItem ShapeBuilder::build() {
         if (shape.basePosition == ImVec2(0, 0) && shape.position != ImVec2(0, 0)) shape.basePosition = shape.position;
@@ -8277,15 +8999,14 @@ namespace DesignManager {
         }
         return shape;
     }
-    void RenderChildWindow_1() {
-        ::RenderChildWindow_1();
+
+/*
+    void RenderIfAny_ButtonShapeWindow() {
+        ::RenderIfAny_ButtonShapeWindow();
     }
+*/
 
-    void RenderChildWindow_2() {
-        ::RenderChildWindow_2();
-    }
-
-
+   
     void Init(int width, int height, GLFWwindow* window) {
         selectedLayerIndex = 0;
         selectedShapeIndex = -1;
@@ -8308,7 +9029,6 @@ namespace DesignManager {
 
 
         RegisterWindow("ChildWindow_1", RenderChildWindowForShape1);
-        RegisterWindow("ChildWindow_2", RenderChildWindowForShape2);
 
 
         auto it = g_windowsMap.find(DesignManager::selectedGuiWindow);
@@ -8329,8 +9049,524 @@ namespace DesignManager {
 
     void GeneratedCode()
     {
-        
-
+        // Initialize the design before the main loop (while()). This enables real-time UI design modifications. Conversely, SetupProgrammaticUI_UltimateFreedom initializes after the loop, making its design non-adjustable during UI runtime.
     }
 
+
+
+
+
+
+
+
+
+
+
+// Experimantal part for making these changes ::
+/*
+
+
+
+
+
+
+*/
+
+
+
+
+
+
+
+    struct Vec3 {
+        float x, y, z;
+        Vec3(float _x = 0, float _y = 0, float _z = 0) : x(_x), y(_y), z(_z) {}
+        Vec3 operator+(const Vec3& other) const { return Vec3(x + other.x, y + other.y, z + other.z); }
+        Vec3 operator-(const Vec3& other) const { return Vec3(x - other.x, y - other.y, z - other.z); }
+        Vec3 operator*(float s) const { return Vec3(x * s, y * s, z * s); }
+    };
+
+    struct Mat3x3 {
+        float m[3][3];
+        Mat3x3() { for (int i = 0; i < 3; ++i) for (int j = 0; j < 3; ++j) m[i][j] = (i == j) ? 1.0f : 0.0f; }
+        static Mat3x3 RotationX(float angleRad) { Mat3x3 R; R.m[1][1] = cosf(angleRad); R.m[1][2] = -sinf(angleRad); R.m[2][1] = sinf(angleRad); R.m[2][2] = cosf(angleRad); return R; }
+        static Mat3x3 RotationY(float angleRad) { Mat3x3 R; R.m[0][0] = cosf(angleRad); R.m[0][2] = sinf(angleRad); R.m[2][0] = -sinf(angleRad); R.m[2][2] = cosf(angleRad); return R; }
+        static Mat3x3 RotationZ(float angleRad) { Mat3x3 R; R.m[0][0] = cosf(angleRad); R.m[0][1] = -sinf(angleRad); R.m[1][0] = sinf(angleRad); R.m[1][1] = cosf(angleRad); return R; }
+        Mat3x3 operator*(const Mat3x3& other) const { Mat3x3 result; for (int i = 0; i < 3; ++i) { for (int j = 0; j < 3; ++j) { result.m[i][j] = 0; for (int k = 0; k < 3; ++k) { result.m[i][j] += m[i][k] * other.m[k][j]; } } }return result; }
+        Vec3 operator*(const Vec3& v) const { return Vec3(m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z, m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z, m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z); }
+    };
+
+    float HueToRGB(float p, float q, float t) {
+        if (t < 0.0f) t += 1.0f;
+        if (t > 1.0f) t -= 1.0f;
+        if (t < 1.0f / 6.0f) return p + (q - p) * 6.0f * t;
+        if (t < 1.0f / 2.0f) return q;
+        if (t < 2.0f / 3.0f) return p + (q - p) * (2.0f / 3.0f - t) * 6.0f;
+        return p;
+    }
+
+    ImVec4 HSLtoRGB_custom(float h_degrees, float s_percent, float l_percent, float a = 1.0f) {
+        float r, g, b;
+        float h = h_degrees / 360.0f;
+        float s = s_percent / 100.0f;
+        float l = l_percent / 100.0f;
+
+        if (s == 0.0f) {
+            r = g = b = l;
+        }
+        else {
+            float q = l < 0.5f ? l * (1.0f + s) : l + s - l * s;
+            float p = 2.0f * l - q;
+            r = HueToRGB(p, q, h + 1.0f / 3.0f);
+            g = HueToRGB(p, q, h);
+            b = HueToRGB(p, q, h - 1.0f / 3.0f);
+        }
+        return ImVec4(r, g, b, a);
+    }
+
+    ImVec4 HSLtoRGB(float h_degrees, float s_percent, float l_percent, float a = 1.0f) {
+#if defined(IMGUI_VERSION_NUM) && IMGUI_VERSION_NUM >= 18200
+        return HSLtoRGB_custom(h_degrees, s_percent, l_percent, a);
+#else
+        return HSLtoRGB_custom(h_degrees, s_percent, l_percent, a);
+#endif
+    }
+
+
+    struct CubeFaceShapeData { 
+        std::vector<ImVec2> screenVertices;
+        ImVec4 color;
+        float avgZ;
+        int id;
+        bool operator<(const CubeFaceShapeData& other) const { return avgZ > other.avgZ; }
+    };
+
+    
+    void SetupProgrammaticUI_UltimateFreedom(float deltaTime, float totalTime) {
+        using namespace DesignManager;
+
+        
+        ImVec2 mainWindowScreenPos = ImVec2(0, 0);
+        ImVec2 mainWindowSize = ImGui::GetIO().DisplaySize;
+        ImGuiWindow* pMainWindowImGui = ImGui::FindWindowByName("Main");
+        if (pMainWindowImGui) {
+            mainWindowScreenPos = pMainWindowImGui->Pos;
+            mainWindowSize = pMainWindowImGui->Size;
+        }
+
+        WindowData& mainWindowData = GetOrCreateWindow("Main", true);
+        Layer* myCustomLayer = GetOrCreateLayer(mainWindowData, "3DKupKatmani", 5);
+        if (!myCustomLayer) {
+            return;
+        }
+        Layer* myCustomLayer2 = GetOrCreateLayer(mainWindowData, "Yokaa", 5);
+        if (!myCustomLayer2) {
+            return;
+        }
+
+        static float currentHue = 170.0f;
+        static bool isDraggingSliderKnob = false;
+
+        
+        float sliderRelativeOffsetX = 50.0f;
+        float sliderRelativeOffsetY = mainWindowSize.y - 100.0f;
+        ImVec2 sliderBaseRelativePos = ImVec2(sliderRelativeOffsetX, sliderRelativeOffsetY);
+        float sliderWidth = 300.0f;
+        ImVec2 sliderTrackSize = ImVec2(sliderWidth, 25.0f);
+        float sliderTrackCornerRadius = sliderTrackSize.y / 2.0f;
+
+        
+        ShapeItem titleTextTemplate = ShapeBuilder()
+            .setId(3001)
+            .setName("TitleText_ColorPicker")
+            .setOwnerWindow("Main")
+            .setPosition(ImVec2(sliderBaseRelativePos.x, sliderBaseRelativePos.y - 40.0f))
+            .setSize(ImVec2(sliderWidth, 30.0f))
+            .setCornerRadius(0.0f)
+            .setFillColor(ImVec4(0.0f, 0.0f, 0.0f, 0.0f))
+            .setBorderThickness(0.0f)
+            .setHasText(true)
+            .setText("KÃ¼p Rotasyon & Renk")
+            .setTextColor(ImVec4(0.9f, 0.9f, 0.9f, 1.0f))
+            .setTextSize(20.0f)
+            .setTextAlignment(0)
+            .setZOrder(100)
+            .build();
+        ShapeItem* pTitleText = GetOrCreateShapeInLayer(*myCustomLayer, titleTextTemplate);
+        if (pTitleText) {
+            pTitleText->position = titleTextTemplate.position;
+            pTitleText->basePosition = titleTextTemplate.position;
+            pTitleText->textColor = titleTextTemplate.textColor;
+            pTitleText->text = titleTextTemplate.text;
+        }
+
+        
+        ShapeItem sliderTrackTemplate = ShapeBuilder()
+            .setId(2001)
+            .setName("HueSliderTrack_ColorPicker")
+            .setOwnerWindow("Main")
+            .setPosition(sliderBaseRelativePos)
+            .setSize(sliderTrackSize)
+            .setCornerRadius(sliderTrackCornerRadius)
+            .setFillColor(HSLtoRGB(currentHue, 90.0f, 55.0f, 1.0f))
+            .setBorderThickness(0.0f)
+            .setZOrder(101)
+            .build();
+        ShapeItem* pSliderTrack = GetOrCreateShapeInLayer(*myCustomLayer, sliderTrackTemplate);
+        if (pSliderTrack) {
+            pSliderTrack->position = sliderTrackTemplate.position;
+            pSliderTrack->basePosition = sliderTrackTemplate.position;
+            pSliderTrack->fillColor = HSLtoRGB(currentHue, 90.0f, 55.0f, 1.0f);
+        }
+
+        
+        ImVec2 sliderKnobSize = ImVec2(sliderTrackSize.y - 4.0f, sliderTrackSize.y - 4.0f);
+        float knobMinX_relative_to_window = sliderBaseRelativePos.x + sliderKnobSize.x / 2.0f;
+        float knobMaxX_relative_to_window = sliderBaseRelativePos.x + sliderTrackSize.x - sliderKnobSize.x / 2.0f;
+        float draggableRange_relative = knobMaxX_relative_to_window - knobMinX_relative_to_window;
+        if (draggableRange_relative < 1.0f) draggableRange_relative = 1.0f;
+
+        float currentKnobCenterX_relative_to_window = knobMinX_relative_to_window + (currentHue / 360.0f) * draggableRange_relative;
+        float currentKnobPosX_relative_to_window = currentKnobCenterX_relative_to_window - sliderKnobSize.x / 2.0f;
+        float knobPosY_relative_to_window = sliderBaseRelativePos.y + (sliderTrackSize.y - sliderKnobSize.y) / 2.0f;
+
+        ShapeItem sliderKnobTemplate = ShapeBuilder()
+            .setId(2002)
+            .setName("HueSliderKnob_ColorPicker")
+            .setOwnerWindow("Main")
+            .setPosition(ImVec2(currentKnobPosX_relative_to_window, knobPosY_relative_to_window))
+            .setSize(sliderKnobSize)
+            .setCornerRadius(sliderKnobSize.x / 2.0f)
+            .setFillColor(ImVec4(1.0f, 1.0f, 1.0f, 1.0f))
+            .setBorderColor(ImVec4(0.6f, 0.6f, 0.6f, 0.8f))
+            .setBorderThickness(1.0f)
+            .setZOrder(102)
+            .build();
+        ShapeItem* pSliderKnob = GetOrCreateShapeInLayer(*myCustomLayer, sliderKnobTemplate);
+        if (pSliderKnob) {
+            pSliderKnob->position = sliderKnobTemplate.position;
+            pSliderKnob->basePosition = sliderKnobTemplate.position;
+        }
+
+        
+        ImVec2 screenMousePos = ImGui::GetMousePos();
+        if (pSliderTrack && pSliderKnob) {
+            ImVec2 knobScreenPos_TL = ImVec2(mainWindowScreenPos.x + pSliderKnob->position.x,
+                mainWindowScreenPos.y + pSliderKnob->position.y);
+            ImVec2 trackScreenPos_TL = ImVec2(mainWindowScreenPos.x + pSliderTrack->position.x,
+                mainWindowScreenPos.y + pSliderTrack->position.y);
+
+            bool isMouseOverKnob = screenMousePos.x >= knobScreenPos_TL.x &&
+                screenMousePos.x <= knobScreenPos_TL.x + pSliderKnob->size.x &&
+                screenMousePos.y >= knobScreenPos_TL.y &&
+                screenMousePos.y <= knobScreenPos_TL.y + pSliderKnob->size.y;
+
+            bool isMouseOverTrack = screenMousePos.x >= trackScreenPos_TL.x &&
+                screenMousePos.x <= trackScreenPos_TL.x + pSliderTrack->size.x &&
+                screenMousePos.y >= trackScreenPos_TL.y - 5.0f &&
+                screenMousePos.y <= trackScreenPos_TL.y + pSliderTrack->size.y + 5.0f;
+
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                if (isDraggingSliderKnob) {
+                    float mouseX_clamped_to_draggable_range_abs_screen = ImClamp(screenMousePos.x,
+                        mainWindowScreenPos.x + knobMinX_relative_to_window,
+                        mainWindowScreenPos.x + knobMaxX_relative_to_window
+                    );
+                    float hue_val = ((mouseX_clamped_to_draggable_range_abs_screen - (mainWindowScreenPos.x + knobMinX_relative_to_window)) / draggableRange_relative) * 360.0f;
+                    currentHue = ImClamp(hue_val, 0.0f, 359.9f);
+                }
+                else if (isMouseOverKnob || isMouseOverTrack) {
+                    isDraggingSliderKnob = true;
+                    float mouseX_clamped_to_draggable_range_abs_screen = ImClamp(screenMousePos.x,
+                        mainWindowScreenPos.x + knobMinX_relative_to_window,
+                        mainWindowScreenPos.x + knobMaxX_relative_to_window
+                    );
+                    float hue_val = ((mouseX_clamped_to_draggable_range_abs_screen - (mainWindowScreenPos.x + knobMinX_relative_to_window)) / draggableRange_relative) * 360.0f;
+                    currentHue = ImClamp(hue_val, 0.0f, 359.9f);
+                }
+            }
+            else {
+                isDraggingSliderKnob = false;
+            }
+        }
+
+        
+        static std::vector<Vec3> cubeVerticesModel = {
+            {-0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, -0.5f}, {-0.5f, 0.5f, -0.5f},
+            {-0.5f, -0.5f, 0.5f},  {0.5f, -0.5f, 0.5f},  {0.5f, 0.5f, 0.5f},  {-0.5f, 0.5f, 0.5f}
+        };
+        static const std::vector<std::vector<int>> cubeFaceIndices = {
+            {0, 1, 2, 3}, {4, 5, 6, 7}, {0, 4, 7, 3}, {1, 5, 6, 2}, {3, 2, 6, 7}, {0, 1, 5, 4}
+        };
+        static const std::vector<ImVec4> cubeFaceBaseColors = {
+            HSLtoRGB(0.0f, 70.0f, 50.0f, 0.8f), HSLtoRGB(120.0f, 70.0f, 50.0f, 0.8f), HSLtoRGB(240.0f, 70.0f, 50.0f, 0.8f),
+            HSLtoRGB(60.0f, 70.0f, 50.0f, 0.8f), HSLtoRGB(300.0f, 70.0f, 50.0f, 0.8f), HSLtoRGB(180.0f, 70.0f, 50.0f, 0.8f)
+        };
+
+        
+        float angleX_from_hue = DegToRad(currentHue * 0.5f);
+        float angleY_from_hue = DegToRad(currentHue);
+        float angleZ_dynamic = totalTime * 0.1f;
+
+        Mat3x3 rotXMat = Mat3x3::RotationX(angleX_from_hue);
+        Mat3x3 rotYMat = Mat3x3::RotationY(angleY_from_hue);
+        Mat3x3 rotZMat = Mat3x3::RotationZ(angleZ_dynamic);
+        Mat3x3 rotationMatrix = rotZMat * rotYMat * rotXMat;
+
+        
+        std::vector<Vec3> transformedVertices(8);
+        for (size_t i = 0; i < cubeVerticesModel.size(); ++i) {
+            transformedVertices[i] = rotationMatrix * cubeVerticesModel[i];
+        }
+
+        
+        static ImVec2 FIXED_CUBE_CENTER_OFFSET = ImVec2(0.5f, 0.4f); 
+        ImVec2 cubeCenterWindowRelative = ImVec2(
+            mainWindowSize.x * FIXED_CUBE_CENTER_OFFSET.x,
+            mainWindowSize.y * FIXED_CUBE_CENTER_OFFSET.y
+        );
+
+        
+        std::vector<ImVec2> projectedVerticesWindowRelative(8);
+        float visualScreenSizeFactor = 150.0f;
+        float viewDistance = 2.5f;
+
+        for (size_t i = 0; i < transformedVertices.size(); ++i) {
+            Vec3 v = transformedVertices[i];
+            float z_dist = v.z + viewDistance;
+            if (z_dist <= 0.2f) z_dist = 0.2f;
+
+            
+            projectedVerticesWindowRelative[i].x = (v.x * visualScreenSizeFactor) / z_dist + cubeCenterWindowRelative.x;
+            projectedVerticesWindowRelative[i].y = (v.y * visualScreenSizeFactor) / z_dist + cubeCenterWindowRelative.y;
+        }
+
+        
+        std::vector<CubeFaceShapeData> facesToDraw;
+        int baseCubeFaceId = 4000;
+
+        for (size_t i = 0; i < cubeFaceIndices.size(); ++i) {
+            CubeFaceShapeData faceData;
+            faceData.id = baseCubeFaceId + static_cast<int>(i);
+            float sumZ = 0.0f;
+
+            for (int vertexIndex : cubeFaceIndices[i]) {
+                faceData.screenVertices.push_back(projectedVerticesWindowRelative[vertexIndex]);
+                sumZ += (transformedVertices[vertexIndex].z + viewDistance);
+            }
+
+            faceData.avgZ = sumZ / (float)faceData.screenVertices.size();
+            faceData.color = HSLtoRGB(currentHue, 70.0f, 50.0f, cubeFaceBaseColors[i].w);
+            facesToDraw.push_back(faceData);
+        }
+
+        
+        std::sort(facesToDraw.begin(), facesToDraw.end());
+
+        
+        for (const auto& face : facesToDraw) {
+            if (face.screenVertices.size() >= 3) {
+                ShapeItem faceShapeTemplate;
+                faceShapeTemplate.type = ShapeType::Rectangle;
+                faceShapeTemplate.id = face.id;
+                faceShapeTemplate.name = "CubeFace_" + std::to_string(face.id);
+                faceShapeTemplate.ownerWindow = "Main";
+                faceShapeTemplate.isPolygon = true;
+
+                
+                faceShapeTemplate.polygonVertices = face.screenVertices;
+
+                faceShapeTemplate.fillColor = face.color;
+                faceShapeTemplate.borderColor = ImVec4(0.05f, 0.05f, 0.05f, 0.7f);
+                faceShapeTemplate.borderThickness = 1.0f;
+                faceShapeTemplate.zOrder = (int)(&face - &facesToDraw[0]);
+
+                
+                if (!face.screenVertices.empty()) {
+                    ImVec2 min_v = face.screenVertices[0], max_v = face.screenVertices[0];
+                    for (size_t v_idx = 1; v_idx < face.screenVertices.size(); ++v_idx) {
+                        min_v.x = ImMin(min_v.x, face.screenVertices[v_idx].x);
+                        min_v.y = ImMin(min_v.y, face.screenVertices[v_idx].y);
+                        max_v.x = ImMax(max_v.x, face.screenVertices[v_idx].x);
+                        max_v.y = ImMax(max_v.y, face.screenVertices[v_idx].y);
+                    }
+
+                    
+                    faceShapeTemplate.position = min_v;
+                    faceShapeTemplate.size = ImVec2(max_v.x - min_v.x, max_v.y - min_v.y);
+                }
+                else {
+                    faceShapeTemplate.position = ImVec2(0, 0);
+                    faceShapeTemplate.size = ImVec2(0, 0);
+                }
+
+                
+                faceShapeTemplate.basePosition = faceShapeTemplate.position;
+                faceShapeTemplate.baseSize = faceShapeTemplate.size;
+
+                ShapeItem* pFaceShape = GetOrCreateShapeInLayer(*myCustomLayer, faceShapeTemplate);
+                if (pFaceShape) {
+                    
+                    pFaceShape->isPolygon = true;
+                    pFaceShape->polygonVertices = face.screenVertices; 
+                    pFaceShape->fillColor = face.color;
+                    pFaceShape->borderColor = faceShapeTemplate.borderColor;
+                    pFaceShape->borderThickness = faceShapeTemplate.borderThickness;
+                    pFaceShape->zOrder = faceShapeTemplate.zOrder;
+
+                    
+                    pFaceShape->position = faceShapeTemplate.position;        
+                    pFaceShape->size = faceShapeTemplate.size;
+                    pFaceShape->basePosition = faceShapeTemplate.position;    
+                    pFaceShape->baseSize = faceShapeTemplate.size;
+
+                    
+                    
+                }
+            }
+        }
+
+        ShapeBuilder()
+            .setId(3861)
+            .setName("New Shape")
+            .setOwnerWindow("Main")
+            .setGroupId(0)
+            .setBasePosition(ImVec2(150.000000f, 150.000000f))
+            .setBaseSize(ImVec2(150.000000f, 150.000000f))
+            .setBaseRotation(0.000000f)
+            .setPosition(ImVec2(150.000000f, 150.000000f))
+            .setSize(ImVec2(150.000000f, 150.000000f))
+            .setRotation(0.000000f)
+            .setAnchorMode(DesignManager::ShapeItem::AnchorMode::None)
+            .setAnchorMargin(ImVec2(0.000000f, 0.000000f))
+            .setUsePercentagePos(false)
+            .setPercentagePos(ImVec2(0.000000f, 0.000000f))
+            .setUsePercentageSize(false)
+            .setPercentageSize(ImVec2(10.000000f, 10.000000f))
+            .setMinSize(ImVec2(0.000000f, 0.000000f))
+            .setMaxSize(ImVec2(99999.000000f, 99999.000000f))
+            .setCornerRadius(0.000000f)
+            .setBorderThickness(0.000000f) 
+            .setFillColor(ImVec4(0.933333f, 0.933333f, 0.933333f, 1.000000f))
+            .setBorderColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f)) 
+            .setUsePerSideBorderColors(true)
+            .setBorderSidesColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.800000f), ImVec4(0.000000f, 0.000000f, 0.000000f, 0.800000f), ImVec4(0.000000f, 0.000000f, 0.000000f, 0.800000f), ImVec4(0.000000f, 0.000000f, 0.000000f, 0.800000f))
+            .setUsePerSideBorderThicknesses(true)
+            .setBorderSidesThickness(63.200001f, 43.799999f, 20.500000f, 38.099998f)
+            .setShadowColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+            .setShadowSpread(ImVec4(2.000000f, 2.000000f, 2.000000f, 2.000000f))
+            .setShadowOffset(ImVec2(2.000000f, 2.000000f))
+            .setShadowUseCornerRadius(true)
+            .setShadowInset(false)
+            .setShadowRotation(0.000000f)
+            .setBlurAmount(0.000000f)
+            .setVisible(true)
+            .setLocked(false)
+            .setUseGradient(false)
+            .setGradientRotation(0.000000f)
+            .setGradientInterpolation(DesignManager::ShapeItem::GradientInterpolation::Linear)
+            .setColorRamp({
+                {0.000000f, ImVec4(1.000000f, 1.000000f, 1.000000f, 1.000000f)},
+                {1.000000f, ImVec4(0.500000f, 0.500000f, 0.500000f, 1.000000f)},
+                })
+                .setUseGlass(false)
+            .setGlassBlur(10.000000f)
+            .setGlassAlpha(0.700000f)
+            .setGlassColor(ImVec4(1.000000f, 1.000000f, 1.000000f, 0.300000f))
+            .setZOrder(0)
+            .setIsChildWindow(false)
+            .setChildWindowSync(false)
+            .setToggleChildWindow(false)
+            .setToggleBehavior(DesignManager::ChildWindowToggleBehavior::WindowOnly)
+            .setChildWindowGroupId(-1)
+            .setTargetShapeID(0)
+            .setTriggerGroupID(0)
+            .setIsImGuiContainer(false)
+            .setIsButton(false)
+            .setButtonBehavior(DesignManager::ShapeItem::ButtonBehavior::SingleClick)
+            .setUseOnClick(false)
+            .setHoverColor(ImVec4(0.800000f, 0.800000f, 0.800000f, 1.000000f))
+            .setClickedColor(ImVec4(0.600000f, 0.600000f, 0.600000f, 1.000000f))
+            .setToggledStatePositionOffset(ImVec2(0.000000f, 0.000000f))
+            .setToggledStateSizeOffset(ImVec2(0.000000f, 0.000000f))
+            .setToggledStateRotationOffset(0.000000f)
+            .setHasText(false)
+            .setText("")
+            .setTextColor(ImVec4(0.000000f, 0.000000f, 0.000000f, 1.000000f))
+            .setTextSize(16.000000f)
+            .setTextFont(0)
+            .setTextPosition(ImVec2(0.000000f, 0.000000f))
+            .setTextRotation(0.000000f)
+            .setTextAlignment(0)
+            .setDynamicTextSize(true)
+            .setBaseTextSize(0.000000f)
+            .setMinTextSize(8.000000f)
+            .setMaxTextSize(72.000000f)
+            .setUpdateAnimBaseOnResize(false)
+            .setHasEmbeddedImage(false)
+            .setEmbeddedImageIndex(-1)
+            .setAllowItemOverlap(false)
+            .setForceOverlap(false)
+            .setBlockUnderlying(true)
+            .setType(ShapeType::Rectangle)
+            .setPositioningMode(PositioningMode::Relative)
+            .setFlexGrow(0.000000f)
+            .setFlexShrink(1.000000f)
+            .setFlexBasisMode(DesignManager::ShapeItem::FlexBasisMode::Auto)
+            .setFlexBasisPixels(0.000000f)
+            .setAlignSelf(DesignManager::AlignSelf::Auto)
+            .setOrder(0)
+            .setGridColumnStart(-1)
+            .setGridColumnEnd(-1)
+            .setGridRowStart(-1)
+            .setGridRowEnd(-1)
+            .setJustifySelf(DesignManager::GridAxisAlignment::Stretch)
+            .setAlignSelfGrid(DesignManager::GridAxisAlignment::Stretch)
+            .setIsLayoutContainer(false)
+            .setStretchFactor(0.000000f)
+            .setHorizontalAlignment(DesignManager::HAlignment::Fill)
+            .setVerticalAlignment(DesignManager::VAlignment::Fill)
+            .setBoxSizing(DesignManager::ShapeItem::BoxSizing::StrokeBox) 
+            .setPadding(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+            .setMargin(ImVec4(0.000000f, 0.000000f, 0.000000f, 0.000000f))
+            .setIsPolygon(false)
+            .build() 
+            ; 
+
+    
+        float requestedAlpha = 150.0f / 255.0f; 
+        ShapeItem colorfulBorderShapeTemplate = ShapeBuilder()
+            .setId(3862) 
+            .setName("ColorfulBorderShape")
+            .setOwnerWindow("Main") 
+            .setPosition(ImVec2(mainWindowSize.x * 0.1f, mainWindowSize.y * 0.1f)) 
+            .setSize(ImVec2(200.0f, 120.0f))
+            .setCornerRadius(0.0f) 
+            .setFillColor(ImVec4(0.25f, 0.25f, 0.3f, 0.6f)) 
+            .setUsePerSideBorderThicknesses(true)
+            .setBorderSidesThickness(5.0f, 10.0f, 15.0f, 20.0f) 
+            .setUsePerSideBorderColors(true)
+            .setBorderSidesColor(
+                ImVec4(1.0f, 0.1f, 0.1f, requestedAlpha), 
+                ImVec4(0.1f, 1.0f, 0.1f, requestedAlpha), 
+                ImVec4(0.1f, 0.1f, 1.0f, requestedAlpha), 
+                ImVec4(1.0f, 1.0f, 0.1f, requestedAlpha)  
+            )
+            
+            .setBorderThickness(1.0f)
+            .setBorderColor(ImVec4(0.0f, 0.0f, 0.0f, 0.0f))
+            .setZOrder(120) 
+            .setVisible(true)
+            .setBoxSizing(DesignManager::ShapeItem::BoxSizing::BorderBox) 
+            .build();
+
+        ShapeItem* pColorfulBorderShape = GetOrCreateShapeInLayer(*myCustomLayer2, colorfulBorderShapeTemplate);
+        if (pColorfulBorderShape) {
+            
+            *pColorfulBorderShape = colorfulBorderShapeTemplate;
+        }
+        
+        
+        MarkSceneUpdated();
+    }
 }
