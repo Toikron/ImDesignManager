@@ -233,727 +233,418 @@ namespace DesignManager {
     int lastClickedLayerIndex = -1;
 
     ShapeItem::ShapeItem()
-        : id(GetUniqueShapeID()),
-        type(ShapeType::Rectangle),
-        name("Shape"),
-        position(ImVec2(100, 100)),
-        size(ImVec2(200, 100)),
-        minSize(ImVec2(0, 0)),
-        maxSize(ImVec2(99999, 99999)),
-        cornerRadius(10),
-        borderThickness(2),
-        usePerSideBorderThicknesses(false), 
-        fillColor(ImVec4(0.932f, 0.932f, 0.932f, 1)),
-        borderColor(ImVec4(0, 0, 0, 0.8f)),
-        usePerSideBorderColors(false),
-        shadowColor(ImVec4(0, 0, 0, 0.2f)),
-        shadowSpread(ImVec4(2, 2, 2, 2)),
-        shadowOffset(ImVec2(2, 2)),
-        shadowUseCornerRadius(true),
-        shadowInset(false), 
-        rotation(0),
-        blurAmount(0),
-        visible(true),
-        locked(false),
-        useGradient(false),
-        gradientRotation(0.0f),
-        gradientInterpolation(GradientInterpolation::Linear),
-        colorRamp(),
-        shadowRotation(0),
-        useGlass(false),
-        glassBlur(10.0f),
-        glassAlpha(0.7f),
-        glassColor(ImVec4(1, 1, 1, 0.3f)),
-        zOrder(0),
-        isChildWindow(false),
-        isImGuiContainer(false),
-        renderImGuiContent(nullptr),
-        anchorMode(AnchorMode::None),
-        anchorMargin(ImVec2(0, 0)),
-        usePercentagePos(false),
-        percentagePos(ImVec2(0, 0)),
-        usePercentageSize(false),
-        percentageSize(ImVec2(10, 10)),
-        isLayoutContainer(false),
-        layoutManager(nullptr),
-        stretchFactor(0.0f),
-        horizontalAlignment(HAlignment::Fill),
-        verticalAlignment(VAlignment::Fill),
-        positioningMode(PositioningMode::Relative),
-        constraints(),
-        flexGrow(0.0f),
-        flexShrink(1.0f),
-        alignSelf(AlignSelf::Auto),
-        order(0),
-        gridColumnStart(-1),
-        gridColumnEnd(-1),
-        gridRowStart(-1),
-        gridRowEnd(-1),
-        justifySelf(GridAxisAlignment::Stretch),
-        alignSelfGrid(GridAxisAlignment::Stretch),
-        padding(ImVec4(0.0f, 0.0f, 0.0f, 0.0f)),
-        margin(ImVec4(0.0f, 0.0f, 0.0f, 0.0f)),
-        boxSizing(BoxSizing::StrokeBox)
-
-
-    {
-        for (int i = 0; i < 4; ++i) { 
-            borderSideColors[i] = borderColor;
-        }
-        for (int i = 0; i < 4; ++i) { 
-            borderSideThicknesses[i] = borderThickness; 
-        }
-        colorRamp.emplace_back(0.0f, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        colorRamp.emplace_back(1.0f, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-        basePosition = position;
-        baseSize = size;
-        baseRotation = rotation;
+    : id(GetUniqueShapeID()),
+    type(ShapeType::Rectangle),
+    name("Shape"),
+    position(ImVec2(100, 100)),
+    size(ImVec2(200, 100)),
+    minSize(ImVec2(0, 0)),
+    maxSize(ImVec2(99999, 99999)),
+    cornerRadius(10),
+    borderThickness(2),
+    usePerSideBorderThicknesses(false),
+    fillColor(ImVec4(0.932f, 0.932f, 0.932f, 1)),
+    borderColor(ImVec4(0, 0, 0, 0.8f)),
+    usePerSideBorderColors(false),
+    shadowColor(ImVec4(0, 0, 0, 0.2f)),
+    shadowSpread(ImVec4(2, 2, 2, 2)),
+    shadowOffset(ImVec2(2, 2)),
+    shadowUseCornerRadius(true),
+    shadowInset(false),
+    rotation(0),
+    blurAmount(0),
+    visible(true),
+    locked(false),
+    useGradient(false),
+    gradientRotation(0.0f),
+    gradientInterpolation(GradientInterpolation::Linear),
+    colorRamp(),
+    shadowRotation(0),
+    useGlass(false),
+    glassBlur(10.0f),
+    glassAlpha(0.7f),
+    glassColor(ImVec4(1, 1, 1, 0.3f)),
+    zOrder(0),
+    isChildWindow(false),
+    isImGuiContainer(false),
+    renderImGuiContent(nullptr),
+    anchorMode(AnchorMode::None),
+    anchorMargin(ImVec2(0, 0)),
+    usePercentagePos(false),
+    percentagePos(ImVec2(0, 0)),
+    usePercentageSize(false),
+    percentageSize(ImVec2(10, 10)),
+    isLayoutContainer(false),
+    layoutManager(nullptr),
+    stretchFactor(0.0f),
+    horizontalAlignment(HAlignment::Fill),
+    verticalAlignment(VAlignment::Fill),
+    positioningMode(PositioningMode::Relative),
+    constraints(),
+    flexGrow(0.0f),
+    flexShrink(1.0f),
+    alignSelf(AlignSelf::Auto),
+    order(0),
+    gridColumnStart(-1),
+    gridColumnEnd(-1),
+    gridRowStart(-1),
+    gridRowEnd(-1),
+    justifySelf(GridAxisAlignment::Stretch),
+    alignSelfGrid(GridAxisAlignment::Stretch),
+    padding(ImVec4(0.0f, 0.0f, 0.0f, 0.0f)),
+    margin(ImVec4(0.0f, 0.0f, 0.0f, 0.0f)),
+    boxSizing(BoxSizing::StrokeBox)
+{
+    for (int i = 0; i < 4; ++i) {
+        borderSideColors[i] = borderColor;
     }
-
-    ShapeItem::ShapeItem(const ShapeItem& other)
-        : id(other.id), 
-        type(other.type),
-        name(other.name),
-        position(other.position),
-        size(other.size),
-        basePosition(other.basePosition),
-        baseSize(other.baseSize),
-        rotation(other.rotation),
-        baseRotation(other.baseRotation),
-        minSize(other.minSize),
-        maxSize(other.maxSize),
-        isChildWindow(other.isChildWindow),
-        childWindowSync(other.childWindowSync),
-        toggleChildWindow(other.toggleChildWindow),
-        toggleBehavior(other.toggleBehavior),
-        childWindowGroupId(other.childWindowGroupId),
-        targetShapeID(other.targetShapeID),
-        triggerGroupID(other.triggerGroupID),
-        isImGuiContainer(other.isImGuiContainer),
-        renderImGuiContent(other.renderImGuiContent),
-        allowItemOverlap(other.allowItemOverlap),
-        forceOverlap(other.forceOverlap),
-        blockUnderlying(other.blockUnderlying),
-        hasText(other.hasText),
-        text(other.text),
-        textColor(other.textColor),
-        textSize(other.textSize),
-        textFont(other.textFont),
-        textPosition(other.textPosition),
-        textRotation(other.textRotation),
-        textAlignment(other.textAlignment),
-        dynamicTextSize(other.dynamicTextSize),
-        baseTextSize(other.baseTextSize),
-        minTextSize(other.minTextSize),
-        maxTextSize(other.maxTextSize),
-        shapeKeys(other.shapeKeys),
-        shapeKeyAnimations(other.shapeKeyAnimations),
-        shapeKeyValue(other.shapeKeyValue),
-        onClickAnimations(other.onClickAnimations),
-        chainAnimation(other.chainAnimation),
-        isPressed(false), 
-        groupId(other.groupId),
-        currentAnimation(nullptr), 
-        updateAnimBaseOnResize(other.updateAnimBaseOnResize),
-        isHeld(false), 
-        isAnimating(false), 
-        animationProgress(0.0f), 
-        baseKeyOffset(other.baseKeyOffset),
-        baseKeySizeOffset(other.baseKeySizeOffset),
-        baseKeyRotationOffset(other.baseKeyRotationOffset),
-        cornerRadius(other.cornerRadius),
-        borderThickness(other.borderThickness),
-        usePerSideBorderThicknesses(other.usePerSideBorderThicknesses), 
-        fillColor(other.fillColor),
-        borderColor(other.borderColor),
-        usePerSideBorderColors(other.usePerSideBorderColors),
-        shadowColor(other.shadowColor),
-        shadowSpread(other.shadowSpread),
-        shadowOffset(other.shadowOffset),
-        shadowUseCornerRadius(other.shadowUseCornerRadius),
-        shadowInset(other.shadowInset),
-        blurAmount(other.blurAmount),
-        visible(other.visible),
-        locked(other.locked),
-        useGradient(other.useGradient),
-        gradientRotation(other.gradientRotation),
-        gradientInterpolation(other.gradientInterpolation),
-        colorRamp(other.colorRamp),
-        shadowRotation(other.shadowRotation),
-        useGlass(other.useGlass),
-        glassBlur(other.glassBlur),
-        glassAlpha(other.glassAlpha),
-        glassColor(other.glassColor),
-        zOrder(other.zOrder),
-        isButton(other.isButton),
-        assignedChildWindows(other.assignedChildWindows),
-        selectedChildWindowIndex(other.selectedChildWindowIndex),
-        logicExpression(other.logicExpression),
-        logicAction(other.logicAction),
-        clickCounter(0), 
-        buttonBehavior(other.buttonBehavior),
-        triggerEvent(false), 
-        buttonState(false), 
-        shouldCallOnClick(false), 
-        isClicked(false), 
-        hoverColor(other.hoverColor),
-        clickedColor(other.clickedColor),
-        useOnClick(other.useOnClick),
-        onClick(other.onClick),
-        storedOnClick(other.storedOnClick),
-        parent(nullptr), 
-        
-        originalPosition(other.originalPosition),
-        originalRotation(other.originalRotation),
-        originalSize(other.originalSize),
-        ownerWindow(other.ownerWindow),
-        toggledStatePositionOffset(other.toggledStatePositionOffset),
-        toggledStateSizeOffset(other.toggledStateSizeOffset),
-        toggledStateRotationOffset(other.toggledStateRotationOffset),
-        sizeThresholds(other.sizeThresholds),
-        hasEmbeddedImage(other.hasEmbeddedImage),
-        embeddedImageData(other.embeddedImageData),
-        embeddedImageWidth(other.embeddedImageWidth),
-        embeddedImageHeight(other.embeddedImageHeight),
-        embeddedImageChannels(other.embeddedImageChannels),
-        embeddedImageIndex(other.embeddedImageIndex),
-        embeddedImageTexture(0), 
-        imageDirty(true),        
-        eventHandlers(other.eventHandlers),
-        anchorMode(other.anchorMode),
-        anchorMargin(other.anchorMargin),
-        usePercentagePos(other.usePercentagePos),
-        percentagePos(other.percentagePos),
-        usePercentageSize(other.usePercentageSize),
-        percentageSize(other.percentageSize),
-        isLayoutContainer(other.isLayoutContainer),
-        layoutManager(nullptr), 
-        stretchFactor(other.stretchFactor),
-        horizontalAlignment(other.horizontalAlignment),
-        verticalAlignment(other.verticalAlignment),
-        positioningMode(other.positioningMode),
-        constraints(other.constraints),
-        flexGrow(other.flexGrow),
-        flexShrink(other.flexShrink),
-        flexBasisMode(other.flexBasisMode),
-        flexBasisPixels(other.flexBasisPixels),
-        alignSelf(other.alignSelf),
-        order(other.order),
-        gridColumnStart(other.gridColumnStart),
-        gridColumnEnd(other.gridColumnEnd),
-        gridRowStart(other.gridRowStart),
-        gridRowEnd(other.gridRowEnd),
-        justifySelf(other.justifySelf),
-        alignSelfGrid(other.alignSelfGrid),
-        padding(other.padding),
-        margin(other.margin),
-        boxSizing(other.boxSizing),
-        isPolygon(other.isPolygon), 
-        polygonVertices(other.polygonVertices) 
-
-    {
-        for (int i = 0; i < 4; ++i) { 
-            borderSideColors[i] = other.borderSideColors[i];
-        }
-        for (int i = 0; i < 4; ++i) { 
-            borderSideThicknesses[i] = other.borderSideThicknesses[i];
-        }
-
-        if (other.layoutManager) {
-            layoutManager = other.layoutManager->Clone();
-        }
-        
-        for (int i = 0; i < 2; ++i) {
-            glassBlurFBO[i] = 0;
-            glassBlurTex[i] = 0;
-        }
+    for (int i = 0; i < 4; ++i) {
+        borderSideThicknesses[i] = borderThickness;
     }
-
-    
-    ShapeItem& ShapeItem::operator=(const ShapeItem& other) {
-        if (this == &other) return *this;
-
-        
-        
-        id = other.id;
-        type = other.type;
-        name = other.name;
-        position = other.position;
-        size = other.size;
-        basePosition = other.basePosition;
-        baseSize = other.baseSize;
-        rotation = other.rotation;
-        baseRotation = other.baseRotation;
-        minSize = other.minSize;
-        maxSize = other.maxSize;
-        isChildWindow = other.isChildWindow;
-        childWindowSync = other.childWindowSync;
-        toggleChildWindow = other.toggleChildWindow;
-        toggleBehavior = other.toggleBehavior;
-        childWindowGroupId = other.childWindowGroupId;
-        targetShapeID = other.targetShapeID;
-        triggerGroupID = other.triggerGroupID;
-        isImGuiContainer = other.isImGuiContainer;
-        renderImGuiContent = other.renderImGuiContent;
-        allowItemOverlap = other.allowItemOverlap;
-        forceOverlap = other.forceOverlap;
-        blockUnderlying = other.blockUnderlying;
-        hasText = other.hasText;
-        text = other.text;
-        textColor = other.textColor;
-        textSize = other.textSize;
-        textFont = other.textFont;
-        textPosition = other.textPosition;
-        textRotation = other.textRotation;
-        textAlignment = other.textAlignment;
-        dynamicTextSize = other.dynamicTextSize;
-        baseTextSize = other.baseTextSize;
-        minTextSize = other.minTextSize;
-        maxTextSize = other.maxTextSize;
-        shapeKeys = other.shapeKeys;
-        shapeKeyAnimations = other.shapeKeyAnimations;
-        shapeKeyValue = other.shapeKeyValue;
-        onClickAnimations = other.onClickAnimations;
-        chainAnimation = other.chainAnimation;
-        isPressed = false;
-        groupId = other.groupId;
-        currentAnimation = nullptr;
-        updateAnimBaseOnResize = other.updateAnimBaseOnResize;
-        isHeld = false;
-        isAnimating = false;
-        animationProgress = 0.0f;
-        baseKeyOffset = other.baseKeyOffset;
-        baseKeySizeOffset = other.baseKeySizeOffset;
-        baseKeyRotationOffset = other.baseKeyRotationOffset;
-        cornerRadius = other.cornerRadius;
-        borderThickness = other.borderThickness;
-        usePerSideBorderThicknesses = other.usePerSideBorderThicknesses; 
-        for (int i = 0; i < 4; ++i) { 
-            borderSideThicknesses[i] = other.borderSideThicknesses[i];
-        }
-        fillColor = other.fillColor;
-        borderColor = other.borderColor;
-        usePerSideBorderColors = other.usePerSideBorderColors;
-        for (int i = 0; i < 4; ++i) { 
-            borderSideColors[i] = other.borderSideColors[i];
-        }
-        shadowColor = other.shadowColor;
-        shadowSpread = other.shadowSpread;
-        shadowOffset = other.shadowOffset;
-        shadowUseCornerRadius = other.shadowUseCornerRadius;
-        shadowInset = other.shadowInset;
-        blurAmount = other.blurAmount;
-        visible = other.visible;
-        locked = other.locked;
-        useGradient = other.useGradient;
-        gradientRotation = other.gradientRotation;
-        gradientInterpolation = other.gradientInterpolation;
-        colorRamp = other.colorRamp;
-        shadowRotation = other.shadowRotation;
-        useGlass = other.useGlass;
-        glassBlur = other.glassBlur;
-        glassAlpha = other.glassAlpha;
-        glassColor = other.glassColor;
-        zOrder = other.zOrder;
-        isButton = other.isButton;
-        assignedChildWindows = other.assignedChildWindows;
-        selectedChildWindowIndex = other.selectedChildWindowIndex;
-        logicExpression = other.logicExpression;
-        logicAction = other.logicAction;
-        clickCounter = 0;
-        buttonBehavior = other.buttonBehavior;
-        triggerEvent = false;
-        buttonState = false;
-        shouldCallOnClick = false;
-        isClicked = false;
-        hoverColor = other.hoverColor;
-        clickedColor = other.clickedColor;
-        useOnClick = other.useOnClick;
-        onClick = other.onClick;
-        storedOnClick = other.storedOnClick;
-        parent = nullptr;
-        children.clear();
-        originalPosition = other.originalPosition;
-        originalRotation = other.originalRotation;
-        originalSize = other.originalSize;
-        ownerWindow = other.ownerWindow;
-        toggledStatePositionOffset = other.toggledStatePositionOffset;
-        toggledStateSizeOffset = other.toggledStateSizeOffset;
-        toggledStateRotationOffset = other.toggledStateRotationOffset;
-        sizeThresholds = other.sizeThresholds;
-        hasEmbeddedImage = other.hasEmbeddedImage;
-        embeddedImageData = other.embeddedImageData;
-        embeddedImageWidth = other.embeddedImageWidth;
-        embeddedImageHeight = other.embeddedImageHeight;
-        embeddedImageChannels = other.embeddedImageChannels;
-        embeddedImageIndex = other.embeddedImageIndex;
-        embeddedImageTexture = 0;
-        imageDirty = true;
-        eventHandlers = other.eventHandlers;
-        anchorMode = other.anchorMode;
-        anchorMargin = other.anchorMargin;
-        usePercentagePos = other.usePercentagePos;
-        percentagePos = other.percentagePos;
-        usePercentageSize = other.usePercentageSize;
-        percentageSize = other.percentageSize;
-        isLayoutContainer = other.isLayoutContainer;
-        stretchFactor = other.stretchFactor;
-        horizontalAlignment = other.horizontalAlignment;
-        verticalAlignment = other.verticalAlignment;
-        positioningMode = other.positioningMode;
-        constraints = other.constraints;
-        flexGrow = other.flexGrow;
-        flexShrink = other.flexShrink;
-        flexBasisMode = other.flexBasisMode;
-        flexBasisPixels = other.flexBasisPixels;
-        alignSelf = other.alignSelf;
-        order = other.order;
-        gridColumnStart = other.gridColumnStart;
-        gridColumnEnd = other.gridColumnEnd;
-        gridRowStart = other.gridRowStart;
-        gridRowEnd = other.gridRowEnd;
-        justifySelf = other.justifySelf;
-        alignSelfGrid = other.alignSelfGrid;
-        padding = other.padding;
-        margin = other.margin;
-        boxSizing = other.boxSizing;
-        isPolygon = other.isPolygon; 
-        polygonVertices = other.polygonVertices; 
-
-        layoutManager.reset();
-        if (other.layoutManager) {
-            layoutManager = other.layoutManager->Clone();
-        }
-        for (int i = 0; i < 2; ++i) {
-            glassBlurFBO[i] = 0;
-            glassBlurTex[i] = 0;
-        }
-        return *this;
+    colorRamp.emplace_back(0.0f, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    colorRamp.emplace_back(1.0f, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+    basePosition = position;
+    baseSize = size;
+    baseRotation = rotation;
+    // Initialize glass FBO/Tex to 0, as they are OpenGL resources
+    for (int i = 0; i < 2; ++i) {
+        glassBlurFBO[i] = 0;
+        glassBlurTex[i] = 0;
     }
+}
 
-    
-    ShapeItem::ShapeItem(ShapeItem&& other) noexcept
-        : id(other.id),
-        type(other.type),
-        name(std::move(other.name)),
-        position(other.position),
-        size(other.size),
-        basePosition(other.basePosition),
-        baseSize(other.baseSize),
-        rotation(other.rotation),
-        baseRotation(other.baseRotation),
-        minSize(other.minSize),
-        maxSize(other.maxSize),
-        isChildWindow(other.isChildWindow),
-        childWindowSync(other.childWindowSync),
-        toggleChildWindow(other.toggleChildWindow),
-        toggleBehavior(other.toggleBehavior),
-        childWindowGroupId(other.childWindowGroupId),
-        targetShapeID(other.targetShapeID),
-        triggerGroupID(other.triggerGroupID),
-        isImGuiContainer(other.isImGuiContainer),
-        renderImGuiContent(std::move(other.renderImGuiContent)),
-        allowItemOverlap(other.allowItemOverlap),
-        forceOverlap(other.forceOverlap),
-        blockUnderlying(other.blockUnderlying),
-        hasText(other.hasText),
-        text(std::move(other.text)),
-        textColor(other.textColor),
-        textSize(other.textSize),
-        textFont(other.textFont),
-        textPosition(other.textPosition),
-        textRotation(other.textRotation),
-        textAlignment(other.textAlignment),
-        dynamicTextSize(other.dynamicTextSize),
-        baseTextSize(other.baseTextSize),
-        minTextSize(other.minTextSize),
-        maxTextSize(other.maxTextSize),
-        shapeKeys(std::move(other.shapeKeys)),
-        shapeKeyAnimations(std::move(other.shapeKeyAnimations)),
-        shapeKeyValue(other.shapeKeyValue),
-        onClickAnimations(std::move(other.onClickAnimations)),
-        chainAnimation(std::move(other.chainAnimation)),
-        isPressed(other.isPressed),
-        groupId(other.groupId),
-        currentAnimation(other.currentAnimation),
-        updateAnimBaseOnResize(other.updateAnimBaseOnResize),
-        isHeld(other.isHeld),
-        isAnimating(other.isAnimating),
-        animationProgress(other.animationProgress),
-        baseKeyOffset(other.baseKeyOffset),
-        baseKeySizeOffset(other.baseKeySizeOffset),
-        baseKeyRotationOffset(other.baseKeyRotationOffset),
-        cornerRadius(other.cornerRadius),
-        borderThickness(other.borderThickness),
-        usePerSideBorderThicknesses(other.usePerSideBorderThicknesses), 
-        fillColor(other.fillColor),
-        borderColor(other.borderColor),
-        usePerSideBorderColors(other.usePerSideBorderColors),
-        shadowColor(other.shadowColor),
-        shadowSpread(other.shadowSpread),
-        shadowOffset(other.shadowOffset),
-        shadowUseCornerRadius(other.shadowUseCornerRadius),
-        shadowInset(other.shadowInset),
-        blurAmount(other.blurAmount),
-        visible(other.visible),
-        locked(other.locked),
-        useGradient(other.useGradient),
-        gradientRotation(other.gradientRotation),
-        gradientInterpolation(other.gradientInterpolation),
-        colorRamp(std::move(other.colorRamp)),
-        shadowRotation(other.shadowRotation),
-        useGlass(other.useGlass),
-        glassBlur(other.glassBlur),
-        glassAlpha(other.glassAlpha),
-        glassColor(other.glassColor),
-        zOrder(other.zOrder),
-        isButton(other.isButton),
-        assignedChildWindows(std::move(other.assignedChildWindows)),
-        selectedChildWindowIndex(other.selectedChildWindowIndex),
-        logicExpression(std::move(other.logicExpression)),
-        logicAction(std::move(other.logicAction)),
-        clickCounter(other.clickCounter),
-        buttonBehavior(other.buttonBehavior),
-        triggerEvent(other.triggerEvent),
-        buttonState(other.buttonState),
-        shouldCallOnClick(other.shouldCallOnClick),
-        isClicked(other.isClicked),
-        hoverColor(other.hoverColor),
-        clickedColor(other.clickedColor),
-        useOnClick(other.useOnClick),
-        onClick(std::move(other.onClick)),
-        storedOnClick(std::move(other.storedOnClick)),
-        parent(other.parent),
-        children(std::move(other.children)),
-        originalPosition(other.originalPosition),
-        originalRotation(other.originalRotation),
-        originalSize(other.originalSize),
-        ownerWindow(std::move(other.ownerWindow)),
-        toggledStatePositionOffset(other.toggledStatePositionOffset),
-        toggledStateSizeOffset(other.toggledStateSizeOffset),
-        toggledStateRotationOffset(other.toggledStateRotationOffset),
-        sizeThresholds(std::move(other.sizeThresholds)),
-        hasEmbeddedImage(other.hasEmbeddedImage),
-        embeddedImageData(std::move(other.embeddedImageData)),
-        embeddedImageWidth(other.embeddedImageWidth),
-        embeddedImageHeight(other.embeddedImageHeight),
-        embeddedImageChannels(other.embeddedImageChannels),
-        embeddedImageIndex(other.embeddedImageIndex),
-        embeddedImageTexture(other.embeddedImageTexture),
-        imageDirty(other.imageDirty),
-        eventHandlers(std::move(other.eventHandlers)),
-        anchorMode(other.anchorMode),
-        anchorMargin(other.anchorMargin),
-        usePercentagePos(other.usePercentagePos),
-        percentagePos(other.percentagePos),
-        usePercentageSize(other.usePercentageSize),
-        percentageSize(other.percentageSize),
-        isLayoutContainer(other.isLayoutContainer),
-        layoutManager(std::move(other.layoutManager)),
-        stretchFactor(other.stretchFactor),
-        horizontalAlignment(other.horizontalAlignment),
-        verticalAlignment(other.verticalAlignment),
-        positioningMode(other.positioningMode),
-        constraints(std::move(other.constraints)),
-        flexGrow(other.flexGrow),
-        flexShrink(other.flexShrink),
-        flexBasisMode(other.flexBasisMode),
-        flexBasisPixels(other.flexBasisPixels),
-        alignSelf(other.alignSelf),
-        order(other.order),
-        gridColumnStart(other.gridColumnStart),
-        gridColumnEnd(other.gridColumnEnd),
-        gridRowStart(other.gridRowStart),
-        gridRowEnd(other.gridRowEnd),
-        justifySelf(other.justifySelf),
-        alignSelfGrid(other.alignSelfGrid),
-        padding(other.padding),
-        margin(other.margin),
-        boxSizing(other.boxSizing),
-        isPolygon(other.isPolygon), 
-        polygonVertices(other.polygonVertices) 
-    {
-        for (int i = 0; i < 4; ++i) { 
-            borderSideColors[i] = other.borderSideColors[i]; 
-        }
-        for (int i = 0; i < 4; ++i) { 
-            borderSideThicknesses[i] = other.borderSideThicknesses[i]; 
-        }
-        for (int i = 0; i < 2; ++i) {
-            glassBlurFBO[i] = other.glassBlurFBO[i];
-            glassBlurTex[i] = other.glassBlurTex[i];
-            other.glassBlurFBO[i] = 0; 
-            other.glassBlurTex[i] = 0;
-        }
+void ShapeItem::swap(ShapeItem& other) noexcept {
+    using std::swap;
 
-        other.parent = nullptr;
-        other.currentAnimation = nullptr;
-        other.embeddedImageTexture = 0;
-        other.boxSizing = BoxSizing::StrokeBox;
+    swap(id, other.id);
+    swap(type, other.type);
+    swap(isPolygon, other.isPolygon);
+    swap(polygonVertices, other.polygonVertices);
+    swap(name, other.name);
+    swap(position, other.position);
+    swap(size, other.size);
+    swap(basePosition, other.basePosition);
+    swap(baseSize, other.baseSize);
+    swap(rotation, other.rotation);
+    swap(baseRotation, other.baseRotation);
+    swap(minSize, other.minSize);
+    swap(maxSize, other.maxSize);
+    swap(isChildWindow, other.isChildWindow);
+    swap(childWindowSync, other.childWindowSync);
+    swap(toggleChildWindow, other.toggleChildWindow);
+    swap(toggleBehavior, other.toggleBehavior);
+    swap(childWindowGroupId, other.childWindowGroupId);
+    swap(targetShapeID, other.targetShapeID);
+    swap(triggerGroupID, other.triggerGroupID);
+    swap(isImGuiContainer, other.isImGuiContainer);
+    swap(renderImGuiContent, other.renderImGuiContent);
+    swap(allowItemOverlap, other.allowItemOverlap);
+    swap(forceOverlap, other.forceOverlap);
+    swap(blockUnderlying, other.blockUnderlying);
+    swap(hasText, other.hasText);
+    swap(text, other.text);
+    swap(textColor, other.textColor);
+    swap(textSize, other.textSize);
+    swap(textFont, other.textFont);
+    swap(textPosition, other.textPosition);
+    swap(textRotation, other.textRotation);
+    swap(textAlignment, other.textAlignment);
+    swap(dynamicTextSize, other.dynamicTextSize);
+    swap(baseTextSize, other.baseTextSize);
+    swap(minTextSize, other.minTextSize);
+    swap(maxTextSize, other.maxTextSize);
+    swap(shapeKeys, other.shapeKeys);
+    swap(shapeKeyAnimations, other.shapeKeyAnimations);
+    swap(shapeKeyValue, other.shapeKeyValue);
+    swap(onClickAnimations, other.onClickAnimations);
+    swap(chainAnimation, other.chainAnimation);
+    swap(isPressed, other.isPressed);
+    swap(groupId, other.groupId);
+    swap(currentAnimation, other.currentAnimation);
+    swap(updateAnimBaseOnResize, other.updateAnimBaseOnResize);
+    swap(isHeld, other.isHeld);
+    swap(isAnimating, other.isAnimating);
+    swap(animationProgress, other.animationProgress);
+    swap(baseKeyOffset, other.baseKeyOffset);
+    swap(baseKeySizeOffset, other.baseKeySizeOffset);
+    swap(baseKeyRotationOffset, other.baseKeyRotationOffset);
+    swap(cornerRadius, other.cornerRadius);
+    swap(borderThickness, other.borderThickness);
+    swap(usePerSideBorderThicknesses, other.usePerSideBorderThicknesses);
+    for (int i = 0; i < 4; ++i) swap(borderSideThicknesses[i], other.borderSideThicknesses[i]);
+    swap(fillColor, other.fillColor);
+    swap(borderColor, other.borderColor);
+    swap(usePerSideBorderColors, other.usePerSideBorderColors);
+    for (int i = 0; i < 4; ++i) swap(borderSideColors[i], other.borderSideColors[i]);
+    swap(shadowColor, other.shadowColor);
+    swap(shadowSpread, other.shadowSpread);
+    swap(shadowOffset, other.shadowOffset);
+    swap(shadowUseCornerRadius, other.shadowUseCornerRadius);
+    swap(shadowInset, other.shadowInset);
+    swap(blurAmount, other.blurAmount);
+    swap(visible, other.visible);
+    swap(locked, other.locked);
+    swap(useGradient, other.useGradient);
+    swap(gradientRotation, other.gradientRotation);
+    swap(gradientInterpolation, other.gradientInterpolation);
+    swap(colorRamp, other.colorRamp);
+    swap(shadowRotation, other.shadowRotation);
+    swap(useGlass, other.useGlass);
+    swap(glassBlur, other.glassBlur);
+    swap(glassAlpha, other.glassAlpha);
+    swap(glassColor, other.glassColor);
+    for (int i = 0; i < 2; ++i) {
+        swap(glassBlurFBO[i], other.glassBlurFBO[i]);
+        swap(glassBlurTex[i], other.glassBlurTex[i]);
     }
+    swap(zOrder, other.zOrder);
+    swap(isButton, other.isButton);
+    swap(assignedChildWindows, other.assignedChildWindows);
+    swap(selectedChildWindowIndex, other.selectedChildWindowIndex);
+    swap(logicExpression, other.logicExpression);
+    swap(logicAction, other.logicAction);
+    swap(clickCounter, other.clickCounter);
+    swap(buttonBehavior, other.buttonBehavior);
+    swap(triggerEvent, other.triggerEvent);
+    swap(buttonState, other.buttonState);
+    swap(shouldCallOnClick, other.shouldCallOnClick);
+    swap(isClicked, other.isClicked);
+    swap(hoverColor, other.hoverColor);
+    swap(clickedColor, other.clickedColor);
+    swap(useOnClick, other.useOnClick);
+    swap(onClick, other.onClick);
+    swap(storedOnClick, other.storedOnClick);
+    swap(parent, other.parent);
+    swap(children, other.children);
+    swap(originalPosition, other.originalPosition);
+    swap(originalRotation, other.originalRotation);
+    swap(originalSize, other.originalSize);
+    swap(ownerWindow, other.ownerWindow);
+    swap(toggledStatePositionOffset, other.toggledStatePositionOffset);
+    swap(toggledStateSizeOffset, other.toggledStateSizeOffset);
+    swap(toggledStateRotationOffset, other.toggledStateRotationOffset);
+    swap(sizeThresholds, other.sizeThresholds);
+    swap(hasEmbeddedImage, other.hasEmbeddedImage);
+    swap(embeddedImageData, other.embeddedImageData);
+    swap(embeddedImageWidth, other.embeddedImageWidth);
+    swap(embeddedImageHeight, other.embeddedImageHeight);
+    swap(embeddedImageChannels, other.embeddedImageChannels);
+    swap(embeddedImageIndex, other.embeddedImageIndex);
+    swap(embeddedImageTexture, other.embeddedImageTexture);
+    swap(imageDirty, other.imageDirty);
+    swap(eventHandlers, other.eventHandlers);
+    swap(anchorMode, other.anchorMode);
+    swap(anchorMargin, other.anchorMargin);
+    swap(usePercentagePos, other.usePercentagePos);
+    swap(percentagePos, other.percentagePos);
+    swap(usePercentageSize, other.usePercentageSize);
+    swap(percentageSize, other.percentageSize);
+    swap(isLayoutContainer, other.isLayoutContainer);
+    swap(layoutManager, other.layoutManager);
+    swap(stretchFactor, other.stretchFactor);
+    swap(horizontalAlignment, other.horizontalAlignment);
+    swap(verticalAlignment, other.verticalAlignment);
+    swap(positioningMode, other.positioningMode);
+    swap(constraints, other.constraints);
+    swap(flexGrow, other.flexGrow);
+    swap(flexShrink, other.flexShrink);
+    swap(flexBasisMode, other.flexBasisMode);
+    swap(flexBasisPixels, other.flexBasisPixels);
+    swap(alignSelf, other.alignSelf);
+    swap(order, other.order);
+    swap(gridColumnStart, other.gridColumnStart);
+    swap(gridColumnEnd, other.gridColumnEnd);
+    swap(gridRowStart, other.gridRowStart);
+    swap(gridRowEnd, other.gridRowEnd);
+    swap(justifySelf, other.justifySelf);
+    swap(alignSelfGrid, other.alignSelfGrid);
+    swap(padding, other.padding);
+    swap(margin, other.margin);
+    swap(boxSizing, other.boxSizing);
+}
 
-    
-    ShapeItem& ShapeItem::operator=(ShapeItem&& other) noexcept {
-        if (this == &other) return *this;
-
-        id = other.id;
-        type = other.type;
-        name = std::move(other.name);
-        position = other.position;
-        size = other.size;
-        basePosition = other.basePosition;
-        baseSize = other.baseSize;
-        rotation = other.rotation;
-        baseRotation = other.baseRotation;
-        minSize = other.minSize;
-        maxSize = other.maxSize;
-        isChildWindow = other.isChildWindow;
-        childWindowSync = other.childWindowSync;
-        toggleChildWindow = other.toggleChildWindow;
-        toggleBehavior = other.toggleBehavior;
-        childWindowGroupId = other.childWindowGroupId;
-        targetShapeID = other.targetShapeID;
-        triggerGroupID = other.triggerGroupID;
-        isImGuiContainer = other.isImGuiContainer;
-        renderImGuiContent = std::move(other.renderImGuiContent);
-        allowItemOverlap = other.allowItemOverlap;
-        forceOverlap = other.forceOverlap;
-        blockUnderlying = other.blockUnderlying;
-        hasText = other.hasText;
-        text = std::move(other.text);
-        textColor = other.textColor;
-        textSize = other.textSize;
-        textFont = other.textFont;
-        textPosition = other.textPosition;
-        textRotation = other.textRotation;
-        textAlignment = other.textAlignment;
-        dynamicTextSize = other.dynamicTextSize;
-        baseTextSize = other.baseTextSize;
-        minTextSize = other.minTextSize;
-        maxTextSize = other.maxTextSize;
-        shapeKeys = std::move(other.shapeKeys);
-        shapeKeyAnimations = std::move(other.shapeKeyAnimations);
-        shapeKeyValue = other.shapeKeyValue;
-        onClickAnimations = std::move(other.onClickAnimations);
-        chainAnimation = std::move(other.chainAnimation);
-        isPressed = other.isPressed;
-        groupId = other.groupId;
-        currentAnimation = other.currentAnimation;
-        updateAnimBaseOnResize = other.updateAnimBaseOnResize;
-        isHeld = other.isHeld;
-        isAnimating = other.isAnimating;
-        animationProgress = other.animationProgress;
-        baseKeyOffset = other.baseKeyOffset;
-        baseKeySizeOffset = other.baseKeySizeOffset;
-        baseKeyRotationOffset = other.baseKeyRotationOffset;
-        cornerRadius = other.cornerRadius;
-        borderThickness = other.borderThickness;
-        usePerSideBorderThicknesses = other.usePerSideBorderThicknesses; 
-        for (int i = 0; i < 4; ++i) { 
-            borderSideThicknesses[i] = other.borderSideThicknesses[i];
-        }
-        fillColor = other.fillColor;
-        borderColor = other.borderColor;
-        usePerSideBorderColors = other.usePerSideBorderColors;
-        for (int i = 0; i < 4; ++i) { 
-            borderSideColors[i] = other.borderSideColors[i];
-        }
-        shadowColor = other.shadowColor;
-        shadowSpread = other.shadowSpread;
-        shadowOffset = other.shadowOffset;
-        shadowUseCornerRadius = other.shadowUseCornerRadius;
-        shadowInset = other.shadowInset;
-        blurAmount = other.blurAmount;
-        visible = other.visible;
-        locked = other.locked;
-        useGradient = other.useGradient;
-        gradientRotation = other.gradientRotation;
-        gradientInterpolation = other.gradientInterpolation;
-        colorRamp = std::move(other.colorRamp);
-        shadowRotation = other.shadowRotation;
-        useGlass = other.useGlass;
-        glassBlur = other.glassBlur;
-        glassAlpha = other.glassAlpha;
-        glassColor = other.glassColor;
-        zOrder = other.zOrder;
-        isButton = other.isButton;
-        assignedChildWindows = std::move(other.assignedChildWindows);
-        selectedChildWindowIndex = other.selectedChildWindowIndex;
-        logicExpression = std::move(other.logicExpression);
-        logicAction = std::move(other.logicAction);
-        clickCounter = other.clickCounter;
-        buttonBehavior = other.buttonBehavior;
-        triggerEvent = other.triggerEvent;
-        buttonState = other.buttonState;
-        shouldCallOnClick = other.shouldCallOnClick;
-        isClicked = other.isClicked;
-        hoverColor = other.hoverColor;
-        clickedColor = other.clickedColor;
-        useOnClick = other.useOnClick;
-        onClick = std::move(other.onClick);
-        storedOnClick = std::move(other.storedOnClick);
-        parent = other.parent;
-        children = std::move(other.children);
-        originalPosition = other.originalPosition;
-        originalRotation = other.originalRotation;
-        originalSize = other.originalSize;
-        ownerWindow = std::move(other.ownerWindow);
-        toggledStatePositionOffset = other.toggledStatePositionOffset;
-        toggledStateSizeOffset = other.toggledStateSizeOffset;
-        toggledStateRotationOffset = other.toggledStateRotationOffset;
-        sizeThresholds = std::move(other.sizeThresholds);
-        hasEmbeddedImage = other.hasEmbeddedImage;
-        embeddedImageData = std::move(other.embeddedImageData);
-        embeddedImageWidth = other.embeddedImageWidth;
-        embeddedImageHeight = other.embeddedImageHeight;
-        embeddedImageChannels = other.embeddedImageChannels;
-        embeddedImageIndex = other.embeddedImageIndex;
-        embeddedImageTexture = other.embeddedImageTexture;
-        imageDirty = other.imageDirty;
-        eventHandlers = std::move(other.eventHandlers);
-        anchorMode = other.anchorMode;
-        anchorMargin = other.anchorMargin;
-        usePercentagePos = other.usePercentagePos;
-        percentagePos = other.percentagePos;
-        usePercentageSize = other.usePercentageSize;
-        percentageSize = other.percentageSize;
-        isLayoutContainer = other.isLayoutContainer;
-        layoutManager = std::move(other.layoutManager);
-        stretchFactor = other.stretchFactor;
-        horizontalAlignment = other.horizontalAlignment;
-        verticalAlignment = other.verticalAlignment;
-        positioningMode = other.positioningMode;
-        constraints = std::move(other.constraints);
-        flexGrow = other.flexGrow;
-        flexShrink = other.flexShrink;
-        flexBasisMode = other.flexBasisMode;
-        flexBasisPixels = other.flexBasisPixels;
-        alignSelf = other.alignSelf;
-        order = other.order;
-        gridColumnStart = other.gridColumnStart;
-        gridColumnEnd = other.gridColumnEnd;
-        gridRowStart = other.gridRowStart;
-        gridRowEnd = other.gridRowEnd;
-        justifySelf = other.justifySelf;
-        alignSelfGrid = other.alignSelfGrid;
-        padding = other.padding;
-        margin = other.margin;
-        boxSizing = other.boxSizing;
-        isPolygon = other.isPolygon; 
-        polygonVertices = other.polygonVertices; 
-
-        for (int i = 0; i < 2; ++i) {
-            glassBlurFBO[i] = other.glassBlurFBO[i];
-            glassBlurTex[i] = other.glassBlurTex[i];
-            other.glassBlurFBO[i] = 0;
-            other.glassBlurTex[i] = 0;
-        }
-        other.parent = nullptr;
-        other.currentAnimation = nullptr;
-        other.embeddedImageTexture = 0;
-        other.boxSizing = BoxSizing::StrokeBox;
-        return *this;
+void ShapeItem::copy_from(const ShapeItem& other) {
+    id = other.id; // Consider if new ID is needed for true "copy"
+    type = other.type;
+    isPolygon = other.isPolygon;
+    polygonVertices = other.polygonVertices;
+    name = other.name;
+    position = other.position;
+    size = other.size;
+    basePosition = other.basePosition;
+    baseSize = other.baseSize;
+    rotation = other.rotation;
+    baseRotation = other.baseRotation;
+    minSize = other.minSize;
+    maxSize = other.maxSize;
+    isChildWindow = other.isChildWindow;
+    childWindowSync = other.childWindowSync;
+    toggleChildWindow = other.toggleChildWindow;
+    toggleBehavior = other.toggleBehavior;
+    childWindowGroupId = other.childWindowGroupId;
+    targetShapeID = other.targetShapeID;
+    triggerGroupID = other.triggerGroupID;
+    isImGuiContainer = other.isImGuiContainer;
+    renderImGuiContent = other.renderImGuiContent;
+    allowItemOverlap = other.allowItemOverlap;
+    forceOverlap = other.forceOverlap;
+    blockUnderlying = other.blockUnderlying;
+    hasText = other.hasText;
+    text = other.text;
+    textColor = other.textColor;
+    textSize = other.textSize;
+    textFont = other.textFont;
+    textPosition = other.textPosition;
+    textRotation = other.textRotation;
+    textAlignment = other.textAlignment;
+    dynamicTextSize = other.dynamicTextSize;
+    baseTextSize = other.baseTextSize;
+    minTextSize = other.minTextSize;
+    maxTextSize = other.maxTextSize;
+    shapeKeys = other.shapeKeys;
+    shapeKeyAnimations = other.shapeKeyAnimations;
+    shapeKeyValue = other.shapeKeyValue;
+    onClickAnimations = other.onClickAnimations;
+    chainAnimation = other.chainAnimation;
+    isPressed = false;
+    groupId = other.groupId;
+    currentAnimation = nullptr;
+    updateAnimBaseOnResize = other.updateAnimBaseOnResize;
+    isHeld = false;
+    isAnimating = false;
+    animationProgress = 0.0f;
+    baseKeyOffset = other.baseKeyOffset;
+    baseKeySizeOffset = other.baseKeySizeOffset;
+    baseKeyRotationOffset = other.baseKeyRotationOffset;
+    cornerRadius = other.cornerRadius;
+    borderThickness = other.borderThickness;
+    usePerSideBorderThicknesses = other.usePerSideBorderThicknesses;
+    for (int i = 0; i < 4; ++i) borderSideThicknesses[i] = other.borderSideThicknesses[i];
+    fillColor = other.fillColor;
+    borderColor = other.borderColor;
+    usePerSideBorderColors = other.usePerSideBorderColors;
+    for (int i = 0; i < 4; ++i) borderSideColors[i] = other.borderSideColors[i];
+    shadowColor = other.shadowColor;
+    shadowSpread = other.shadowSpread;
+    shadowOffset = other.shadowOffset;
+    shadowUseCornerRadius = other.shadowUseCornerRadius;
+    shadowInset = other.shadowInset;
+    blurAmount = other.blurAmount;
+    visible = other.visible;
+    locked = other.locked;
+    useGradient = other.useGradient;
+    gradientRotation = other.gradientRotation;
+    gradientInterpolation = other.gradientInterpolation;
+    colorRamp = other.colorRamp;
+    shadowRotation = other.shadowRotation;
+    useGlass = other.useGlass;
+    glassBlur = other.glassBlur;
+    glassAlpha = other.glassAlpha;
+    glassColor = other.glassColor;
+    for (int i = 0; i < 2; ++i) {
+        glassBlurFBO[i] = 0; // GL resources are not directly copied
+        glassBlurTex[i] = 0;
     }
+    zOrder = other.zOrder;
+    isButton = other.isButton;
+    assignedChildWindows = other.assignedChildWindows;
+    selectedChildWindowIndex = other.selectedChildWindowIndex;
+    logicExpression = other.logicExpression;
+    logicAction = other.logicAction;
+    clickCounter = 0;
+    buttonBehavior = other.buttonBehavior;
+    triggerEvent = false;
+    buttonState = false;
+    shouldCallOnClick = false;
+    isClicked = false;
+    hoverColor = other.hoverColor;
+    clickedColor = other.clickedColor;
+    useOnClick = other.useOnClick;
+    onClick = other.onClick;
+    storedOnClick = other.storedOnClick;
+    parent = nullptr; // Copied shape is detached
+    children.clear(); // Copied shape has no children initially
+    originalPosition = other.originalPosition;
+    originalRotation = other.originalRotation;
+    originalSize = other.originalSize;
+    ownerWindow = other.ownerWindow;
+    toggledStatePositionOffset = other.toggledStatePositionOffset;
+    toggledStateSizeOffset = other.toggledStateSizeOffset;
+    toggledStateRotationOffset = other.toggledStateRotationOffset;
+    sizeThresholds = other.sizeThresholds;
+    hasEmbeddedImage = other.hasEmbeddedImage;
+    embeddedImageData = other.embeddedImageData; // Deep copy of data
+    embeddedImageWidth = other.embeddedImageWidth;
+    embeddedImageHeight = other.embeddedImageHeight;
+    embeddedImageChannels = other.embeddedImageChannels;
+    embeddedImageIndex = other.embeddedImageIndex;
+    embeddedImageTexture = 0; // GL texture not copied, mark dirty
+    imageDirty = true;
+    eventHandlers = other.eventHandlers;
+    anchorMode = other.anchorMode;
+    anchorMargin = other.anchorMargin;
+    usePercentagePos = other.usePercentagePos;
+    percentagePos = other.percentagePos;
+    usePercentageSize = other.usePercentageSize;
+    percentageSize = other.percentageSize;
+    isLayoutContainer = other.isLayoutContainer;
+    layoutManager.reset();
+    if (other.layoutManager) {
+        layoutManager = other.layoutManager->Clone(); // Deep copy layout manager
+    }
+    stretchFactor = other.stretchFactor;
+    horizontalAlignment = other.horizontalAlignment;
+    verticalAlignment = other.verticalAlignment;
+    positioningMode = other.positioningMode;
+    constraints = other.constraints;
+    flexGrow = other.flexGrow;
+    flexShrink = other.flexShrink;
+    flexBasisMode = other.flexBasisMode;
+    flexBasisPixels = other.flexBasisPixels;
+    alignSelf = other.alignSelf;
+    order = other.order;
+    gridColumnStart = other.gridColumnStart;
+    gridColumnEnd = other.gridColumnEnd;
+    gridRowStart = other.gridRowStart;
+    gridRowEnd = other.gridRowEnd;
+    justifySelf = other.justifySelf;
+    alignSelfGrid = other.alignSelfGrid;
+    padding = other.padding;
+    margin = other.margin;
+    boxSizing = other.boxSizing;
+}
+
+ShapeItem::ShapeItem(const ShapeItem& other) {
+    // Initializes GLuint members to 0 by their default member initializer or constructor
+    copy_from(other);
+}
+
+ShapeItem& ShapeItem::operator=(const ShapeItem& other) {
+    if (this != &other) {
+        copy_from(other);
+    }
+    return *this;
+}
+
+ShapeItem::ShapeItem(ShapeItem&& other) noexcept
+    : ShapeItem() // Default construct to ensure a valid state for this
+{
+    // Then swap with the (valid) moved-from object
+    // This transfers ownership of resources like layoutManager
+    // and correctly moves all members.
+    // The `other` object will be left in a valid (default-constructed) state.
+    swap(other);
+}
+
+ShapeItem& ShapeItem::operator=(ShapeItem&& other) noexcept {
+    if (this != &other) {
+        // Swap contents. `other` will take `this`'s old state (which might be default constructed or something else).
+        // `this` will take `other`'s original state.
+        // This ensures correct resource management for `unique_ptr` and other RAII types.
+        swap(other);
+    }
+    return *this;
+}
 
     Layer::Layer(const std::string& n)
         : id(0), name(n), visible(true), locked(false), zOrder(0)
