@@ -496,12 +496,12 @@ namespace DesignManager
         float cornerRadius, borderThickness;
         bool usePerSideBorderThicknesses = false; 
         float borderSideThicknesses[4];
-
+    
         ImVec4 fillColor, borderColor, shadowColor, shadowSpread;
         
         bool usePerSideBorderColors = false;
         ImVec4 borderSideColors[4];
-
+    
         ImVec2 shadowOffset;
         bool shadowUseCornerRadius;
         bool shadowInset = false;
@@ -563,7 +563,7 @@ namespace DesignManager
             std::function<void(ShapeItem&)> handler;
         };
         std::vector<EventHandler> eventHandlers;
-
+    
         enum class AnchorMode {
             None,
             TopLeft, Top, TopRight,
@@ -598,19 +598,23 @@ namespace DesignManager
         GridAxisAlignment alignSelfGrid = GridAxisAlignment::Stretch;
         ImVec4 padding = ImVec4(0, 0, 0, 0);
         ImVec4 margin = ImVec4(0, 0, 0, 0);
-
+    
         enum class BoxSizing {
             BorderBox,  
             ContentBox, 
             StrokeBox   
         };
         BoxSizing boxSizing = BoxSizing::StrokeBox; 
-
+    
         ShapeItem();
         ShapeItem(const ShapeItem& other);
         ShapeItem& operator=(const ShapeItem& other);
         ShapeItem(ShapeItem&& other) noexcept;
         ShapeItem& operator=(ShapeItem&& other) noexcept;
+
+    private:
+        void swap(ShapeItem& other) noexcept;
+        void copy_from(const ShapeItem& other);
     };
 
     inline bool g_IsInEditMode = false;
